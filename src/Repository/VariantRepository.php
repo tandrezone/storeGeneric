@@ -80,6 +80,19 @@ final class VariantRepository extends Repository
         return $this->lastId();
     }
 
+    /**
+     * @param array{sku: string, label: ?string, unit: ?string, price: float, stock: int, is_active: int} $data
+     * @throws \PDOException when the SKU is already used by another variant
+     */
+    public function update(int $id, int $productId, array $data): void
+    {
+        $this->run('
+            UPDATE product_variants
+            SET sku = :sku, label = :label, unit = :unit, price = :price, stock = :stock, is_active = :is_active
+            WHERE id = :id AND product_id = :product_id
+        ', $data + ['id' => $id, 'product_id' => $productId]);
+    }
+
     public function decrementStock(int $id, int $quantity): void
     {
         $this->run('UPDATE product_variants SET stock = GREATEST(stock - :qty, 0) WHERE id = :id', ['qty' => $quantity, 'id' => $id]);

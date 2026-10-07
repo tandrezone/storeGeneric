@@ -7,6 +7,7 @@ namespace App\Controller\Admin;
 use App\Http\Responder;
 use App\Infrastructure\GeminiClient;
 use App\Repository\ProductRepository;
+use App\Security\HtmlSanitizer;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
@@ -22,6 +23,7 @@ final class MagicEditController
         private readonly Responder $responder,
         private readonly ProductRepository $products,
         private readonly GeminiClient $gemini,
+        private readonly HtmlSanitizer $sanitizer,
     ) {
     }
 
@@ -51,13 +53,48 @@ final class MagicEditController
             Requested change: {$instruction}
 
             Reply with only a JSON object containing the fields you changed, using the keys
-            name, short_description, long_description. Do not wrap it in code fences.
+            name, short_description, long_description. long_description is HTML (use p, ul, ol,
+            li, strong, em, a only). Do not wrap it in code fences.
             PROMPT;
 
         try {
-            return $this->responder->json(['success' => true, 'suggestion' => $this->gemini->generateText($prompt)]);
+            $suggestion = $this->gemini->generateText($prompt);
         } catch (Throwable $e) {
             return $this->responder->json(['success' => false, 'error' => $e->getMessage()], 502);
         }
+
+        return $this->responder->json(['success' => true, 'suggestion' => $suggestion, 'fields' => $this->parseFields($suggestion)]);
+    }
+
+    /**
+     * Pulls the editable fields out of the model's reply (tolerating code
+     * fences or stray prose around the JSON). Empty when it isn't parseable.
+     *
+     * @return array<string, string>
+     */
+    private function parseFields(string $reply): array
+    {
+        $start = strpos($reply, '{');
+        $end = strrpos($reply, '}');
+        if ($start === false || $end === false || $end < $start) {
+            return [];
+        }
+
+        $decoded = json_decode(substr($reply, $start, $end - $start + 1), true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $fields = [];
+        foreach (['name', 'short_description', 'long_description'] as $key) {
+            if (isset($decoded[$key]) && is_string($decoded[$key]) && trim($decoded[$key]) !== '') {
+                $fields[$key] = trim($decoded[$key]);
+            }
+        }
+        if (isset($fields['long_description'])) {
+            $fields['long_description'] = $this->sanitizer->clean($fields['long_description']);
+        }
+
+        return $fields;
     }
 }

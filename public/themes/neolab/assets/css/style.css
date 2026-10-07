@@ -827,6 +827,27 @@ form input:focus, form select:focus {
     overflow-y: auto;
 }
 
+.variants-table input[type="text"], .variants-table input[type="number"] { width: 100%; min-width: 60px; padding: 5px 7px; font-size: 0.85rem; }
+.variants-table input[type="checkbox"] { width: auto; }
+.btn-small { padding: 5px 10px; font-size: 0.8rem; }
+
+.magic-fields { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; align-items: flex-start; }
+.magic-field {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 160px 1fr auto;
+    gap: 12px;
+    align-items: start;
+    padding: 12px 14px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+}
+.magic-field-value { font-size: 0.88rem; word-break: break-word; }
+.magic-field-value p:first-child { margin-top: 0; }
+.magic-field-value p:last-child { margin-bottom: 0; }
+@media (max-width: 720px) { .magic-field { grid-template-columns: 1fr; } }
+
 .grid-2 { display: grid; grid-template-columns: 1.2fr 1fr; gap: 32px; align-items: start; }
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; align-items: start; }
 .order-items-list { list-style: none; padding: 0; margin: 0; }

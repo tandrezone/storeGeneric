@@ -105,10 +105,87 @@
         });
     });
 
+    const MAGIC_LABELS = { name: 'Name', short_description: 'Short description', long_description: 'Long description' };
+
+    // Writes a suggested value into the product's edit form (long_description
+    // arrives already sanitized server-side) and opens that form for review.
+    function applyMagicField(productId, key, value) {
+        const form = document.querySelector('#edit-' + productId + ' .edit-form');
+        if (!form) return false;
+
+        if (key === 'long_description') {
+            const editor = form.querySelector('[data-wysiwyg] .wysiwyg-editor');
+            editor.innerHTML = value;
+            editor.dispatchEvent(new Event('input'));
+        } else {
+            const input = form.querySelector('[name="' + key + '"]');
+            if (!input) return false;
+            input.value = value;
+        }
+
+        const row = document.getElementById('edit-' + productId);
+        if (row.hidden) toggleRow(row.id, document.querySelector('.row-toggle[data-target="' + row.id + '"]'));
+        return true;
+    }
+
+    function renderMagicFields(block, fields) {
+        const box = block.querySelector('.magic-fields');
+        const productId = block.dataset.productId;
+        const keys = Object.keys(MAGIC_LABELS).filter((k) => k in fields);
+
+        box.replaceChildren();
+        box.hidden = keys.length === 0;
+        if (keys.length === 0) return;
+
+        const markApplied = (btn) => { btn.textContent = 'Applied ✓'; btn.disabled = true; };
+        const buttons = [];
+
+        keys.forEach((key) => {
+            const item = document.createElement('div');
+            item.className = 'magic-field';
+
+            const label = document.createElement('strong');
+            label.textContent = MAGIC_LABELS[key];
+
+            const preview = document.createElement('div');
+            preview.className = 'magic-field-value';
+            if (key === 'long_description') preview.innerHTML = fields[key];
+            else preview.textContent = fields[key];
+
+            const apply = document.createElement('button');
+            apply.type = 'button';
+            apply.className = 'btn-secondary btn-small';
+            apply.textContent = 'Apply';
+            apply.addEventListener('click', () => {
+                if (applyMagicField(productId, key, fields[key])) markApplied(apply);
+            });
+            buttons.push(apply);
+
+            item.append(label, preview, apply);
+            box.append(item);
+        });
+
+        const applyAll = document.createElement('button');
+        applyAll.type = 'button';
+        applyAll.className = 'btn-primary';
+        applyAll.textContent = 'Apply all';
+        applyAll.addEventListener('click', () => {
+            buttons.forEach((b) => { if (!b.disabled) b.click(); });
+            markApplied(applyAll);
+        });
+
+        const hint = document.createElement('p');
+        hint.className = 'field-hint';
+        hint.textContent = 'Applying fills the product edit form above — review it, then click "Save changes".';
+
+        box.append(applyAll, hint);
+    }
+
     document.querySelectorAll('.magic-run').forEach((btn) => {
         btn.addEventListener('click', async () => {
             const block = btn.closest('.magic-block');
             const output = block.querySelector('.magic-output');
+            block.querySelector('.magic-fields').hidden = true;
             const instruction = block.querySelector('.magic-prompt').value.trim();
 
             if (!instruction) {
@@ -135,6 +212,7 @@
                 });
                 const data = await response.json();
                 output.textContent = data.success ? data.suggestion : 'Error: ' + data.error;
+                if (data.success) renderMagicFields(block, data.fields || {});
             } catch (err) {
                 output.textContent = 'Request failed: ' + err.message;
             } finally {

@@ -12,6 +12,7 @@ use App\Repository\ProductRepository;
 use App\Repository\VariantRepository;
 use App\Security\HtmlSanitizer;
 use App\Service\ProductImageManager;
+use PDOException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
@@ -89,6 +90,13 @@ final class ProductController
                 }
                 break;
 
+            case 'update_variant':
+                if ($id > 0) {
+                    $this->updateVariant($id, (int) ($body['variant_id'] ?? 0), $body);
+                    $editId = $id;
+                }
+                break;
+
             case 'upload_images':
                 if ($id > 0) {
                     $this->uploadImages($id, $request->getUploadedFiles()['images'] ?? []);
@@ -156,6 +164,33 @@ final class ProductController
         $this->session->flash('success', "Product \"{$data['name']}\" created.");
 
         return $this->responder->redirectToRoute('admin.products');
+    }
+
+    /** @param array<string, mixed> $body */
+    private function updateVariant(int $productId, int $variantId, array $body): void
+    {
+        $data = [
+            'sku'       => trim((string) ($body['sku'] ?? '')),
+            'label'     => trim((string) ($body['label'] ?? '')) ?: null,
+            'unit'      => trim((string) ($body['unit'] ?? '')) ?: null,
+            'price'     => round(max(0.0, (float) ($body['price'] ?? 0)), 2),
+            'stock'     => max(0, (int) ($body['stock'] ?? 0)),
+            'is_active' => empty($body['is_active']) ? 0 : 1,
+        ];
+
+        if ($variantId <= 0 || $data['sku'] === '') {
+            $this->session->flash('error', 'Variant SKU is required.');
+
+            return;
+        }
+
+        try {
+            $this->variants->update($variantId, $productId, $data);
+            $this->session->flash('success', "Variant {$data['sku']} updated.");
+        } catch (PDOException $e) {
+            $this->logger->warning('Variant update failed', ['exception' => $e]);
+            $this->session->flash('error', "Could not update the variant — SKU \"{$data['sku']}\" may already be in use.");
+        }
     }
 
     /** @param list<int> $ids */

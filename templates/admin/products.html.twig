@@ -230,17 +230,28 @@
                                 {% if variants[p.id] is empty %}
                                     <p class="field-hint">No variants yet.</p>
                                 {% else %}
+                                    {# Forms can't wrap <tr>, so each row's inputs point at their own form via form="…". #}
+                                    {% for v in variants[p.id] %}
+                                        <form method="post" action="{{ path('admin.products.submit') }}" id="variant-form-{{ v.id }}" hidden>
+                                            {{ csrf_field() }}
+                                            <input type="hidden" name="action" value="update_variant">
+                                            <input type="hidden" name="id" value="{{ p.id }}">
+                                            <input type="hidden" name="variant_id" value="{{ v.id }}">
+                                        </form>
+                                    {% endfor %}
                                     <table class="variants-table">
-                                        <thead><tr><th>SKU</th><th>Label</th><th>Unit</th><th>Price</th><th>Stock</th><th>Active</th></tr></thead>
+                                        <thead><tr><th>SKU</th><th>Label</th><th>Unit</th><th>Price</th><th>Stock</th><th>Active</th><th></th></tr></thead>
                                         <tbody>
                                             {% for v in variants[p.id] %}
+                                                {% set f = 'variant-form-' ~ v.id %}
                                                 <tr>
-                                                    <td>{{ v.sku }}</td>
-                                                    <td>{{ v.label ?? '—' }}</td>
-                                                    <td>{{ v.unit ?? '—' }}</td>
-                                                    <td>{{ v.price|money }}</td>
-                                                    <td>{{ v.stock }}</td>
-                                                    <td><span class="status-badge" data-status="{{ v.is_active ? 'approved' : 'invalid' }}">{{ v.is_active ? 'yes' : 'no' }}</span></td>
+                                                    <td><input type="text" form="{{ f }}" name="sku" value="{{ v.sku }}" maxlength="64" required></td>
+                                                    <td><input type="text" form="{{ f }}" name="label" value="{{ v.label }}" maxlength="64"></td>
+                                                    <td><input type="text" form="{{ f }}" name="unit" value="{{ v.unit }}" maxlength="64"></td>
+                                                    <td><input type="number" form="{{ f }}" name="price" value="{{ v.price }}" step="0.01" min="0" required></td>
+                                                    <td><input type="number" form="{{ f }}" name="stock" value="{{ v.stock }}" min="0" required></td>
+                                                    <td><input type="checkbox" form="{{ f }}" name="is_active" value="1" {{ v.is_active ? 'checked' }}></td>
+                                                    <td><button type="submit" form="{{ f }}" class="btn-secondary btn-small">Save</button></td>
                                                 </tr>
                                             {% endfor %}
                                         </tbody>
@@ -265,6 +276,7 @@
                         </label>
                         <button type="button" class="btn-secondary magic-run">Generate suggestion</button>
                         <pre class="magic-output" hidden></pre>
+                        <div class="magic-fields" hidden></div>
                     </div>
                 </td>
             </tr>
