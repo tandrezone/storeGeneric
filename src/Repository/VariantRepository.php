@@ -69,13 +69,16 @@ final class VariantRepository extends Repository
         return $this->one('SELECT stock, price FROM product_variants WHERE id = :id FOR UPDATE', ['id' => $id]);
     }
 
-    /** @param array{product_id: int, sku: string, label: ?string, unit: ?string, price: float, stock: int} $data */
+    /**
+     * @param array{product_id: int, sku: string, label: ?string, unit: ?string, price: float, stock: int, is_active?: int} $data
+     * @throws \PDOException when the SKU is already used by another variant
+     */
     public function create(array $data): int
     {
         $this->run('
-            INSERT INTO product_variants (product_id, sku, label, unit, price, stock)
-            VALUES (:product_id, :sku, :label, :unit, :price, :stock)
-        ', $data);
+            INSERT INTO product_variants (product_id, sku, label, unit, price, stock, is_active)
+            VALUES (:product_id, :sku, :label, :unit, :price, :stock, :is_active)
+        ', $data + ['is_active' => 1]);
 
         return $this->lastId();
     }

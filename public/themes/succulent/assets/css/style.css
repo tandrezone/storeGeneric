@@ -1,0 +1,112 @@
+/* Theme: Succulent — for plant and cactus lovers: sage greens, terracotta pots,
+   desert sand and soft rounded shapes. Builds on the default theme; only the
+   differences live here. */
+@import url('../../../default/assets/css/style.css');
+
+:root {
+    --color-bg: #f5f1e6;
+    --color-surface: #fffdf7;
+    --color-surface-hover: #eef2e4;
+    --color-border: #e2dccb;
+    --color-border-strong: #c5bea6;
+    --color-border-violet: #e9c2ad;
+    --color-text: #263a2a;
+    --color-muted: #6c7a68;
+    --color-accent: #3f7a4e;
+    --color-accent-soft: rgba(63, 122, 78, 0.1);
+    --color-accent-2: #b35f3b;
+    --color-accent-2-soft: rgba(179, 95, 59, 0.1);
+    --color-danger: #b3261e;
+    --color-on-accent: #fffdf7;
+    --chart-teal: #3f7a4e;
+    --chart-violet: #c9714a;
+    --chart-funnel-1: #7fae7a;
+    --chart-funnel-2: #3f7a4e;
+    --chart-funnel-3: #2a5636;
+    --radius: 18px;
+    --radius-sm: 12px;
+    --font-round: "Nunito", "Quicksand", "Segoe UI Rounded", "SF Pro Rounded", "Trebuchet MS", var(--font-body);
+    --shadow-sm: 0 1px 2px rgba(38, 58, 42, 0.06);
+    --shadow-md: 0 12px 30px rgba(38, 58, 42, 0.12);
+}
+
+body {
+    /* faint scattered seeds on sand */
+    background:
+        radial-gradient(circle at 20% 30%, rgba(63, 122, 78, 0.06) 1.5px, transparent 2px) 0 0 / 46px 46px,
+        radial-gradient(circle at 70% 80%, rgba(179, 95, 59, 0.06) 1.5px, transparent 2px) 0 0 / 58px 58px,
+        var(--color-bg);
+}
+
+h1, h2, h3, .logo, .shop-hero h1, .panel-summary, .stat-value { font-family: var(--font-round); font-weight: 800; letter-spacing: -0.01em; }
+
+.site-header { background: rgba(245, 241, 230, 0.94); border-bottom: 2px dashed var(--color-border-strong); }
+.logo { color: var(--color-accent); font-size: 1.4rem; }
+.logo-text::before { content: "🌵"; margin-right: 0.35em; }
+.main-nav a { color: var(--color-text); }
+.main-nav a:hover { color: var(--color-accent); }
+.cart-count { background: var(--color-accent-2); }
+
+.shop-hero {
+    position: relative;
+    overflow: hidden;
+    border: 0;
+    background:
+        radial-gradient(420px 220px at 85% 110%, rgba(201, 113, 74, 0.22), transparent 70%),
+        radial-gradient(560px 280px at 0% 0%, rgba(127, 174, 122, 0.3), transparent 70%),
+        linear-gradient(160deg, #e7efdc 0%, #f3e6d3 100%);
+    min-height: 250px;
+    justify-content: space-between;
+}
+.shop-hero-inner { padding: 44px; position: relative; z-index: 1; }
+.hero-eyebrow {
+    color: var(--color-accent-2);
+    background: var(--color-surface);
+    padding: 5px 12px;
+    border-radius: 999px;
+    letter-spacing: 0.14em;
+}
+.shop-hero h1 { font-size: 2.5rem; color: var(--color-accent); }
+.shop-hero p { color: var(--color-text); opacity: 0.8; }
+.hero-plants { flex: 0 0 auto; width: 260px; height: 220px; margin: 16px 32px 0 0; align-self: flex-end; }
+.hero-cactus { transform-origin: 110px 170px; animation: cactus-sway 6s ease-in-out infinite; }
+@keyframes cactus-sway { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
+@media (prefers-reduced-motion: reduce) { .hero-cactus { animation: none; } }
+@media (max-width: 720px) { .hero-plants { display: none; } .shop-hero h1 { font-size: 1.8rem; } }
+
+.filter-pill { background: var(--color-surface); border-color: var(--color-border-strong); color: var(--color-text); }
+.filter-pill:hover { border-color: var(--color-accent); }
+.filter-pill.active { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
+
+.product-card { border-color: var(--color-border); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.product-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+/* product image in an arched greenhouse window */
+.product-card-image { padding: 10px 10px 0; }
+.product-card-image img, .image-placeholder { height: 220px; border-radius: 120px 120px var(--radius-sm) var(--radius-sm); background: #e7efdc; }
+.category-badge { background: var(--color-accent-soft); color: var(--color-accent); border-radius: 999px; }
+.product-card h3 { font-family: var(--font-round); font-weight: 700; font-size: 1.1rem; }
+.price { color: var(--color-accent-2); font-weight: 800; }
+
+.btn-primary { border-radius: 999px; padding: 12px 26px; }
+.btn-primary:hover { background: #2f5f3c; }
+.btn-secondary { border-radius: 999px; background: transparent; }
+form input, form select, .wysiwyg { border-radius: var(--radius-sm); border-color: var(--color-border-strong); background: #fffefa; }
+
+.order-summary { border-top: 4px solid var(--color-accent); }
+.status-badge[data-status="approved"], .status-badge[data-status="paid"], .status-badge[data-status="completed"] {
+    color: var(--color-accent); background: var(--color-accent-soft); border-color: rgba(63, 122, 78, 0.3);
+}
+.msg { background: var(--color-accent-soft); border-color: rgba(63, 122, 78, 0.3); }
+
+/* footer with a row of little plants along its top edge */
+.site-footer { background: #e7efdc; border-top: 0; }
+.site-footer::before {
+    content: "🌵 🪴 🌱 🌵 🪴 🌱 🌵";
+    display: block;
+    text-align: center;
+    letter-spacing: 0.8em;
+    padding-top: 18px;
+    opacity: 0.75;
+}
+.footer-nav { border-bottom-color: var(--color-border-strong); }
+.footer-nav a:hover { color: var(--color-accent); }

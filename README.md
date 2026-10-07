@@ -222,8 +222,9 @@ Pick a theme in **Admin → Settings**, or set `THEME` in `.env`. These ship wit
 - `warm` — earthy boutique: cream, terracotta, serif headings
 - `bold` — high contrast: black outlines, hard shadows, yellow and orange
 - `neolab` — dark teal/violet glow
+- `succulent` — for plant and cactus lovers: sage green, terracotta, desert sand, rounded shapes
 
-`minimal`, `warm` and `bold` import the default stylesheet and only override what differs.
+`minimal`, `warm`, `bold` and `succulent` import the default stylesheet and only override what differs.
 
 To make a new one, copy `public/themes/default/` to `public/themes/<your-theme>/` and edit it.
 A theme only needs the files it changes: any missing layout or asset falls back to `default`.

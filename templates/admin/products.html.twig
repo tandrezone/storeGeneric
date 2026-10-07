@@ -228,35 +228,51 @@
                             <div class="variants-panel">
                                 <h3>Variants</h3>
                                 {% if variants[p.id] is empty %}
-                                    <p class="field-hint">No variants yet.</p>
-                                {% else %}
-                                    {# Forms can't wrap <tr>, so each row's inputs point at their own form via form="…". #}
-                                    {% for v in variants[p.id] %}
-                                        <form method="post" action="{{ path('admin.products.submit') }}" id="variant-form-{{ v.id }}" hidden>
-                                            {{ csrf_field() }}
-                                            <input type="hidden" name="action" value="update_variant">
-                                            <input type="hidden" name="id" value="{{ p.id }}">
-                                            <input type="hidden" name="variant_id" value="{{ v.id }}">
-                                        </form>
-                                    {% endfor %}
-                                    <table class="variants-table">
-                                        <thead><tr><th>SKU</th><th>Label</th><th>Unit</th><th>Price</th><th>Stock</th><th>Active</th><th></th></tr></thead>
-                                        <tbody>
-                                            {% for v in variants[p.id] %}
-                                                {% set f = 'variant-form-' ~ v.id %}
-                                                <tr>
-                                                    <td><input type="text" form="{{ f }}" name="sku" value="{{ v.sku }}" maxlength="64" required></td>
-                                                    <td><input type="text" form="{{ f }}" name="label" value="{{ v.label }}" maxlength="64"></td>
-                                                    <td><input type="text" form="{{ f }}" name="unit" value="{{ v.unit }}" maxlength="64"></td>
-                                                    <td><input type="number" form="{{ f }}" name="price" value="{{ v.price }}" step="0.01" min="0" required></td>
-                                                    <td><input type="number" form="{{ f }}" name="stock" value="{{ v.stock }}" min="0" required></td>
-                                                    <td><input type="checkbox" form="{{ f }}" name="is_active" value="1" {{ v.is_active ? 'checked' }}></td>
-                                                    <td><button type="submit" form="{{ f }}" class="btn-secondary btn-small">Save</button></td>
-                                                </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
+                                    <p class="field-hint">No variants yet — add one below.</p>
                                 {% endif %}
+                                {# Forms can't wrap <tr>, so each row's inputs point at their own form via form="…". #}
+                                {% for v in variants[p.id] %}
+                                    <form method="post" action="{{ path('admin.products.submit') }}" id="variant-form-{{ v.id }}" hidden>
+                                        {{ csrf_field() }}
+                                        <input type="hidden" name="action" value="update_variant">
+                                        <input type="hidden" name="id" value="{{ p.id }}">
+                                        <input type="hidden" name="variant_id" value="{{ v.id }}">
+                                    </form>
+                                {% endfor %}
+                                <table class="variants-table">
+                                    <thead><tr><th>SKU</th><th>Label</th><th>Unit</th><th>Price</th><th>Stock</th><th>Active</th><th></th></tr></thead>
+                                    <tbody>
+                                        {% for v in variants[p.id] %}
+                                            {% set f = 'variant-form-' ~ v.id %}
+                                            <tr>
+                                                <td><input type="text" form="{{ f }}" name="sku" value="{{ v.sku }}" maxlength="64" required></td>
+                                                <td><input type="text" form="{{ f }}" name="label" value="{{ v.label }}" maxlength="64"></td>
+                                                <td><input type="text" form="{{ f }}" name="unit" value="{{ v.unit }}" maxlength="64"></td>
+                                                <td><input type="number" form="{{ f }}" name="price" value="{{ v.price }}" step="0.01" min="0" required></td>
+                                                <td><input type="number" form="{{ f }}" name="stock" value="{{ v.stock }}" min="0" required></td>
+                                                <td><input type="checkbox" form="{{ f }}" name="is_active" value="1" {{ v.is_active ? 'checked' }}></td>
+                                                <td><button type="submit" form="{{ f }}" class="btn-secondary btn-small">Save</button></td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    {% set nf = 'variant-new-' ~ p.id %}
+                                    <tfoot>
+                                        <tr class="variant-new-row">
+                                            <td><input type="text" form="{{ nf }}" name="sku" placeholder="New SKU" maxlength="64" required></td>
+                                            <td><input type="text" form="{{ nf }}" name="label" placeholder="12" maxlength="64"></td>
+                                            <td><input type="text" form="{{ nf }}" name="unit" placeholder="pack" maxlength="64"></td>
+                                            <td><input type="number" form="{{ nf }}" name="price" step="0.01" min="0" placeholder="0.00" required></td>
+                                            <td><input type="number" form="{{ nf }}" name="stock" value="0" min="0" required></td>
+                                            <td><input type="checkbox" form="{{ nf }}" name="is_active" value="1" checked></td>
+                                            <td><button type="submit" form="{{ nf }}" class="btn-primary btn-small">+ Add</button></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                                <form method="post" action="{{ path('admin.products.submit') }}" id="{{ nf }}" hidden>
+                                    {{ csrf_field() }}
+                                    <input type="hidden" name="action" value="add_variant">
+                                    <input type="hidden" name="id" value="{{ p.id }}">
+                                </form>
                             </div>
                         </div>
                     </div>

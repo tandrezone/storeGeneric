@@ -26,7 +26,7 @@ final class ThemeManager
     ) {
     }
 
-    public const BUILT_IN = ['default', 'minimal', 'warm', 'bold', 'neolab'];
+    public const BUILT_IN = ['default', 'minimal', 'warm', 'bold', 'neolab', 'succulent'];
 
     private const SLUG = '/^[a-z0-9][a-z0-9_-]{1,39}$/';
     public const MAX_ZIP_BYTES = 20 * 1024 * 1024;

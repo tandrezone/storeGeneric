@@ -97,6 +97,13 @@ final class ProductController
                 }
                 break;
 
+            case 'add_variant':
+                if ($id > 0) {
+                    $this->addVariant($id, $body);
+                    $editId = $id;
+                }
+                break;
+
             case 'upload_images':
                 if ($id > 0) {
                     $this->uploadImages($id, $request->getUploadedFiles()['images'] ?? []);
@@ -167,17 +174,28 @@ final class ProductController
     }
 
     /** @param array<string, mixed> $body */
+    private function addVariant(int $productId, array $body): void
+    {
+        $data = $this->variantInput($body);
+        if ($data['sku'] === '') {
+            $this->session->flash('error', 'Variant SKU is required.');
+
+            return;
+        }
+
+        try {
+            $this->variants->create(['product_id' => $productId] + $data);
+            $this->session->flash('success', "Variant {$data['sku']} added.");
+        } catch (PDOException $e) {
+            $this->logger->warning('Variant creation failed', ['exception' => $e]);
+            $this->session->flash('error', "Could not add the variant — SKU \"{$data['sku']}\" may already be in use.");
+        }
+    }
+
+    /** @param array<string, mixed> $body */
     private function updateVariant(int $productId, int $variantId, array $body): void
     {
-        $data = [
-            'sku'       => trim((string) ($body['sku'] ?? '')),
-            'label'     => trim((string) ($body['label'] ?? '')) ?: null,
-            'unit'      => trim((string) ($body['unit'] ?? '')) ?: null,
-            'price'     => round(max(0.0, (float) ($body['price'] ?? 0)), 2),
-            'stock'     => max(0, (int) ($body['stock'] ?? 0)),
-            'is_active' => empty($body['is_active']) ? 0 : 1,
-        ];
-
+        $data = $this->variantInput($body);
         if ($variantId <= 0 || $data['sku'] === '') {
             $this->session->flash('error', 'Variant SKU is required.');
 
@@ -191,6 +209,22 @@ final class ProductController
             $this->logger->warning('Variant update failed', ['exception' => $e]);
             $this->session->flash('error', "Could not update the variant — SKU \"{$data['sku']}\" may already be in use.");
         }
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     * @return array{sku: string, label: ?string, unit: ?string, price: float, stock: int, is_active: int}
+     */
+    private function variantInput(array $body): array
+    {
+        return [
+            'sku'       => trim((string) ($body['sku'] ?? '')),
+            'label'     => trim((string) ($body['label'] ?? '')) ?: null,
+            'unit'      => trim((string) ($body['unit'] ?? '')) ?: null,
+            'price'     => round(max(0.0, (float) ($body['price'] ?? 0)), 2),
+            'stock'     => max(0, (int) ($body['stock'] ?? 0)),
+            'is_active' => empty($body['is_active']) ? 0 : 1,
+        ];
     }
 
     /** @param list<int> $ids */

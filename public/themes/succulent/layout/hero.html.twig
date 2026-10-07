@@ -1,0 +1,29 @@
+{# Banner at the top of the shop page, with a potted cactus and succulent beside the text. #}
+<section class="shop-hero">
+    <div class="shop-hero-inner">
+        <span class="hero-eyebrow">Freshly potted</span>
+        <h1>Welcome to {{ store.name }}</h1>
+        <p>Cacti, succulents and green friends that thrive on sunshine and a little neglect.</p>
+    </div>
+    <svg class="hero-plants" viewBox="0 0 260 220" aria-hidden="true" focusable="false">
+        <g class="hero-cactus">
+            <path d="M92 170 V64 a18 18 0 0 1 36 0 V170 z" fill="#5f8a5a"/>
+            <path d="M92 118 H74 a12 12 0 0 1 -12 -12 V82 a10 10 0 0 1 20 0 V100 H92 z" fill="#5f8a5a"/>
+            <path d="M128 104 H144 V86 a10 10 0 0 1 20 0 V100 a16 16 0 0 1 -16 16 H128 z" fill="#5f8a5a"/>
+            <path d="M104 70 V164 M116 70 V164" stroke="#4b7046" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="110" cy="46" r="8" fill="#e98aa0"/>
+            <circle cx="110" cy="46" r="3" fill="#f6d36b"/>
+        </g>
+        <g class="hero-succulent">
+            <ellipse cx="196" cy="160" rx="34" ry="14" fill="#8fb48a"/>
+            <ellipse cx="180" cy="150" rx="14" ry="24" transform="rotate(-35 180 150)" fill="#9cc3a0"/>
+            <ellipse cx="212" cy="150" rx="14" ry="24" transform="rotate(35 212 150)" fill="#9cc3a0"/>
+            <ellipse cx="196" cy="144" rx="12" ry="26" fill="#b5d4b0"/>
+            <ellipse cx="196" cy="156" rx="8" ry="12" fill="#cfe3c8"/>
+        </g>
+        <path d="M70 168 H150 L142 214 H78 z" fill="#c9714a"/>
+        <rect x="64" y="160" width="92" height="16" rx="4" fill="#b35f3b"/>
+        <path d="M162 166 H230 L224 208 H168 z" fill="#c9714a"/>
+        <rect x="157" y="159" width="78" height="14" rx="4" fill="#b35f3b"/>
+    </svg>
+</section>
