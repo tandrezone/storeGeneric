@@ -1,0 +1,29 @@
+{% extends 'layout/shop.html.twig' %}
+
+{% set title = 'Order Confirmation' %}
+
+{% block content %}
+<section class="confirmation-page">
+    {% if order %}
+        <h1>Thank you, your order is on its way to being processed.</h1>
+        <p>Order number: <strong>{{ order.order_number }}</strong></p>
+        <p>Payment method: <strong>{{ payment_label }}</strong></p>
+        <p>Payment status: <strong>{{ order.payment_status }}</strong></p>
+        <p>A confirmation will be sent to {{ order.email }} once payment is confirmed.</p>
+        {% if payment_instructions and order.payment_status != 'paid' %}
+            <div class="panel payment-instructions">{{ payment_instructions|raw }}</div>
+        {% elseif order.payment_status != 'paid' %}
+            <p class="field-hint">
+                It can take a minute for the payment confirmation to arrive. Refresh this page
+                or check your order status using the order number and email above.
+            </p>
+        {% endif %}
+    {% else %}
+        <h1>Order received</h1>
+        <p>We couldn't find that order number, but if you just completed payment, it will be
+           confirmed shortly. Keep your order number handy to check its status.</p>
+    {% endif %}
+
+    <p><a href="{{ path('home') }}">Continue shopping</a></p>
+</section>
+{% endblock %}

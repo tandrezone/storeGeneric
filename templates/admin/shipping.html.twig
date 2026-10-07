@@ -1,0 +1,123 @@
+{% extends 'layout/admin.html.twig' %}
+
+{% set title = 'Admin — Shipping' %}
+{% set active_nav = 'shipping' %}
+
+{% macro fields(m) %}
+    <div class="form-row">
+        <label>Name
+            <input type="text" name="name" value="{{ m.name ?? '' }}" maxlength="120" required placeholder="Standard Shipping">
+        </label>
+        <label>Description (optional)
+            <input type="text" name="description" value="{{ m.description ?? '' }}" maxlength="255" placeholder="3-5 business days">
+        </label>
+    </div>
+    <div class="form-row">
+        <label>Cost (€)
+            <input type="number" name="cost" value="{{ m.cost ?? '0.00' }}" step="0.01" min="0" required>
+        </label>
+        <label>Free on orders over (€, optional)
+            <input type="number" name="free_over" value="{{ m.free_over ?? '' }}" step="0.01" min="0" placeholder="Leave empty for never">
+        </label>
+    </div>
+    <label>Countries (optional)
+        <input type="text" name="countries" value="{{ m.countries ?? '' }}" maxlength="500" placeholder="Portugal, PT, Spain, ES">
+    </label>
+    <p class="field-hint">Comma-separated, matched against what the customer types in the Country field (not case-sensitive). Leave empty to ship everywhere.</p>
+    <label style="display: flex; align-items: center; gap: 8px;">
+        <input type="checkbox" name="is_active" value="1" style="width: auto;" {{ (m.is_active ?? true) ? 'checked' }}>
+        Show at checkout
+    </label>
+{% endmacro %}
+
+{% block content %}
+{% import _self as form %}
+<h1>Shipping</h1>
+
+{% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
+
+{% if active_count == 0 %}
+    <p class="msg error">No shipping method is enabled, so customers can't check out. Enable or add one below.</p>
+{% endif %}
+
+<details class="panel" {{ edit_id == 0 and input is not null ? 'open' }}>
+    <summary class="panel-summary">Add shipping method</summary>
+    <form method="post" action="{{ path('admin.shipping.submit') }}">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="create">
+        {{ form.fields(edit_id == 0 and input is not null ? input : {}) }}
+        <button type="submit" class="btn-primary">Add method</button>
+    </form>
+</details>
+
+<table class="cart-table admin-table">
+    <thead>
+        <tr><th>Order</th><th>Method</th><th>Cost</th><th>Free over</th><th>Countries</th><th>Status</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+        {% for m in methods %}
+            {% set open = edit_id == m.id %}
+            <tr>
+                <td>
+                    <div class="table-actions">
+                        {% for dir, arrow in {up: '▲', down: '▼'} %}
+                            <form method="post" action="{{ path('admin.shipping.submit') }}" class="inline-form">
+                                {{ csrf_field() }}
+                                <input type="hidden" name="action" value="move">
+                                <input type="hidden" name="id" value="{{ m.id }}">
+                                <input type="hidden" name="direction" value="{{ dir }}">
+                                <button type="submit" class="icon-btn" title="Move {{ dir }}"
+                                        {{ (dir == 'up' and loop.parent.loop.first) or (dir == 'down' and loop.parent.loop.last) ? 'disabled' }}>{{ arrow }}</button>
+                            </form>
+                        {% endfor %}
+                    </div>
+                </td>
+                <td>
+                    <strong>{{ m.name }}</strong>
+                    {% if m.description %}<br><span class="field-hint">{{ m.description }}</span>{% endif %}
+                    <br><span class="field-hint">code: {{ m.code }}</span>
+                </td>
+                <td class="tabular">{{ m.cost > 0 ? m.cost|money : 'Free' }}</td>
+                <td class="tabular">{{ m.free_over is not null ? m.free_over|money : '—' }}</td>
+                <td style="max-width: 220px;">{% if m.countries %}{{ m.countries }}{% else %}<span class="field-hint">All countries</span>{% endif %}</td>
+                <td><span class="status-badge" data-status="{{ m.is_active ? 'approved' : 'invalid' }}">{{ m.is_active ? 'enabled' : 'disabled' }}</span></td>
+                <td>
+                    <div class="table-actions">
+                        <button type="button" class="btn-secondary" data-toggle="ship-edit-{{ m.id }}" aria-expanded="{{ open ? 'true' : 'false' }}">Edit</button>
+                        <form method="post" action="{{ path('admin.shipping.submit') }}" class="inline-form">
+                            {{ csrf_field() }}
+                            <input type="hidden" name="action" value="toggle">
+                            <input type="hidden" name="id" value="{{ m.id }}">
+                            <button type="submit" class="btn-secondary">{{ m.is_active ? 'Disable' : 'Enable' }}</button>
+                        </form>
+                        <form method="post" action="{{ path('admin.shipping.submit') }}" class="inline-form"
+                              data-confirm="Delete &quot;{{ m.name }}&quot;? Past orders keep their shipping details.">
+                            {{ csrf_field() }}
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="id" value="{{ m.id }}">
+                            <button type="submit" class="icon-btn icon-btn-danger" title="Delete">🗑</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            <tr class="edit-row" id="ship-edit-{{ m.id }}" {{ open ? '' : 'hidden' }}>
+                <td colspan="7">
+                    <div class="edit-block">
+                        <form method="post" action="{{ path('admin.shipping.submit') }}" class="edit-form">
+                            {{ csrf_field() }}
+                            <input type="hidden" name="action" value="update">
+                            <input type="hidden" name="id" value="{{ m.id }}">
+                            {{ form.fields(open and input is not null ? input : m) }}
+                            <button type="submit" class="btn-primary">Save changes</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        {% else %}
+            <tr><td colspan="7" style="color: var(--color-muted);">No shipping methods yet.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<p class="field-hint">Customers see enabled methods in this order. Editing or deleting a method doesn't change orders already placed.</p>
+{% endblock %}

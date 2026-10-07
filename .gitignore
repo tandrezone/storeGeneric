@@ -1,0 +1,7 @@
+public/assets/images/generated/
+/var/
+.env
+.env.*
+!.env.example
+/vendor/
+.php-cs-fixer.cache

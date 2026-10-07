@@ -1,0 +1,35 @@
+{% extends 'layout/shop.html.twig' %}
+
+{% set title = 'About Us' %}
+
+{% block content %}
+<section class="content-page">
+    <h1>About Us</h1>
+    <p class="page-subtitle">Who we are and how we work.</p>
+
+    <h2>Who we are</h2>
+    <p>
+        {{ store.name }} is an independent online
+        shop. Replace this paragraph with your own story: what you sell, why you
+        started, and what customers can expect from you.
+    </p>
+
+    <h2>How we work</h2>
+    <p>
+        Every product is reviewed before it appears in the shop. Shipping options
+        and their prices are listed at checkout, and you choose how to pay from the
+        payment methods we accept.
+    </p>
+
+    <h2>Our approach to service</h2>
+    <p>
+        Orders are tracked from the moment you check out to the moment they're marked
+        delivered, and you can always look one up with your order number and email —
+        see <a href="{{ path('page.info') }}">Info</a> for how that works. If anything about an
+        order looks wrong, <a href="{{ path('page.support') }}">Support</a> is the fastest way to
+        reach us.
+    </p>
+
+    <p class="updated-note">Last updated August 2026.</p>
+</section>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends 'layout/shop.html.twig' %}
+
+{% set title = 'Your Cart' %}
+
+{% block content %}
+<section class="cart-page">
+    <h1>Your Cart</h1>
+
+    {% if items is empty %}
+        <p>Your cart is empty. <a href="{{ path('home') }}">Continue shopping</a>.</p>
+    {% else %}
+        <table class="cart-table">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Pack</th>
+                    <th>Price</th>
+                    <th>Quantity</th>
+                    <th>Subtotal</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="cart-items-body">
+                {% for item in items %}
+                    <tr data-variant-id="{{ item.variant_id }}">
+                        <td><a href="{{ path('product.show', {id: item.product_id}) }}">{{ item.product_name }}</a></td>
+                        <td>{{ (item.label ~ ' ' ~ item.unit)|trim }}</td>
+                        <td>{{ item.price|money }}</td>
+                        <td>
+                            <input type="number" class="cart-qty-input" min="1" value="{{ item.quantity }}" data-variant-id="{{ item.variant_id }}">
+                        </td>
+                        <td class="line-subtotal">{{ (item.price * item.quantity)|money }}</td>
+                        <td><button class="cart-remove-btn" data-variant-id="{{ item.variant_id }}">Remove</button></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="cart-summary">
+            <p class="cart-total">Total: <span id="cart-total">{{ total|number_format(2) }}</span>€</p>
+            <a href="{{ path('checkout') }}" class="btn-primary">Proceed to checkout</a>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

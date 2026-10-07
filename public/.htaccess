@@ -1,0 +1,36 @@
+Options -Indexes
+DirectoryIndex index.php
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Front controller: real files (CSS, JS, images) are served directly,
+# everything else goes to index.php, which routes it (config/routes.php).
+# Old *.php URLs are not files any more, so they reach index.php too and
+# get a 301/308 redirect to their clean URL.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Keep Authorization for API clients behind CGI/FastCGI.
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+<IfModule !mod_rewrite.c>
+    FallbackResource /index.php
+</IfModule>
+
+# Theme templates are rendered by the app; don't serve their source.
+<IfModule mod_authz_core.c>
+    <FilesMatch "\.(twig|php\.bak)$">
+        Require all denied
+    </FilesMatch>
+</IfModule>
+<IfModule !mod_authz_core.c>
+    <FilesMatch "\.(twig|php\.bak)$">
+        Order deny,allow
+        Deny from all
+    </FilesMatch>
+</IfModule>

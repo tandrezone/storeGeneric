@@ -1,0 +1,24 @@
+{#
+  Base layout for admin views. `active_nav` (set by each view) highlights
+  the current menu item; the header/footer come from the theme.
+#}
+{% set menu = [
+    {key: 'products',   label: 'Products',   route: 'admin.products'},
+    {key: 'categories', label: 'Categories', route: 'admin.categories'},
+    {key: 'orders',     label: 'Orders',     route: 'admin.orders'},
+    {key: 'shipping',   label: 'Shipping',   route: 'admin.shipping'},
+    {key: 'analytics',  label: 'Analytics',  route: 'admin.analytics'},
+    {key: 'settings',   label: 'Settings',   route: 'admin.settings'},
+] %}
+{% set active_nav = active_nav|default(null) %}
+{{ theme_part('admin-header', {
+    page_title: title|default('Admin'),
+    active_nav: active_nav,
+    admin_nav: menu|map(item => item|merge({url: path(item.route), active: item.key == active_nav})),
+}) }}
+<script src="/assets/js/admin-common.js"></script>
+{% for flash in flashes() %}
+    <p class="msg {{ flash.type == 'error' ? 'error' : '' }}">{{ flash.message }}</p>
+{% endfor %}
+{% block content %}{% endblock %}
+{{ theme_part('admin-footer') }}

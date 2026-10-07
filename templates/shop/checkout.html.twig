@@ -1,0 +1,114 @@
+{% extends 'layout/shop.html.twig' %}
+
+{% set title = 'Checkout' %}
+
+{% block content %}
+<section class="checkout-page">
+    <h1>Checkout</h1>
+
+    {% if errors is not empty %}
+        <div class="form-errors">
+            <ul>
+                {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <div class="checkout-grid">
+        <form method="post" action="{{ path('checkout.submit') }}" class="shipping-form" data-no-ajax data-checkout data-subtotal="{{ subtotal }}">
+            {{ csrf_field() }}
+
+            <label for="name">Full name</label>
+            <input type="text" id="name" name="name" required value="{{ form.name }}">
+
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required value="{{ form.email }}">
+            <p class="field-hint">Used for order tracking updates.</p>
+
+            <label for="phone">Phone (optional)</label>
+            <input type="tel" id="phone" name="phone" value="{{ form.phone }}">
+
+            <label for="address1">Address</label>
+            <input type="text" id="address1" name="address1" required value="{{ form.address1 }}">
+
+            <label for="address2">Address line 2 (optional)</label>
+            <input type="text" id="address2" name="address2" value="{{ form.address2 }}">
+
+            <div class="form-row">
+                <div>
+                    <label for="city">City</label>
+                    <input type="text" id="city" name="city" required value="{{ form.city }}">
+                </div>
+                <div>
+                    <label for="state">State / Province</label>
+                    <input type="text" id="state" name="state" value="{{ form.state }}">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label for="postal_code">Postal code</label>
+                    <input type="text" id="postal_code" name="postal_code" required value="{{ form.postal_code }}">
+                </div>
+                <div>
+                    <label for="country">Country</label>
+                    <input type="text" id="country" name="country" required value="{{ form.country }}">
+                </div>
+            </div>
+
+            <h2>Shipping method</h2>
+            <div class="shipping-methods" data-shipping-methods>
+                {% for method in shipping_methods %}
+                    <label class="shipping-method-option">
+                        <input type="radio" name="shipping_method" value="{{ method.code }}"
+                               data-cost="{{ method.price|number_format(2, '.', '') }}"
+                               data-countries="{{ method.countries_list|json_encode }}"
+                               {{ form.shipping_method == method.code ? 'checked' }} required>
+                        <span>
+                            {{ method.name }}
+                            {% if method.description %}<br><small class="field-hint">{{ method.description }}</small>{% endif %}
+                            {% if method.free_over is not null and method.price > 0 %}
+                                <br><small class="field-hint">Free on orders over {{ method.free_over|money }}</small>
+                            {% endif %}
+                        </span>
+                        <span class="shipping-method-cost">{{ method.price > 0 ? method.price|money : 'Free' }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+            <p class="field-hint" data-no-shipping style="display: none;">We don't ship to that country yet. Check the spelling or contact support.</p>
+
+            <h2>Payment method</h2>
+            <div class="shipping-methods payment-methods">
+                {% for method in payment_methods %}
+                    <label class="shipping-method-option payment-method-option">
+                        <input type="radio" name="payment_method" value="{{ method.id }}" {{ form.payment_method == method.id ? 'checked' }} required>
+                        <span>
+                            {{ method.label }}<br>
+                            <small class="field-hint">{{ method.description }}</small>
+                        </span>
+                    </label>
+                {% endfor %}
+            </div>
+
+            <button type="submit" class="btn-primary" {{ payment_methods is empty or shipping_methods is empty ? 'disabled' }}>Place order</button>
+        </form>
+
+        <aside class="order-summary">
+            <h2>Order summary</h2>
+            <ul>
+                {% for item in items %}
+                    <li>
+                        {{ item.product_name }} ({{ (item.label ~ ' ' ~ item.unit)|trim }}) &times; {{ item.quantity }}
+                        <span class="line-price">{{ (item.price * item.quantity)|money }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+            <p class="order-subtotal"><span>Subtotal</span><span>{{ subtotal|money }}</span></p>
+            <p class="order-shipping"><span>Shipping</span><span id="checkout-shipping-cost">{{ selected_shipping_cost|money }}</span></p>
+            <p class="order-total"><span>Total</span><span id="checkout-total">{{ (subtotal + selected_shipping_cost)|money }}</span></p>
+            <p class="payment-note">Online payments open on the provider's secure page; for bank transfer or cash on delivery you'll get instructions after placing the order.</p>
+        </aside>
+    </div>
+</section>
+<script src="/assets/js/checkout.js"></script>
+{% endblock %}

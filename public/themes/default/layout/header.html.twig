@@ -1,0 +1,27 @@
+{#
+  Storefront header — opens <html>, <body> and <main>; footer.html.twig closes them.
+  Available: page_title, store.name, store.email, store.logo_url, store.currency,
+             theme, year, current_path, asset('path'), logo(), path('route', {params})
+#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ page_title }}</title>
+{% include 'partials/icons.html.twig' %}
+<link rel="stylesheet" href="{{ asset('css/style.css') }}">
+</head>
+<body data-layout="store">
+<header class="site-header">
+    <div class="container header-inner">
+        <a href="{{ path('home') }}" class="logo">{{ logo() }}</a>
+        <nav class="main-nav">
+            <a href="{{ path('home') }}">Shop</a>
+            <a href="{{ path('cart') }}" class="cart-link">
+                Cart <span id="cart-count" class="cart-count">0</span>
+            </a>
+        </nav>
+    </div>
+</header>
+<main class="container">

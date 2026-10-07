@@ -1,0 +1,7 @@
+{#
+  Base layout for storefront views. The page chrome (<head>, header,
+  footer) comes from the active theme's parts; views fill `content`.
+#}
+{{ theme_part('header', {page_title: title|default(store.name)}) }}
+{% block content %}{% endblock %}
+{{ theme_part('footer') }}

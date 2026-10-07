@@ -1,0 +1,140 @@
+{
+    "name": "store/store",
+    "description": "Generic online store: catalog, cart, checkout, payments, themes and admin (PSR / MVC).",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.1",
+        "ext-pdo": "*",
+        "ext-curl": "*",
+        "ext-json": "*",
+        "ext-zip": "*",
+        "ext-gd": "*",
+        "twig/twig": "^3.30",
+        "psr/container": "^2.0",
+        "psr/http-message": "^2.0",
+        "psr/http-factory": "^1.1",
+        "psr/http-server-handler": "^1.0",
+        "psr/http-server-middleware": "^1.0",
+        "psr/log": "^3.0",
+        "nyholm/psr7": "^1.8",
+        "nyholm/psr7-server": "^1.1",
+        "nikic/fast-route": "^1.3",
+        "php-di/php-di": "^7.1",
+        "monolog/monolog": "^3.9"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/twigphp/Twig",
+            "no-api": true
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/symfony/polyfill-mbstring",
+            "no-api": true
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/symfony/polyfill-ctype",
+            "no-api": true
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/symfony/deprecation-contracts",
+            "no-api": true
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/php-fig/container",
+            "no-api": true
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/php-fig/http-message",
+            "no-api": true
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/php-fig/http-factory",
+            "no-api": true
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/php-fig/http-server-handler",
+            "no-api": true
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/php-fig/http-server-middleware",
+            "no-api": true
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/php-fig/log",
+            "no-api": true
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/Nyholm/psr7",
+            "no-api": true
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/Nyholm/psr7-server",
+            "no-api": true
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/nikic/FastRoute",
+            "no-api": true
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/PHP-DI/PHP-DI",
+            "no-api": true
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/PHP-DI/Invoker",
+            "no-api": true
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/laravel/serializable-closure",
+            "no-api": true
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/Seldaek/monolog",
+            "no-api": true
+        },
+        {
+            "packagist.org": false
+        }
+    ],
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true
+    },
+    "scripts": {
+        "cs": "phpcs",
+        "cs-fix": "php-cs-fixer fix",
+        "analyse": "phpstan analyse",
+        "serve": [
+            "Composer\\Config::disableProcessTimeout",
+            "php -S localhost:8000 -t public router.php"
+        ]
+    },
+    "scripts-descriptions": {
+        "cs": "Check PSR-12 (needs phpcs on PATH)",
+        "cs-fix": "Fix code style (needs php-cs-fixer on PATH)",
+        "analyse": "Static analysis (needs phpstan on PATH)",
+        "serve": "Run the development server on http://localhost:8000"
+    }
+}

@@ -1,0 +1,85 @@
+{% extends 'layout/shop.html.twig' %}
+
+{% set title = 'Terms & Conditions' %}
+
+{% block content %}
+<section class="content-page">
+    <h1>Terms &amp; Conditions</h1>
+    <p class="page-subtitle">Please read these terms before placing an order.</p>
+
+    <h2>1. Acceptance of terms</h2>
+    <p>
+        By using this website and placing an order, you agree to these terms. If you
+        don't agree with any part of them, please don't use the site.
+    </p>
+
+    <h2>2. Eligibility</h2>
+    <p>
+        You must be at least 18 years old, and legally permitted to purchase the
+        products you order in your jurisdiction, to use this site. It's your
+        responsibility to know and follow the laws and regulations that apply where
+        you live and where an order is shipped.
+    </p>
+
+    <h2>3. Orders &amp; pricing</h2>
+    <p>
+        Placing an order is an offer to buy at the price shown at checkout. We
+        reserve the right to refuse or cancel any order — for example if an item's
+        stock or price was listed incorrectly, or if we suspect fraud. Prices and
+        availability can change without notice and don't apply retroactively to
+        orders already placed.
+    </p>
+
+    <h2>4. Payment</h2>
+    <p>
+        Online payments are processed by third-party payment providers; we don't
+        store your card or account details. An order is only
+        confirmed as paid once that provider confirms the payment; until then it
+        remains pending and stock is not guaranteed to be held for it.
+    </p>
+
+    <h2>5. Shipping &amp; risk of loss</h2>
+    <p>
+        Shipping times are estimates, not guarantees. Risk of loss and title for
+        items you order pass to you once we hand the order to the shipping carrier.
+        We're not responsible for delays caused by the carrier or customs.
+    </p>
+
+    <h2>6. Returns &amp; refunds</h2>
+    <p>
+        If an order arrives damaged, incorrect, or doesn't arrive at all, contact
+        <a href="{{ path('page.support') }}">Support</a> with your order number so we can look
+        into it. Refunds or replacements are handled case-by-case at our discretion.
+    </p>
+
+    <h2>7. Prohibited use</h2>
+    <p>
+        You agree not to use this site for any unlawful purpose, and not to misuse,
+        resell in violation of applicable law, or misrepresent any product purchased
+        here. We may refuse service to anyone for any lawful reason.
+    </p>
+
+    <h2>8. No warranty; limitation of liability</h2>
+    <p>
+        Products and this site are provided "as is," without warranties of any kind
+        beyond what's required by law. To the fullest extent permitted by law, we
+        are not liable for any indirect, incidental, or consequential damages
+        arising from your use of this site or the products purchased through it.
+    </p>
+
+    <h2>9. Changes to these terms</h2>
+    <p>
+        We may update these terms from time to time. Continuing to use the site
+        after a change means you accept the updated terms. Check this page
+        periodically if you want to stay current.
+    </p>
+
+    <h2>10. Contact</h2>
+    <p>
+        Questions about these terms can be sent to
+        <a href="mailto:{{ store.email }}">{{ store.email }}</a>.
+    </p>
+
+    <p class="updated-note">Last updated August 2026.</p>
+</section>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends 'layout/admin.html.twig' %}
+
+{% set title = 'Admin — Categories' %}
+{% set active_nav = 'categories' %}
+
+{% block content %}
+<h1>Categories</h1>
+
+<div class="panel">
+    <h2>Add category</h2>
+    <form method="post" action="{{ path('admin.categories.submit') }}">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="create">
+        <label>Name <input type="text" name="name" required></label>
+        <button type="submit" class="btn-primary">Add category</button>
+    </form>
+</div>
+
+<h2>Existing categories</h2>
+<table class="cart-table admin-table">
+    <thead><tr><th>Name</th><th>Slug</th><th>Products</th><th>Actions</th></tr></thead>
+    <tbody>
+        {% for category in categories %}
+            <tr>
+                <td>
+                    <form method="post" action="{{ path('admin.categories.submit') }}" class="inline-form">
+                        {{ csrf_field() }}
+                        <input type="hidden" name="action" value="update">
+                        <input type="hidden" name="id" value="{{ category.id }}">
+                        <input type="text" name="name" value="{{ category.name }}" class="category-name-input" required>
+                        <button type="submit" class="btn-secondary">Save</button>
+                    </form>
+                </td>
+                <td><span class="field-hint">{{ category.slug }}</span></td>
+                <td>{{ category.product_count }}</td>
+                <td>
+                    <form method="post" action="{{ path('admin.categories.submit') }}" class="inline-form"
+                          data-confirm="Delete &quot;{{ category.name }}&quot;? This cannot be undone.">
+                        {{ csrf_field() }}
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="id" value="{{ category.id }}">
+                        <button type="submit" class="icon-btn icon-btn-danger" title="Delete category">🗑</button>
+                    </form>
+                </td>
+            </tr>
+        {% else %}
+            <tr><td colspan="4" style="color: var(--color-muted);">No categories yet.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

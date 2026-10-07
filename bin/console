@@ -1,0 +1,25 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use App\Console\Application;
+use App\Console\Command;
+use App\Kernel;
+
+if (PHP_SAPI !== 'cli') {
+    exit(1);
+}
+
+$root = dirname(__DIR__);
+require $root . '/vendor/autoload.php';
+
+$kernel = Kernel::boot($root);
+
+exit((new Application($kernel->container(), [
+    Command\AddImageCommand::class,
+    Command\CheckImageCommand::class,
+    Command\HashPasswordCommand::class,
+    Command\RegenerateImagesCommand::class,
+    Command\ReimportDatabaseCommand::class,
+]))->run($argv));

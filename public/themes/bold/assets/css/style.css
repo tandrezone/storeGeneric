@@ -1,0 +1,81 @@
+/* Theme: Bold — high contrast: thick black outlines, hard shadows, vivid colour.
+   Builds on the default theme; only the differences live here. */
+@import url('../../../default/assets/css/style.css');
+
+:root {
+    --color-bg: #fffdf2;
+    --color-surface: #ffffff;
+    --color-surface-hover: #fff4c2;
+    --color-border: #111111;
+    --color-border-strong: #111111;
+    --color-border-violet: #111111;
+    --color-text: #111111;
+    --color-muted: #4a4a4a;
+    --color-accent: #c73000;
+    --color-accent-soft: #ffe1d6;
+    --color-accent-2: #2a2ae0;
+    --color-accent-2-soft: #dfe0ff;
+    --color-danger: #c4001d;
+    --color-danger-soft: #ffe0e4;
+    --color-danger-border: #c4001d;
+    --color-on-accent: #ffffff;
+    --chart-teal: #c73000;
+    --chart-violet: #2a2ae0;
+    --chart-funnel-1: #c73000;
+    --chart-funnel-2: #962400;
+    --chart-funnel-3: #111111;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-sm: 4px 4px 0 #111111;
+    --shadow-md: 6px 6px 0 #111111;
+    --font-display: "Arial Black", "Helvetica Neue", Arial, system-ui, sans-serif;
+    --font-body: "Helvetica Neue", Arial, system-ui, sans-serif;
+}
+
+h1, h2, h3, .logo, .btn-primary, .filter-pill, .main-nav a, .stat-value, .shop-hero h1 { font-family: var(--font-display); font-weight: 900; letter-spacing: -0.01em; }
+
+.site-header { background: #111111; border-bottom: 0; }
+.logo { color: #ffd60a; font-size: 1.35rem; text-transform: uppercase; }
+.main-nav a { color: #ffffff; font-size: 0.9rem; text-transform: uppercase; }
+.main-nav a:hover, .main-nav a.active { color: #ffd60a; }
+.cart-count { background: #ffd60a; color: #111; }
+.admin-tag { color: #ffd60a; border-color: #ffd60a; }
+
+.shop-hero { background: #ffd60a; border: 3px solid #111; box-shadow: var(--shadow-md); min-height: 260px; }
+.hero-eyebrow { color: #111; background: #fff; border: 2px solid #111; padding: 3px 10px; border-radius: 999px; }
+.shop-hero h1 { font-size: 3rem; text-transform: uppercase; line-height: 1; }
+.shop-hero p { color: #111; font-weight: 600; }
+
+.filter-pill { border: 2px solid #111; color: #111; background: #fff; font-size: 0.85rem; text-transform: uppercase; }
+.filter-pill:hover { background: var(--color-surface-hover); }
+.filter-pill.active { background: var(--color-accent-2); border-color: #111; color: #fff; box-shadow: 3px 3px 0 #111; }
+
+.product-card { border: 2px solid #111; box-shadow: var(--shadow-sm); }
+.product-card:hover { transform: translate(-2px, -2px); box-shadow: var(--shadow-md); }
+.product-card-image { border-bottom: 2px solid #111; }
+.category-badge { background: var(--color-accent-2-soft); color: var(--color-accent-2); border: 2px solid var(--color-accent-2); }
+.price { color: var(--color-accent); font-weight: 800; font-size: 1.1rem; }
+
+.btn-primary { border: 2px solid #111; box-shadow: var(--shadow-sm); text-transform: uppercase; border-radius: 8px; }
+.btn-primary:hover { background: #a52800; transform: translate(-1px, -1px); box-shadow: var(--shadow-md); }
+.btn-primary:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #111; }
+.btn-secondary { border: 2px solid #111; font-weight: 700; }
+.btn-secondary:hover { background: #ffd60a; }
+form input, form select, .wysiwyg { border: 2px solid #111; border-radius: 8px; }
+form input:focus, form select:focus { box-shadow: 3px 3px 0 var(--color-accent-2); border-color: #111; }
+
+.panel, .order-summary, .stat-tile, .shipping-method-option { border: 2px solid #111; box-shadow: var(--shadow-sm); }
+.shipping-method-option:has(input:checked) { background: #ffd60a; }
+.cart-table { border: 2px solid #111; }
+.cart-table th { background: #111; color: #fff; }
+.status-badge { border-width: 2px; font-weight: 800; }
+.status-badge[data-status="approved"], .status-badge[data-status="paid"], .status-badge[data-status="completed"] {
+    color: #0a5c2a; background: #c8f7d6; border-color: #0a5c2a;
+}
+.msg { background: #ffd60a; border: 2px solid #111; }
+
+.site-footer { background: #111; border-top: 0; color: #cfcfcf; }
+.footer-nav { border-bottom-color: #3a3a3a; }
+.footer-nav a { color: #fff; font-family: var(--font-display); text-transform: uppercase; }
+.footer-nav a:hover { color: #ffd60a; }
+.ajax-progress { background: var(--color-accent); height: 4px; }

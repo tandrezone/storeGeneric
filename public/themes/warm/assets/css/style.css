@@ -1,0 +1,73 @@
+/* Theme: Warm — earthy boutique: cream paper, terracotta and olive, serif headings.
+   Builds on the default theme; only the differences live here. */
+@import url('../../../default/assets/css/style.css');
+
+:root {
+    --color-bg: #f7f1e8;
+    --color-surface: #fffaf3;
+    --color-surface-hover: #f2e9dc;
+    --color-border: #e6d9c6;
+    --color-border-strong: #c9b597;
+    --color-border-violet: #c8cf9f;
+    --color-text: #3b2a1e;
+    --color-muted: #7a6656;
+    --color-accent: #a94f2a;
+    --color-accent-soft: rgba(169, 79, 42, 0.09);
+    --color-accent-2: #5f6d2f;
+    --color-accent-2-soft: rgba(95, 109, 47, 0.1);
+    --color-danger: #b3261e;
+    --color-on-accent: #fffaf3;
+    --chart-teal: #a94f2a;
+    --chart-violet: #6f7d36;
+    --chart-funnel-1: #c0653c;
+    --chart-funnel-2: #a94f2a;
+    --chart-funnel-3: #7e3a1e;
+    --radius: 14px;
+    --radius-sm: 10px;
+    --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+    --shadow-sm: 0 1px 2px rgba(59, 42, 30, 0.06);
+    --shadow-md: 0 10px 28px rgba(59, 42, 30, 0.12);
+}
+
+h1, h2, h3, .logo, .shop-hero h1, .panel-summary, .stat-value { font-family: var(--font-serif); font-weight: 600; letter-spacing: 0; }
+
+.site-header { background: rgba(247, 241, 232, 0.94); }
+.logo { font-size: 1.45rem; font-style: italic; color: var(--color-accent); }
+.main-nav a { color: var(--color-text); }
+.cart-count { background: var(--color-accent-2); }
+
+.shop-hero {
+    border: 0;
+    background:
+        radial-gradient(520px 260px at 92% 10%, rgba(95, 109, 47, 0.18), transparent 70%),
+        radial-gradient(620px 300px at 0% 100%, rgba(169, 79, 42, 0.16), transparent 70%),
+        #efe3d1;
+    min-height: 240px;
+}
+.shop-hero-inner { padding: 44px 44px; }
+.hero-eyebrow { color: var(--color-accent-2); letter-spacing: 0.18em; }
+.shop-hero h1 { font-size: 2.5rem; }
+
+.filter-pill { background: transparent; border-color: var(--color-border-strong); color: var(--color-text); }
+.filter-pill.active { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
+
+.product-card { border-color: var(--color-border); }
+.product-card-image img, .image-placeholder { height: 210px; }
+.category-badge { background: var(--color-accent-2-soft); color: var(--color-accent-2); }
+.product-card h3 { font-family: var(--font-serif); font-size: 1.12rem; }
+.price { color: var(--color-accent); }
+
+.btn-primary { border-radius: 999px; padding: 12px 26px; }
+.btn-primary:hover { background: #8e3f20; }
+.btn-secondary { border-radius: 999px; background: transparent; }
+form input, form select, .wysiwyg { border-radius: 10px; border-color: var(--color-border-strong); background: #fffdf9; }
+
+.order-summary { border-top: 3px solid var(--color-accent); }
+.status-badge[data-status="approved"], .status-badge[data-status="paid"], .status-badge[data-status="completed"] {
+    color: var(--color-accent-2); background: var(--color-accent-2-soft); border-color: var(--color-border-violet);
+}
+.msg { background: var(--color-accent-soft); border-color: rgba(169, 79, 42, 0.3); }
+
+.site-footer { background: #efe3d1; border-top: 0; }
+.footer-nav { border-bottom-color: var(--color-border-strong); }
+.footer-nav a { font-family: var(--font-serif); }

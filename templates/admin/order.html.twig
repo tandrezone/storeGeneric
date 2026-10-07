@@ -1,0 +1,86 @@
+{% extends 'layout/admin.html.twig' %}
+
+{% set title = 'Order ' ~ order.order_number %}
+{% set active_nav = 'orders' %}
+
+{% block content %}
+<p><a href="{{ path('admin.orders') }}" class="btn-secondary">&larr; Back to orders</a></p>
+
+<h1>
+    {{ order.order_number }}
+    <span class="status-badge" data-status="{{ order.status }}">{{ order.status }}</span>
+    <span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status }}</span>
+</h1>
+<p style="color: var(--color-muted);">Placed {{ order.created_at }}</p>
+
+<div class="grid-2">
+    <div class="panel">
+        <h2>Items</h2>
+        <ul class="order-items-list">
+            {% for item in order.items %}
+                <li>
+                    <span>{{ item.product_name }} — {{ (item.label ~ ' ' ~ item.unit)|trim }} &times; {{ item.quantity }}</span>
+                    <span>{{ item.line_total|money }}</span>
+                </li>
+            {% endfor %}
+        </ul>
+        <p style="display: flex; justify-content: space-between; margin-top: 16px;">
+            <span>Subtotal</span><span>{{ order.subtotal|money }}</span>
+        </p>
+        <p style="display: flex; justify-content: space-between;">
+            <span>Shipping ({{ order.shipping_label ?: order.shipping_method }})</span><span>{{ order.shipping_cost|money }}</span>
+        </p>
+        <p style="display: flex; justify-content: space-between;" class="order-total">
+            <span>Total</span><span>{{ order.total|money }}</span>
+        </p>
+    </div>
+
+    <div>
+        <div class="panel">
+            <h2>Customer</h2>
+            <div class="address-block">
+                <span class="label">Contact</span><br>
+                {{ order.email }}<br>
+                {{ order.phone ?? '—' }}
+                <br><br>
+                <span class="label">Shipping address</span><br>
+                {{ order.ship_name }}<br>
+                {{ order.ship_address1 }}<br>
+                {% if order.ship_address2 %}{{ order.ship_address2 }}<br>{% endif %}
+                {{ order.ship_city }}{{ order.ship_state ? ', ' ~ order.ship_state }} {{ order.ship_postal_code }}<br>
+                {{ order.ship_country }}
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Payment</h2>
+            <p>
+                Method: <strong>{{ payment_label }}</strong><br>
+                Status: <span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status }}</span>
+            </p>
+            {% if order.payment_status != 'paid' %}
+                <form method="post" action="{{ path('admin.order.submit', {id: order.id}) }}" data-confirm="Mark this order as paid? Stock will be reduced.">
+                    {{ csrf_field() }}
+                    <input type="hidden" name="action" value="mark_paid">
+                    <button type="submit" class="btn-secondary">Mark as paid</button>
+                    <p class="field-hint">For bank transfers and cash on delivery, once the money has arrived.</p>
+                </form>
+            {% endif %}
+        </div>
+
+        <div class="panel">
+            <h2>Update status</h2>
+            <form method="post" action="{{ path('admin.order.submit', {id: order.id}) }}">
+                {{ csrf_field() }}
+                <input type="hidden" name="action" value="set_status">
+                <select name="status" class="status-select" style="width: 100%; margin-bottom: 12px;">
+                    {% for status in statuses %}
+                        <option value="{{ status }}" {{ order.status == status ? 'selected' }}>{{ status|capitalize }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn-primary">Save status</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,2 @@
+# Shell scripts must keep LF endings, even when cloned on Windows (WSL runs them).
+*.sh text eol=lf

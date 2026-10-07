@@ -1,0 +1,49 @@
+{% extends 'layout/admin.html.twig' %}
+
+{% set title = 'Admin — Orders' %}
+{% set active_nav = 'orders' %}
+
+{% block content %}
+<h1>Orders</h1>
+
+<div class="filters">
+    <a href="{{ path('admin.orders') }}" class="filter-pill {{ status_filter is null ? 'active' }}">All</a>
+    {% for status in statuses %}
+        <a href="{{ path('admin.orders', {}, {status: status}) }}" class="filter-pill {{ status_filter == status ? 'active' }}">{{ status|capitalize }}</a>
+    {% endfor %}
+</div>
+
+<table class="cart-table">
+    <thead>
+        <tr>
+            <th>Order #</th>
+            <th>Customer</th>
+            <th>Status</th>
+            <th>Payment</th>
+            <th>Method</th>
+            <th>Total</th>
+            <th>Placed</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for order in orders %}
+            <tr>
+                <td>{{ order.order_number }}</td>
+                <td>
+                    {{ order.ship_name }}<br>
+                    <span style="color: var(--color-muted); font-size: 0.85rem;">{{ order.email }}</span>
+                </td>
+                <td><span class="status-badge" data-status="{{ order.status }}">{{ order.status }}</span></td>
+                <td><span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status }}</span></td>
+                <td style="font-size: 0.85rem;">{{ payment_labels[order.payment_method] ?? order.payment_method }}</td>
+                <td>{{ order.total|money }}</td>
+                <td style="color: var(--color-muted); font-size: 0.85rem;">{{ order.created_at }}</td>
+                <td><a href="{{ path('admin.order', {id: order.id}) }}" class="btn-secondary">Open</a></td>
+            </tr>
+        {% else %}
+            <tr><td colspan="8" style="color: var(--color-muted);">No orders found.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
