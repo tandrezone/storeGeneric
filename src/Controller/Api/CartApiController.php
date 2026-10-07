@@ -37,7 +37,11 @@ final class CartApiController
 
         try {
             match ((string) ($body['action'] ?? '')) {
-                'add' => $this->cart->add($this->checkStock($variantId, max(1, $quantity)), max(1, $quantity)),
+                // What's already in the cart counts towards the stock limit.
+                'add' => $this->cart->add(
+                    $this->checkStock($variantId, $this->cart->quantityOf($variantId) + max(1, $quantity)),
+                    max(1, $quantity)
+                ),
                 'update' => $this->cart->update($quantity > 0 ? $this->checkStock($variantId, $quantity) : $variantId, $quantity),
                 'remove' => $this->cart->remove($variantId),
                 default => throw new InvalidArgumentException('Unknown cart action.'),
@@ -49,13 +53,13 @@ final class CartApiController
         return $this->responder->json($this->state());
     }
 
-    /** Returns the variant id if it can be bought in this quantity. */
+    /** Returns the variant id if it can be bought in this (total) quantity. */
     private function checkStock(int $variantId, int $quantity): int
     {
         $variant = $this->variants->findAvailable($variantId)
             ?? throw new InvalidArgumentException('That option is not available.');
         if ((int) $variant['stock'] < $quantity) {
-            throw new InvalidArgumentException('Not enough stock available.');
+            throw new InvalidArgumentException('Not enough stock available — only ' . max(0, (int) $variant['stock']) . ' left.');
         }
 
         return $variantId;

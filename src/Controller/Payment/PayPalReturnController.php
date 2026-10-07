@@ -8,15 +8,18 @@ use App\Http\Responder;
 use App\Payment\Method\PayPalMethod;
 use App\Payment\PaymentRecorder;
 use App\Repository\OrderRepository;
+use App\Service\OrderLinks;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * PayPal sends the customer back here after approving (?order=<number>&token=<PayPal order id>).
- * The payment is captured server-side, checked against the order (reference
- * and amount), recorded, and the customer forwarded to the confirmation page.
+ * PayPal sends the customer back here after approving
+ * (?order=<number>&key=<order link key>&token=<PayPal order id>). The payment
+ * is captured server-side, checked against the order (reference here, amount
+ * and currency in PaymentRecorder), recorded, and the customer forwarded to
+ * the confirmation page.
  */
 final class PayPalReturnController
 {
@@ -25,6 +28,7 @@ final class PayPalReturnController
         private readonly PayPalMethod $payPal,
         private readonly OrderRepository $orders,
         private readonly PaymentRecorder $recorder,
+        private readonly OrderLinks $links,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -34,9 +38,14 @@ final class PayPalReturnController
         $query = $request->getQueryParams();
         $orderNumber = trim((string) ($query['order'] ?? ''));
         $paypalOrderId = trim((string) ($query['token'] ?? ''));
-        $confirmation = $this->responder->redirectToRoute('order.confirmation', [], ['order' => $orderNumber]);
 
-        $order = $orderNumber !== '' ? $this->orders->findByNumber($orderNumber) : null;
+        // The key proves the link came from our checkout; without it, don't reveal anything.
+        if (!$this->links->canView($orderNumber, (string) ($query['key'] ?? ''))) {
+            return $this->responder->redirectToRoute('order.confirmation');
+        }
+        $confirmation = $this->responder->redirect($this->links->confirmationPath($orderNumber));
+
+        $order = $this->orders->findByNumber($orderNumber);
         if ($order === null || $paypalOrderId === '' || $order['payment_method'] !== 'paypal' || $order['payment_status'] === 'paid') {
             return $confirmation;
         }
@@ -46,9 +55,13 @@ final class PayPalReturnController
             $unit = $capture['purchase_units'][0] ?? [];
             $payment = $unit['payments']['captures'][0] ?? [];
             $belongs = ($unit['reference_id'] ?? '') === $orderNumber || ($payment['custom_id'] ?? '') === $orderNumber;
-            $amount = (float) ($payment['amount']['value'] ?? 0);
+            if (!$belongs) {
+                $this->logger->warning('PayPal capture does not belong to the order', ['order' => $orderNumber, 'paypal_order' => $paypalOrderId]);
 
-            $status = ($capture['status'] ?? '') === 'COMPLETED' && $belongs && $amount + 0.001 >= (float) $order['total']
+                return $confirmation;
+            }
+
+            $status = ($capture['status'] ?? '') === 'COMPLETED'
                 ? (($payment['status'] ?? '') === 'COMPLETED' ? 'paid' : 'paying')
                 : 'failed';
 
@@ -57,7 +70,7 @@ final class PayPalReturnController
                 'paypal',
                 $status,
                 (string) ($payment['id'] ?? $paypalOrderId),
-                $amount ?: null,
+                isset($payment['amount']['value']) ? (float) $payment['amount']['value'] : null,
                 (string) ($payment['amount']['currency_code'] ?? ''),
                 (string) json_encode($capture)
             );

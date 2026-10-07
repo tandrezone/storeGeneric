@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure;
 
 use App\Support\Config;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 
 /**
@@ -20,8 +21,13 @@ final class GeminiClient
 {
     private const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 
-    public function __construct(private readonly Config $config)
-    {
+    /** Seconds to wait for the TCP/TLS connection before giving up. */
+    private const CONNECT_TIMEOUT = 5;
+
+    public function __construct(
+        private readonly Config $config,
+        private readonly LoggerInterface $logger,
+    ) {
     }
 
     /**
@@ -55,6 +61,7 @@ final class GeminiClient
                 'x-goog-api-key: ' . $apiKey,
             ],
             CURLOPT_POSTFIELDS     => json_encode($payload),
+            CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT,
             CURLOPT_TIMEOUT        => 30,
         ]);
 
@@ -69,7 +76,7 @@ final class GeminiClient
 
         $decoded = json_decode($response, true);
         if ($httpCode >= 400 || !is_array($decoded)) {
-            throw new RuntimeException('Gemini returned an unexpected response (HTTP ' . $httpCode . '): ' . $response);
+            throw $this->unexpectedResponse((int) $httpCode, (string) $response);
         }
 
         return (string) ($decoded['candidates'][0]['content']['parts'][0]['text'] ?? '');
@@ -112,6 +119,7 @@ final class GeminiClient
                 'x-goog-api-key: ' . $apiKey,
             ],
             CURLOPT_POSTFIELDS     => json_encode($payload),
+            CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT,
             CURLOPT_TIMEOUT        => 60,
         ]);
 
@@ -126,7 +134,7 @@ final class GeminiClient
 
         $decoded = json_decode($response, true);
         if ($httpCode >= 400 || !is_array($decoded)) {
-            throw new RuntimeException('Gemini returned an unexpected response (HTTP ' . $httpCode . '): ' . $response);
+            throw $this->unexpectedResponse((int) $httpCode, (string) $response);
         }
 
         $parts = $decoded['candidates'][0]['content']['parts'] ?? [];
@@ -186,6 +194,7 @@ final class GeminiClient
                 'x-goog-api-key: ' . $apiKey,
             ],
             CURLOPT_POSTFIELDS     => json_encode($payload),
+            CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT,
             CURLOPT_TIMEOUT        => 30,
         ]);
 
@@ -200,7 +209,7 @@ final class GeminiClient
 
         $decoded = json_decode($response, true);
         if ($httpCode >= 400 || !is_array($decoded)) {
-            throw new RuntimeException('Gemini returned an unexpected response (HTTP ' . $httpCode . '): ' . $response);
+            throw $this->unexpectedResponse((int) $httpCode, (string) $response);
         }
 
         $candidates = [];
@@ -225,5 +234,19 @@ final class GeminiClient
         }
 
         return null;
+    }
+
+    /**
+     * Logs the raw upstream body (it can echo request details) and returns a
+     * generic error that is safe to show in the admin.
+     */
+    private function unexpectedResponse(int $httpCode, string $response): RuntimeException
+    {
+        $this->logger->warning('Gemini returned an unexpected response', [
+            'http_code' => $httpCode,
+            'body'      => mb_substr($response, 0, 2000),
+        ]);
+
+        return new RuntimeException('The AI service returned an error (HTTP ' . $httpCode . '). Please try again later — details are in the log.');
     }
 }

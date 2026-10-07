@@ -28,6 +28,15 @@ final class Csrf
         return $token;
     }
 
+    /** Replaces the token (on login and logout), so a token seen before can't be reused. */
+    public function regenerate(): string
+    {
+        $token = bin2hex(random_bytes(32));
+        $this->session->set(self::SESSION_KEY, $token);
+
+        return $token;
+    }
+
     public function isValid(?string $submitted): bool
     {
         $token = $this->session->get(self::SESSION_KEY);

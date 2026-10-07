@@ -11,9 +11,11 @@ declare(strict_types=1);
 use App\Http\Middleware\ErrorHandlerMiddleware;
 use App\Http\RouteCollection;
 use App\Http\Router;
+use App\I18n\Translator;
 use App\Support\Config;
 use App\Support\Paths;
 use App\Theme\Theme;
+use App\View\TranslationExtension;
 use App\View\View;
 use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\RotatingFileHandler;
@@ -57,6 +59,10 @@ return [
         return $routes;
     },
     Router::class => autowire(),
+
+    // Catalogs in translations/<locale>.php; js-keys.php lists the strings scripts need.
+    Translator::class => autowire()->constructorParameter('directory', static fn (Paths $p) => $p->root . '/translations'),
+    TranslationExtension::class => autowire()->constructorParameter('jsKeysFile', static fn (Paths $p) => $p->root . '/translations/js-keys.php'),
 
     Theme::class => autowire()->constructorParameter('cacheDir', static fn (Paths $p) => $p->var('cache/twig/theme')),
     View::class => autowire()

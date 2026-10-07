@@ -8,13 +8,69 @@
 (function () {
     const CART_ENDPOINT = '/api/cart';
 
+    /** Translated text (i18n.js, loaded by the layout); the English text if it is missing. */
+    function __(key, params) {
+        if (window.StoreI18n) return window.StoreI18n.t(key, params);
+        return key.replace(/\{(\w+)\}/g, (m, name) => (params && name in params ? String(params[name]) : m));
+    }
+
+    function __n(key, count, params) {
+        if (window.StoreI18n) return window.StoreI18n.tn(key, count, params);
+        return __(key, Object.assign({ count: count }, params || {}));
+    }
+
     function notify(message, type) {
         if (window.AjaxNav) window.AjaxNav.toast(message, type);
         else if (type === 'error') alert(message);
     }
 
+    /** Polite screen-reader announcement (live region shared with ajax-nav.js). */
+    function announce(message) {
+        if (window.AjaxNav && window.AjaxNav.announce) {
+            window.AjaxNav.announce(message);
+            return;
+        }
+        let el = document.getElementById('a11y-announcer');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'a11y-announcer';
+            el.setAttribute('role', 'status');
+            el.setAttribute('aria-live', 'polite');
+            el.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;';
+            document.body.appendChild(el);
+        }
+        el.textContent = message;
+    }
+
+    function itemsText(count) {
+        return __n('{count} item', Number(count));
+    }
+
+    // Currency format comes from data-currency-* on the cart table (set server-side from STORE_CURRENCY).
+    function currencySpec() {
+        const el = document.querySelector('[data-currency-symbol]');
+        return {
+            symbol: el ? el.dataset.currencySymbol : '',
+            before: el ? el.dataset.currencyBefore === '1' : false,
+            decimals: el ? parseInt(el.dataset.currencyDecimals, 10) || 0 : 2,
+            decimal: (el && el.dataset.currencyDecimal) || '.',
+            group: (el && el.dataset.currencyGroup) || ',',
+        };
+    }
+
+    /** Bare number in the page's language ("1,234.50" / "1 234,50"), e.g. for #cart-total (the symbol sits outside it). */
     function formatMoney(value) {
-        return Number(value).toFixed(2);
+        const spec = currencySpec();
+        const parts = Number(value).toFixed(spec.decimals).split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, spec.group);
+        return parts.join(spec.decimal);
+    }
+
+    /** Number with the currency symbol on the right side. */
+    function formatPrice(value) {
+        const spec = currencySpec();
+        const amount = formatMoney(value);
+        return spec.before ? spec.symbol + amount : amount + spec.symbol;
     }
 
     function updateCartCount(count) {
@@ -41,7 +97,7 @@
         });
         const data = await response.json();
         if (!response.ok || !data.success) {
-            throw new Error(data.error || 'Something went wrong.');
+            throw new Error(data.error || __('Something went wrong.'));
         }
         return data;
     }
@@ -72,8 +128,11 @@
             const data = await cartRequest('add', { variant_id: variantId, quantity });
             updateCartCount(data.count);
             if (message) {
-                message.textContent = 'Added to cart.';
+                // #add-to-cart-message is a live region: screen readers read this out.
+                message.textContent = __('Added to cart. Your cart has {items}.', { items: itemsText(data.count) });
                 message.className = 'form-message success';
+            } else {
+                announce(__('Added to cart.'));
             }
         } catch (err) {
             if (message) {
@@ -100,10 +159,11 @@
             const item = data.items.find((i) => String(i.variant_id) === String(variantId));
             if (row && item) {
                 row.querySelector('.line-subtotal').textContent =
-                    formatMoney(item.price * item.quantity) + '€';
+                    formatPrice(item.price * item.quantity);
             } else if (row) {
                 row.remove(); // quantity dropped to 0 and was removed server-side
             }
+            announce(__('Cart updated: {items}, total {total}.', { items: itemsText(data.count), total: formatPrice(data.total) }));
             handleEmptyCart(data);
         } catch (err) {
             notify(err.message, 'error');
@@ -122,7 +182,16 @@
             const data = await cartRequest('remove', { variant_id: btn.dataset.variantId });
             updateCartCount(data.count);
             updateCartTotal(data.total);
-            btn.closest('tr').remove();
+            const row = btn.closest('tr');
+            const cartSection = row && row.closest('main');
+            row.remove();
+            announce(__('Item removed. Cart: {items}, total {total}.', { items: itemsText(data.count), total: formatPrice(data.total) }));
+            // The button that had focus is gone: keep keyboard users in the cart.
+            const next = cartSection && cartSection.querySelector('.cart-remove-btn, .cart-qty-input, h1');
+            if (next) {
+                if (next.tagName === 'H1' && !next.hasAttribute('tabindex')) next.setAttribute('tabindex', '-1');
+                next.focus();
+            }
             handleEmptyCart(data);
         } catch (err) {
             btn.disabled = false;
@@ -143,7 +212,10 @@
             function show(index) {
                 current = (index + slides.length) % slides.length;
                 slides.forEach((slide, i) => slide.classList.toggle('is-active', i === current));
-                thumbs.forEach((thumb, i) => thumb.classList.toggle('is-active', i === current));
+                thumbs.forEach((thumb, i) => {
+                    thumb.classList.toggle('is-active', i === current);
+                    thumb.setAttribute('aria-pressed', i === current ? 'true' : 'false');
+                });
             }
 
             thumbs.forEach((thumb) => {
@@ -157,8 +229,27 @@
         });
     }
 
+    /** Accessible names for cart controls whose markup has none (product name from the row). */
+    function labelCartControls(root) {
+        root.querySelectorAll('#cart-items-body tr').forEach((row) => {
+            const name = (row.querySelector('td a, td') || {}).textContent;
+            if (!name) return;
+            const qty = row.querySelector('.cart-qty-input:not([aria-label]):not([id])');
+            if (qty) qty.setAttribute('aria-label', __('Quantity of {name}', { name: name.trim() }));
+            const remove = row.querySelector('.cart-remove-btn:not([aria-label])');
+            if (remove) {
+                remove.setAttribute('aria-label', __('Remove {name} from cart', { name: name.trim() }));
+                if (!remove.getAttribute('type')) remove.setAttribute('type', 'button');
+            }
+        });
+    }
+
     initGalleries(document);
-    document.addEventListener('ajax:load', (e) => initGalleries(e.detail.main));
+    labelCartControls(document);
+    document.addEventListener('ajax:load', (e) => {
+        initGalleries(e.detail.main);
+        labelCartControls(e.detail.main);
+    });
 
     refreshCartCount();
 })();

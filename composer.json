@@ -28,6 +28,11 @@
             "App\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
     "repositories": [
         {
             "type": "vcs",
@@ -126,6 +131,10 @@
         "cs": "phpcs",
         "cs-fix": "php-cs-fixer fix",
         "analyse": "phpstan analyse",
+        "test": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php tests/run.php"
+        ],
         "serve": [
             "Composer\\Config::disableProcessTimeout",
             "php -S localhost:8000 -t public router.php"
@@ -135,6 +144,7 @@
         "cs": "Check PSR-12 (needs phpcs on PATH)",
         "cs-fix": "Fix code style (needs php-cs-fixer on PATH)",
         "analyse": "Static analysis (needs phpstan on PATH)",
+        "test": "Run tests/Unit and tests/Integration (integration needs TEST_DB_* — see README)",
         "serve": "Run the development server on http://localhost:8000"
     }
 }

@@ -1,9 +1,9 @@
 {# Banner at the top of the shop page, with a potted cactus and succulent beside the text. #}
 <section class="shop-hero">
     <div class="shop-hero-inner">
-        <span class="hero-eyebrow">Freshly potted</span>
-        <h1>Welcome to {{ store.name }}</h1>
-        <p>Cacti, succulents and green friends that thrive on sunshine and a little neglect.</p>
+        <span class="hero-eyebrow">{{ 'Freshly potted'|trans }}</span>
+        <h1>{{ 'Welcome to {store}'|trans({store: store.name}) }}</h1>
+        <p>{{ 'Cacti, succulents and green friends that thrive on sunshine and a little neglect.'|trans }}</p>
     </div>
     <svg class="hero-plants" viewBox="0 0 260 220" aria-hidden="true" focusable="false">
         <g class="hero-cactus">

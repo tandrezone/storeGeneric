@@ -48,7 +48,7 @@ final class BankTransferMethod extends AbstractPaymentMethod
             'Bank'           => $this->config->get('BANK_NAME'),
             'IBAN'           => $this->config->get('BANK_IBAN'),
             'BIC / SWIFT'    => $this->config->get('BANK_BIC'),
-            'Amount'         => number_format((float) $order['total'], 2) . ' ' . $this->currency(),
+            'Amount'         => $this->plainAmount((float) $order['total']),
             'Reference'      => (string) $order['order_number'],
         ];
 

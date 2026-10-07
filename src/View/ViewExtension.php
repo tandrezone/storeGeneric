@@ -6,6 +6,7 @@ namespace App\View;
 
 use App\Http\Router;
 use App\Http\Session;
+use App\I18n\Translator;
 use App\Security\Csrf;
 use App\Service\StoreSettings;
 use App\Theme\Theme;
@@ -21,7 +22,9 @@ use Twig\TwigFunction;
  *   theme_part('header', {...})     rendered theme layout part (sandboxed)
  *   csrf_field() / csrf_token()     form protection
  *   flashes()                       one-time messages queued with Session::flash()
- *   price|money                     "12.50€"
+ *   price|money                     "€12.50" / "12,50 €" in STORE_CURRENCY and the active language (App\Support\Money)
+ * Theme parts also get lang (<html lang>) and languages ([{code, name,
+ * html_lang, url, active}], links that switch the storefront language).
  */
 final class ViewExtension extends AbstractExtension implements GlobalsInterface
 {
@@ -31,6 +34,7 @@ final class ViewExtension extends AbstractExtension implements GlobalsInterface
         private readonly Csrf $csrf,
         private readonly Session $session,
         private readonly StoreSettings $store,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -49,7 +53,7 @@ final class ViewExtension extends AbstractExtension implements GlobalsInterface
     public function getFilters(): array
     {
         return [
-            new TwigFilter('money', static fn (float|int|string|null $amount): string => number_format((float) $amount, 2) . '€'),
+            new TwigFilter('money', fn (float|int|string|null $amount): string => \App\Support\Money::format((float) $amount, $this->store->currency(), $this->translator->intlLocale())),
         ];
     }
 
@@ -67,13 +71,41 @@ final class ViewExtension extends AbstractExtension implements GlobalsInterface
      */
     private function themePart(array $context, string $part, array $vars = []): string
     {
-        return $this->theme->render($part, $vars + [
+        $defaults = [
             'store'        => $this->store->toArray(),
             'theme'        => $this->theme->name(),
             'year'         => (int) date('Y'),
             'current_path' => $context['current_path'] ?? '/',
-            'csrf_token'   => $this->csrf->token(),
-        ]);
+            'lang'         => $this->translator->htmlLang(),
+            'languages'    => $this->languageLinks((string) ($context['current_path'] ?? '/')),
+        ];
+        // Only the built-in admin parts get the form token, never theme-provided parts.
+        if (Theme::isAdminPart($part)) {
+            $defaults['csrf_token'] = $this->csrf->token();
+        }
+
+        return $this->theme->render($part, $vars + $defaults);
+    }
+
+    /**
+     * Links to the current page in each language (?lang= sets the visitor's choice).
+     *
+     * @return list<array{code: string, name: string, html_lang: string, url: string, active: bool}>
+     */
+    private function languageLinks(string $path): array
+    {
+        $links = [];
+        foreach ($this->translator->languages() as $code => $name) {
+            $links[] = [
+                'code'      => $code,
+                'name'      => $name,
+                'html_lang' => $this->translator->htmlLang($code),
+                'url'       => $path . '?lang=' . rawurlencode($code),
+                'active'    => $code === $this->translator->locale(),
+            ];
+        }
+
+        return $links;
     }
 
     private function csrfField(): string

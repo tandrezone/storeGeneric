@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Payment;
 
 use App\Http\Router;
+use App\Service\OrderLinks;
 use App\Support\Config;
+use App\Support\Money;
 
 /**
  * Shared plumbing: reads PAYMENT_<ID>_ENABLED and the method's required
@@ -16,6 +18,7 @@ abstract class AbstractPaymentMethod implements PaymentMethod
     public function __construct(
         protected readonly Config $config,
         protected readonly Router $router,
+        protected readonly OrderLinks $links,
     ) {
     }
 
@@ -64,9 +67,10 @@ abstract class AbstractPaymentMethod implements PaymentMethod
         return rtrim($this->config->get('APP_URL', 'http://localhost'), '/') . $this->router->url($route, $params, $query);
     }
 
+    /** Absolute confirmation URL, signed so only the customer can open it. */
     protected function confirmationUrl(string $orderNumber): string
     {
-        return $this->absoluteUrl('order.confirmation', [], ['order' => $orderNumber]);
+        return $this->absoluteUrl('order.confirmation', [], $this->links->query($orderNumber));
     }
 
     protected function currency(): string
@@ -74,9 +78,15 @@ abstract class AbstractPaymentMethod implements PaymentMethod
         return strtoupper($this->config->get('STORE_CURRENCY', 'EUR'));
     }
 
-    /** Amount in the currency's smallest unit (cents). */
+    /** Amount in the currency's smallest unit (cents, or whole yen for JPY …). */
     protected function minorUnits(float $amount): int
     {
-        return (int) round($amount * 100);
+        return Money::toMinor($amount, $this->currency());
+    }
+
+    /** "12.50 EUR" / "1200 JPY" for payment instructions. */
+    protected function plainAmount(float $amount): string
+    {
+        return number_format($amount, Money::exponent($this->currency()), '.', '') . ' ' . $this->currency();
     }
 }

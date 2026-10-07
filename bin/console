@@ -18,8 +18,13 @@ $kernel = Kernel::boot($root);
 
 exit((new Application($kernel->container(), [
     Command\AddImageCommand::class,
+    Command\AdminUnlockCommand::class,
+    Command\AdminUserCommand::class,
+    Command\BackupDatabaseCommand::class,
     Command\CheckImageCommand::class,
+    Command\ExpireOrdersCommand::class,
     Command\HashPasswordCommand::class,
     Command\RegenerateImagesCommand::class,
     Command\ReimportDatabaseCommand::class,
-]))->run($argv));
+    Command\RestoreDatabaseCommand::class,
+]))->run($_SERVER['argv'] ?? []));

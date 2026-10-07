@@ -7,6 +7,9 @@ namespace App\Repository;
 /** Carts are keyed by the visitor's session id; one cart per session. */
 final class CartRepository extends Repository
 {
+    /** SQL condition (aliases v, p): the line can still be bought. */
+    private const AVAILABLE = "(v.is_active = 1 AND v.price > 0 AND p.is_active = 1 AND p.import_status = 'approved')";
+
     /** Id of the session's cart, creating it on first use. */
     public function idForSession(string $sessionId): int
     {
@@ -42,19 +45,53 @@ final class CartRepository extends Repository
         $this->run('DELETE FROM cart_items WHERE cart_id = :cart_id AND variant_id = :variant_id', ['cart_id' => $cartId, 'variant_id' => $variantId]);
     }
 
-    /** @return list<array<string, mixed>> lines joined with variant and product details */
+    /**
+     * Lines joined with variant and product details. Lines whose variant or
+     * product is hidden (inactive, not approved) or unpriced are left out;
+     * removeUnavailable() deletes them.
+     *
+     * @return list<array<string, mixed>>
+     */
     public function items(int $cartId): array
     {
         return $this->all('
             SELECT ci.variant_id, ci.quantity,
-                   v.sku, v.label, v.unit, v.price, IF(v.price <= 0, 0, v.stock) AS stock,
+                   v.sku, v.label, v.unit, v.price, v.stock,
                    p.id AS product_id, p.name AS product_name, p.image_path
             FROM cart_items ci
             JOIN product_variants v ON v.id = ci.variant_id
             JOIN products p ON p.id = v.product_id
-            WHERE ci.cart_id = :cart_id
+            WHERE ci.cart_id = :cart_id AND ' . self::AVAILABLE . '
             ORDER BY ci.id ASC
         ', ['cart_id' => $cartId]);
+    }
+
+    /** @return list<string> names of the products whose lines were removed */
+    public function removeUnavailable(int $cartId): array
+    {
+        $names = array_column($this->all('
+            SELECT p.name
+            FROM cart_items ci
+            JOIN product_variants v ON v.id = ci.variant_id
+            JOIN products p ON p.id = v.product_id
+            WHERE ci.cart_id = :cart_id AND NOT ' . self::AVAILABLE, ['cart_id' => $cartId]), 'name');
+        if ($names !== []) {
+            $this->run('
+                DELETE ci FROM cart_items ci
+                JOIN product_variants v ON v.id = ci.variant_id
+                JOIN products p ON p.id = v.product_id
+                WHERE ci.cart_id = :cart_id AND NOT ' . self::AVAILABLE, ['cart_id' => $cartId]);
+        }
+
+        return array_values(array_unique(array_map('strval', $names)));
+    }
+
+    public function quantity(int $cartId, int $variantId): int
+    {
+        return (int) $this->value(
+            'SELECT quantity FROM cart_items WHERE cart_id = :cart_id AND variant_id = :variant_id',
+            ['cart_id' => $cartId, 'variant_id' => $variantId]
+        );
     }
 
     public function clear(int $cartId): void

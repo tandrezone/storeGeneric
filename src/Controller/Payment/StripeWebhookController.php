@@ -8,6 +8,7 @@ use App\Http\Responder;
 use App\Payment\Method\StripeMethod;
 use App\Payment\PaymentRecorder;
 use App\Support\Config;
+use App\Support\Money;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -54,7 +55,7 @@ final class StripeWebhookController
                 'stripe',
                 $status,
                 (string) ($session['payment_intent'] ?? $session['id'] ?? ''),
-                isset($session['amount_total']) ? $session['amount_total'] / 100 : null,
+                isset($session['amount_total']) ? Money::fromMinor((int) $session['amount_total'], (string) ($session['currency'] ?? '')) : null,
                 strtoupper((string) ($session['currency'] ?? '')),
                 $raw
             );

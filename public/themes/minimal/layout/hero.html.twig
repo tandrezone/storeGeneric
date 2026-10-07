@@ -1,8 +1,8 @@
 {# Banner at the top of the shop page. #}
 <section class="shop-hero">
     <div class="shop-hero-inner">
-        <span class="hero-eyebrow">The collection</span>
-        <h1>Less, but better.</h1>
-        <p>A considered selection from {{ store.name }}.</p>
+        <span class="hero-eyebrow">{{ 'The collection'|trans }}</span>
+        <h1>{{ 'Less, but better.'|trans }}</h1>
+        <p>{{ 'A considered selection from {store}.'|trans({store: store.name}) }}</p>
     </div>
 </section>

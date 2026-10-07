@@ -1,0 +1,18 @@
+{% autoescape false %}
+{% for item in order.items %}
+- {{ item.product_name }}{% if (item.label ~ ' ' ~ item.unit)|trim %} — {{ (item.label ~ ' ' ~ item.unit)|trim }}{% endif %} x {{ item.quantity }}: {{ item.line_total|money }}
+{% endfor %}
+
+Subtotal: {{ order.subtotal|money }}
+Shipping ({{ order.shipping_label ?: order.shipping_method }}): {{ order.shipping_cost|money }}
+{% if order.discount_amount|default(0) > 0 %}
+Discount{% if order.coupon_code %} ({{ order.coupon_code }}){% endif %}: -{{ order.discount_amount|money }}
+{% endif %}
+{% if order.tax_amount|default(0) > 0 and not order.prices_include_tax %}
+VAT ({{ order.tax_rate * 1 }}%): {{ order.tax_amount|money }}
+{% endif %}
+Total: {{ order.total|money }}
+{% if order.tax_amount|default(0) > 0 and order.prices_include_tax %}
+Includes VAT ({{ order.tax_rate * 1 }}%): {{ order.tax_amount|money }}
+{% endif %}
+{% endautoescape %}

@@ -1,0 +1,22 @@
+{% autoescape false %}
+Hi {{ order.ship_name }},
+
+{% if order.payment_status == 'paid' %}
+Thank you for your order! Your payment is confirmed and we're getting order {{ order.order_number }} ready.
+{% else %}
+Thank you for your order {{ order.order_number }}. Here's how to pay for it:
+{% endif %}
+{% if instructions_text %}
+
+{{ instructions_text }}
+{% endif %}
+
+{{ include('email/_items.txt.twig') }}
+Payment method: {{ payment_label }}
+
+Shipping to:
+{{ include('email/_address.txt.twig') }}
+View your order: {{ order_url }}
+
+{{ store_name }} — {{ store_email }}
+{% endautoescape %}

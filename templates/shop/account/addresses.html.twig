@@ -1,0 +1,77 @@
+{% extends 'layout/shop.html.twig' %}
+
+{% set title = 'Your addresses' %}
+{% set robots = 'noindex, nofollow' %}
+{% set account_nav = 'addresses' %}
+
+{#
+  Saved addresses. Every form posts to account.addresses.submit with an
+  `action` (create / update / delete / set_default) and the address `id`.
+  A rejected form comes back in `input` and its <details> is opened again.
+#}
+{% block content %}
+{% set failed_action = input.action ?? '' %}
+{% set failed_id = (input.id ?? 0) * 1 %}
+<section class="account-page">
+    <h1>Your addresses</h1>
+    {{ include('shop/account/_nav.html.twig') }}
+    {{ include('shop/account/_flashes.html.twig') }}
+
+    <p>The default address is filled in for you at checkout, where you can also pick any other saved one.</p>
+
+    {% if addresses is empty %}
+        <p>No saved addresses yet.</p>
+    {% endif %}
+
+    <div class="account-grid">
+        {% for address in addresses %}
+            {% set editing = failed_action == 'update' and failed_id == address.id %}
+            <div class="panel">
+                {{ include('shop/account/_address.html.twig') }}
+                <div class="account-actions">
+                    {% if not address.is_default %}
+                        <form method="post" action="{{ path('account.addresses.submit') }}">
+                            {{ csrf_field() }}
+                            <input type="hidden" name="action" value="set_default">
+                            <input type="hidden" name="id" value="{{ address.id }}">
+                            <button type="submit" class="btn-secondary">Make default</button>
+                        </form>
+                    {% endif %}
+                    <form method="post" action="{{ path('account.addresses.submit') }}">
+                        {{ csrf_field() }}
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="id" value="{{ address.id }}">
+                        <button type="submit" class="btn-danger">Delete</button>
+                    </form>
+                </div>
+                <details id="address-edit-{{ address.id }}" {{ editing ? 'open' }}>
+                    <summary>Edit</summary>
+                    <form method="post" action="{{ path('account.addresses.submit') }}" class="account-form">
+                        {{ csrf_field() }}
+                        <input type="hidden" name="action" value="update">
+                        <input type="hidden" name="id" value="{{ address.id }}">
+                        {{ include('shop/account/_address-fields.html.twig', {prefix: 'address-' ~ address.id, values: editing ? input : address}) }}
+                        {% if not address.is_default %}
+                            <label class="inline-check"><input type="checkbox" name="is_default" value="1"> Make this my default address</label>
+                        {% endif %}
+                        <button type="submit" class="btn-primary">Save address</button>
+                    </form>
+                </details>
+            </div>
+        {% endfor %}
+    </div>
+
+    <details id="address-new" class="panel" {{ failed_action == 'create' or addresses is empty ? 'open' }}>
+        <summary class="panel-summary">Add an address</summary>
+        <form method="post" action="{{ path('account.addresses.submit') }}" class="account-form">
+            {{ csrf_field() }}
+            <input type="hidden" name="action" value="create">
+            {{ include('shop/account/_address-fields.html.twig', {prefix: 'address-new', values: failed_action == 'create' ? input : {name: customer.name, phone: customer.phone}}) }}
+            {% if addresses is not empty %}
+                <label class="inline-check"><input type="checkbox" name="is_default" value="1" {{ (input.is_default ?? false) ? 'checked' }}> Make this my default address</label>
+            {% endif %}
+            <button type="submit" class="btn-primary">Save address</button>
+        </form>
+    </details>
+</section>
+{% endblock %}

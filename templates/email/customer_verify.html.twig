@@ -1,0 +1,14 @@
+{% extends 'email/_layout.html.twig' %}
+
+{% block body %}
+<p>Hi {{ name }},</p>
+{% if welcome %}
+    <p>Welcome to {{ store_name }} — your account is ready. Please confirm that this is your email address:</p>
+{% else %}
+    <p>Please confirm that you want to use this email address for your {{ store_name }} account:</p>
+{% endif %}
+<p><a href="{{ verify_url }}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;">Confirm my email</a></p>
+<p style="font-size:13px;color:#6b7280;">Or copy this link into your browser: {{ verify_url }}</p>
+<p>Once it's confirmed, orders you placed as a guest with this address appear in your account too. The link works once and expires in 7 days.</p>
+<p style="font-size:13px;color:#6b7280;">Didn't create an account? You can ignore this email.</p>
+{% endblock %}

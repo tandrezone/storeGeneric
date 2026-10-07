@@ -1,0 +1,20 @@
+{% extends 'email/_layout.html.twig' %}
+
+{% block body %}
+<p>Hi {{ order.ship_name }},</p>
+{% if order.payment_status == 'paid' %}
+    <p>Thank you for your order! Your payment is confirmed and we're getting order <strong>{{ order.order_number }}</strong> ready.</p>
+{% else %}
+    <p>Thank you for your order <strong>{{ order.order_number }}</strong>. Here's how to pay for it:</p>
+{% endif %}
+
+{% if instructions_html %}
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:12px 16px;margin:16px 0;">{{ instructions_html|raw }}</div>
+{% endif %}
+
+{{ include('email/_items.html.twig') }}
+<p style="font-size:14px;">Payment method: {{ payment_label }}</p>
+{{ include('email/_address.html.twig') }}
+
+<p><a href="{{ order_url }}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;">View your order</a></p>
+{% endblock %}

@@ -37,7 +37,7 @@ final class CashOnDeliveryMethod extends AbstractPaymentMethod
         $note = $this->config->get('COD_NOTE', 'Please have the exact amount ready when the courier arrives.');
 
         return '<h2>Cash on delivery</h2><p>You\'ll pay <strong>'
-            . htmlspecialchars(number_format((float) $order['total'], 2) . ' ' . $this->currency())
+            . htmlspecialchars($this->plainAmount((float) $order['total']))
             . '</strong> on delivery. ' . htmlspecialchars($note) . '</p>';
     }
 }

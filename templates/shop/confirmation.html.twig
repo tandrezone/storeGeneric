@@ -5,23 +5,35 @@
 {% block content %}
 <section class="confirmation-page">
     {% if order %}
-        <h1>Thank you, your order is on its way to being processed.</h1>
-        <p>Order number: <strong>{{ order.order_number }}</strong></p>
-        <p>Payment method: <strong>{{ payment_label }}</strong></p>
-        <p>Payment status: <strong>{{ order.payment_status }}</strong></p>
-        <p>A confirmation will be sent to {{ order.email }} once payment is confirmed.</p>
-        {% if payment_instructions and order.payment_status != 'paid' %}
+        {% if order.status == 'cancelled' %}
+            <h1>This order was cancelled.</h1>
+            <p>The payment didn't go through, so nothing was charged. You're welcome to place the order again.</p>
+        {% else %}
+            <h1>Thank you, your order is on its way to being processed.</h1>
+            {% if order.payment_status == 'paid' %}
+                <p>Your payment is confirmed. A confirmation has been sent to {{ order.email }}.</p>
+            {% else %}
+                <p>A confirmation will be sent to {{ order.email }} once payment is confirmed.</p>
+            {% endif %}
+        {% endif %}
+
+        {% if payment_instructions and order.payment_status not in ['paid', 'refunded'] and order.status != 'cancelled' %}
             <div class="panel payment-instructions">{{ payment_instructions|raw }}</div>
-        {% elseif order.payment_status != 'paid' %}
+        {% elseif order.payment_status in ['unpaid', 'paying'] and order.status != 'cancelled' %}
             <p class="field-hint">
-                It can take a minute for the payment confirmation to arrive. Refresh this page
-                or check your order status using the order number and email above.
+                It can take a minute for the payment confirmation to arrive. Refresh this page,
+                or check later with the link below.
             </p>
         {% endif %}
+
+        {{ include('shop/_order-details.html.twig') }}
+
+        <p>Bookmark this page to check your order later: <a href="{{ track_url }}">track your order</a>.</p>
     {% else %}
         <h1>Order received</h1>
-        <p>We couldn't find that order number, but if you just completed payment, it will be
-           confirmed shortly. Keep your order number handy to check its status.</p>
+        <p>If you just completed payment, it will be confirmed shortly and you'll get an email.
+           You can check the status any time with your order number and email on the
+           <a href="{{ path('order.track') }}">order status page</a>.</p>
     {% endif %}
 
     <p><a href="{{ path('home') }}">Continue shopping</a></p>

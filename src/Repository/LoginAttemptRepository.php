@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repository;
 
-/** Failed admin logins per IP, for brute-force throttling. */
+/** Admin login attempts per IP and per username, for brute-force throttling. */
 final class LoginAttemptRepository extends Repository
 {
     public function countRecent(string $ip, int $minutes): int
@@ -15,13 +15,48 @@ final class LoginAttemptRepository extends Repository
         );
     }
 
-    public function record(string $ip): void
+    public function countRecentForUsername(string $username, int $minutes): int
     {
-        $this->run('INSERT INTO login_attempts (ip_address) VALUES (:ip)', ['ip' => $ip]);
+        return (int) $this->value(
+            'SELECT COUNT(*) FROM login_attempts WHERE username = :username AND created_at > (NOW() - INTERVAL :minutes MINUTE)',
+            ['username' => self::normalize($username), 'minutes' => $minutes]
+        );
     }
 
-    public function clear(string $ip): void
+    /** Recorded before the password is checked, so parallel guesses all count. */
+    public function record(string $ip, string $username = ''): void
     {
-        $this->run('DELETE FROM login_attempts WHERE ip_address = :ip', ['ip' => $ip]);
+        $this->run('INSERT INTO login_attempts (ip_address, username) VALUES (:ip, :username)', [
+            'ip'       => substr($ip, 0, 45),
+            'username' => $username === '' ? null : self::normalize($username),
+        ]);
+    }
+
+    /** Forgets the attempts of an IP and of a username (after a successful login). */
+    public function clear(string $ip, string $username = ''): void
+    {
+        $this->run('DELETE FROM login_attempts WHERE ip_address = :ip OR username = :username', [
+            'ip'       => $ip,
+            'username' => self::normalize($username),
+        ]);
+    }
+
+    /** Forgets every attempt for $username (bin/console admin:unlock); returns how many. */
+    public function clearUsername(string $username): int
+    {
+        return $this->run('DELETE FROM login_attempts WHERE username = :username', [
+            'username' => self::normalize($username),
+        ])->rowCount();
+    }
+
+    /** Forgets every attempt from $ip (bin/console admin:unlock --ip); returns how many. */
+    public function clearIp(string $ip): int
+    {
+        return $this->run('DELETE FROM login_attempts WHERE ip_address = :ip', ['ip' => $ip])->rowCount();
+    }
+
+    private static function normalize(string $username): string
+    {
+        return mb_substr(mb_strtolower($username), 0, 190);
     }
 }

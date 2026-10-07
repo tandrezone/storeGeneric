@@ -1,0 +1,39 @@
+{# Order status, items and tracking — shared by the confirmation and track-order pages. #}
+<div class="panel order-details">
+    <p>
+        Order number: <strong>{{ order.order_number }}</strong><br>
+        Placed: {{ order.created_at|date('j M Y') }}<br>
+        Status: <span class="status-badge" data-status="{{ order.status }}">{{ order.status }}</span>
+        &nbsp;Payment: <span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status }}</span>
+        {% if payment_label %}({{ payment_label }}){% endif %}
+    </p>
+
+    {% if order.status in ['shipped', 'completed'] and (order.tracking_number or order.carrier) %}
+        <p>
+            Shipped{% if order.shipped_at %} on {{ order.shipped_at|date('j M Y') }}{% endif %}
+            {% if order.carrier %} with <strong>{{ order.carrier }}</strong>{% endif %}.
+            {% if order.tracking_number %}<br>Tracking number: <strong>{{ order.tracking_number }}</strong>{% endif %}
+        </p>
+    {% endif %}
+
+    <ul class="order-items-list">
+        {% for item in order.items %}
+            <li>
+                <span>{{ item.product_name }}{% if (item.label ~ ' ' ~ item.unit)|trim %} — {{ (item.label ~ ' ' ~ item.unit)|trim }}{% endif %} &times; {{ item.quantity }}</span>
+                <span>{{ item.line_total|money }}</span>
+            </li>
+        {% endfor %}
+    </ul>
+    <p class="order-subtotal"><span>Subtotal</span> <span>{{ order.subtotal|money }}</span></p>
+    <p class="order-shipping"><span>Shipping ({{ order.shipping_label ?: order.shipping_method }})</span> <span>{{ order.shipping_cost|money }}</span></p>
+    {% if order.discount_amount|default(0) > 0 %}
+        <p class="order-discount"><span>Discount{% if order.coupon_code %} ({{ order.coupon_code }}){% endif %}</span> <span>−{{ order.discount_amount|money }}</span></p>
+    {% endif %}
+    {% if order.tax_amount|default(0) > 0 and not order.prices_include_tax %}
+        <p class="order-tax"><span>VAT ({{ order.tax_rate * 1 }}%)</span> <span>{{ order.tax_amount|money }}</span></p>
+    {% endif %}
+    <p class="order-total"><span>Total</span> <span>{{ order.total|money }}</span></p>
+    {% if order.tax_amount|default(0) > 0 and order.prices_include_tax %}
+        <p class="order-tax-included"><span>Includes VAT ({{ order.tax_rate * 1 }}%)</span> <span>{{ order.tax_amount|money }}</span></p>
+    {% endif %}
+</div>

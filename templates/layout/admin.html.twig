@@ -1,21 +1,40 @@
 {#
   Base layout for admin views. `active_nav` (set by each view) highlights
   the current menu item; the header/footer come from the theme.
+  `role` is the lowest admin role that can open the page (see config/routes.php);
+  items without one need 'manager'. Items the admin can't open are hidden.
+  The admin works in the logged-in user's language (Admin → My account).
 #}
 {% set menu = [
-    {key: 'products',   label: 'Products',   route: 'admin.products'},
-    {key: 'categories', label: 'Categories', route: 'admin.categories'},
-    {key: 'orders',     label: 'Orders',     route: 'admin.orders'},
-    {key: 'shipping',   label: 'Shipping',   route: 'admin.shipping'},
-    {key: 'analytics',  label: 'Analytics',  route: 'admin.analytics'},
-    {key: 'settings',   label: 'Settings',   route: 'admin.settings'},
+    {key: 'dashboard',  label: 'Dashboard'|trans,  route: 'admin.dashboard', role: 'staff'},
+    {key: 'products',   label: 'Products'|trans,   route: 'admin.products', role: 'staff'},
+    {key: 'categories', label: 'Categories'|trans, route: 'admin.categories', role: 'staff'},
+    {key: 'orders',     label: 'Orders'|trans,     route: 'admin.orders', role: 'staff'},
+    {key: 'customers',  label: 'Customers'|trans,  route: 'admin.customers'},
+    {key: 'shipping',   label: 'Shipping'|trans,   route: 'admin.shipping'},
+    {key: 'discounts',  label: 'Discounts'|trans,  route: 'admin.discounts'},
+    {key: 'analytics',  label: 'Analytics'|trans,  route: 'admin.analytics'},
+    {key: 'activity',   label: 'Activity'|trans,   route: 'admin.activity'},
+    {key: 'users',      label: 'Users'|trans,      route: 'admin.users', role: 'owner'},
+    {key: 'settings',   label: 'Settings'|trans,   route: 'admin.settings', role: 'owner'},
 ] %}
+{% set menu = menu|filter(item => admin_can(item.role ?? 'manager')) %}
+{% set current_admin = admin_user() %}
 {% set active_nav = active_nav|default(null) %}
 {{ theme_part('admin-header', {
-    page_title: title|default('Admin'),
+    page_title: title|default('Admin'|trans),
+    lang: html_lang(),
     active_nav: active_nav,
     admin_nav: menu|map(item => item|merge({url: path(item.route), active: item.key == active_nav})),
+    admin_account: current_admin ? {
+        username: current_admin.username,
+        role: current_admin.role,
+        role_label: current_admin.role|capitalize|trans,
+        url: path('admin.account'),
+        active: active_nav == 'account',
+    } : null,
 }) }}
+<script src="/assets/js/i18n.js" data-i18n="{{ i18n_js() }}" data-locale="{{ html_lang() }}"></script>
 <script src="/assets/js/admin-common.js"></script>
 {% for flash in flashes() %}
     <p class="msg {{ flash.type == 'error' ? 'error' : '' }}">{{ flash.message }}</p>

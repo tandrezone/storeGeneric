@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Theme;
 
 use App\Http\Router;
+use App\I18n\Translator;
 use App\Service\StoreSettings;
 use App\Support\Paths;
+use App\View\TranslationExtension;
 use Psr\Log\LoggerInterface;
 use Throwable;
 use Twig\Environment;
@@ -22,20 +24,28 @@ use Twig\TwigFunction;
  *
  * Themes live in public/themes/<slug>/:
  *   theme.json   name, description, author, version
- *   layout/      Twig parts: header, footer, hero, admin-header, admin-footer
- *                (*.html.twig) plus any partials they include
+ *   layout/      Twig parts: header, footer, hero (*.html.twig) plus any
+ *                partials they include. admin-header/admin-footer are always
+ *                rendered from the default theme.
  *   assets/      css/style.css plus the fonts/images it uses
  *
  * A theme only ships what it changes — missing parts and assets come from
  * the "default" theme. Parts run in Twig's sandbox (only the SANDBOX_*
  * tags/filters/functions, no PHP), so uploaded themes can't run code; a
  * part that fails to render falls back to the default theme's copy.
+ *
+ * Text in parts goes through the translator like application views:
+ * {{ 'Sign in'|trans }}, {{ '{count} item'|trans_plural(n) }}, t('…'); new
+ * strings need an entry in translations/<locale>.php (English text as key).
  */
 final class Theme
 {
     public const DEFAULT = 'default';
 
-    /** Parts a theme can override (file names without .html.twig). */
+    /**
+     * Layout parts (file names without .html.twig). Themes can override the
+     * storefront ones; admin-* always come from the default theme.
+     */
     public const PARTS = ['header', 'footer', 'hero', 'admin-header', 'admin-footer'];
 
     public const SANDBOX_TAGS = ['if', 'for', 'set', 'include', 'extends', 'block', 'embed', 'apply', 'with', 'verbatim', 'macro', 'import', 'from'];
@@ -43,8 +53,9 @@ final class Theme
         'escape', 'e', 'raw', 'upper', 'lower', 'title', 'capitalize', 'trim', 'default', 'length',
         'first', 'last', 'join', 'slice', 'split', 'replace', 'format', 'nl2br', 'striptags',
         'url_encode', 'number_format', 'date', 'abs', 'round', 'keys', 'merge', 'reverse', 'batch',
+        'trans', 'trans_plural', 'local_date', 'local_number',
     ];
-    public const SANDBOX_FUNCTIONS = ['asset', 'logo', 'path', 'include', 'block', 'parent', 'range', 'date', 'cycle'];
+    public const SANDBOX_FUNCTIONS = ['asset', 'logo', 'path', 'include', 'block', 'parent', 'range', 'date', 'cycle', 't', 't_plural'];
 
     private ?string $active = null;
     /** @var array<string, Environment> */
@@ -55,6 +66,7 @@ final class Theme
         private readonly StoreSettings $store,
         private readonly Router $router,
         private readonly LoggerInterface $logger,
+        private readonly Translator $translator,
         private readonly string $cacheDir,
     ) {
     }
@@ -120,6 +132,12 @@ final class Theme
     {
         $file = $part . '.html.twig';
 
+        // Admin pages hold the session's form token: never let a theme
+        // (possibly uploaded) render markup or scripts there.
+        if (self::isAdminPart($part)) {
+            return $this->environment(true)->render($file, $context);
+        }
+
         try {
             return $this->environment(false)->render($file, $context);
         } catch (TwigError $e) {
@@ -134,6 +152,12 @@ final class Theme
 
             return $this->environment(true)->render($file, $context);
         }
+    }
+
+    /** admin-header / admin-footer: always taken from the default theme. */
+    public static function isAdminPart(string $part): bool
+    {
+        return str_starts_with($part, 'admin-');
     }
 
     /**
@@ -166,11 +190,18 @@ final class Theme
             'page_title'   => 'Sample page',
             'active_nav'   => 'products',
             'admin_nav'    => [['key' => 'products', 'label' => 'Products', 'url' => '/admin/products', 'active' => true]],
-            'csrf_token'   => 'sample-token',
             'store'        => ['name' => 'Sample Store', 'email' => 'shop@example.com', 'logo_url' => null, 'currency' => 'EUR'],
             'theme'        => 'sample',
             'year'         => (int) date('Y'),
             'current_path' => '/',
+            'customer_name' => 'Sample Customer',
+            'lang'         => 'en',
+            'languages'    => [
+                ['code' => 'en', 'name' => 'English', 'html_lang' => 'en', 'url' => '/?lang=en', 'active' => true],
+                ['code' => 'pt', 'name' => 'Português', 'html_lang' => 'pt-PT', 'url' => '/?lang=pt', 'active' => false],
+            ],
+            'alternates'   => [['hreflang' => 'pt-PT', 'url' => 'https://shop.example/?lang=pt']],
+            'canonical'    => 'https://shop.example/',
         ];
     }
 
@@ -203,6 +234,12 @@ final class Theme
         $twig->addFunction(new TwigFunction('asset', $this->asset(...)));
         $twig->addFunction(new TwigFunction('logo', $this->logo(...), ['is_safe' => ['html']]));
         $twig->addFunction(new TwigFunction('path', $this->router->url(...)));
+        foreach (TranslationExtension::filters($this->translator) as $filter) {
+            $twig->addFilter($filter);
+        }
+        foreach (TranslationExtension::functions($this->translator) as $function) {
+            $twig->addFunction($function);
+        }
         $twig->addExtension(new SandboxExtension(
             new SecurityPolicy(self::SANDBOX_TAGS, self::SANDBOX_FILTERS, [], [], self::SANDBOX_FUNCTIONS),
             true

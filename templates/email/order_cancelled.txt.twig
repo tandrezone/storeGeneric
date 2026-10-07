@@ -1,0 +1,14 @@
+{% autoescape false %}
+Hi {{ order.ship_name }},
+
+{% if refunded %}
+Your order {{ order.order_number }} has been refunded. The amount of {{ order.total|money }} goes back to your original payment method ({{ payment_label }}); depending on your bank this can take a few days to show.
+{% else %}
+Your order {{ order.order_number }} has been cancelled. Nothing was charged for it.
+{% endif %}
+
+{{ include('email/_items.txt.twig') }}
+If you have any questions, just reply to this email.
+
+{{ store_name }} — {{ store_email }}
+{% endautoescape %}

@@ -1,14 +1,53 @@
 {% extends 'layout/shop.html.twig' %}
 
 {% set title = product.name %}
+{% set for_sale = variants|filter(v => v.price > 0) %}
+{% set in_stock = for_sale|filter(v => v.stock > 0) %}
+{% set total_stock = in_stock|reduce((sum, v) => sum + v.stock, 0) %}
+{% set lowest_price = for_sale is empty ? null : min(for_sale|map(v => v.price + 0)) %}
+{% set meta_description = (product.short_description ?: product.long_description|striptags)|slice(0, 155) %}
+{% set canonical = absolute_url(product_url(product)) %}
+{% set og_type = 'product' %}
+{% set og_image = absolute_url(images|first) %}
+{% set product_price = lowest_price is null ? null : lowest_price|number_format(2, '.', '') %}
 
 {% block content %}
+{% set offers = [] %}
+{% for variant in for_sale %}
+    {% set offers = offers|merge([{
+        '@type': 'Offer',
+        sku: variant.sku,
+        name: (variant.label ~ ' ' ~ variant.unit)|trim ?: product.name,
+        price: variant.price|number_format(2, '.', ''),
+        priceCurrency: store.currency,
+        availability: variant.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        itemCondition: 'https://schema.org/NewCondition',
+        url: canonical,
+    }]) %}
+{% endfor %}
+{{ json_ld({
+    '@type': 'Product',
+    name: product.name,
+    description: meta_description,
+    image: images|map(i => absolute_url(i)),
+    sku: for_sale is empty ? null : (for_sale|first).sku,
+    category: product.category_name,
+    url: canonical,
+    brand: {'@type': 'Brand', name: store.name},
+    offers: offers,
+}) }}
+
 <section class="product-detail">
     <div class="product-detail-image">
         <div class="product-gallery" data-gallery>
             <div class="product-gallery-main">
                 {% for image in images %}
-                    <img src="/{{ image }}" alt="{{ product.name }}"
+                    {% set size = image_size(image) %}
+                    <img src="{{ thumb(image, 800) }}" srcset="{{ srcset(image) }}"
+                         sizes="(max-width: 720px) 100vw, 530px"
+                         {% if size %}width="{{ size.width }}" height="{{ size.height }}"{% endif %}
+                         alt="{{ product.name }}{{ images|length > 1 ? ' — image ' ~ loop.index ~ ' of ' ~ images|length }}"
+                         {% if loop.first %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async"
                          class="gallery-slide{{ loop.first ? ' is-active' }}" data-index="{{ loop.index0 }}">
                 {% endfor %}
                 {% if images|length > 1 %}
@@ -19,8 +58,9 @@
             {% if images|length > 1 %}
                 <div class="product-gallery-thumbs">
                     {% for image in images %}
-                        <button type="button" class="gallery-thumb{{ loop.first ? ' is-active' }}" data-index="{{ loop.index0 }}">
-                            <img src="/{{ image }}" alt="">
+                        <button type="button" class="gallery-thumb{{ loop.first ? ' is-active' }}" data-index="{{ loop.index0 }}"
+                                aria-label="Show image {{ loop.index }} of {{ images|length }}" aria-pressed="{{ loop.first ? 'true' : 'false' }}">
+                            <img src="{{ thumb(image, 400) }}" alt="" width="64" height="64" loading="lazy" decoding="async">
                         </button>
                     {% endfor %}
                 </div>
@@ -29,26 +69,37 @@
     </div>
 
     <div class="product-detail-info">
-        <span class="category-badge">{{ product.category_name }}</span>
+        <span class="category-badge"><a href="{{ path('home', {}, {category: product.category_slug}) }}">{{ product.category_name }}</a></span>
         <h1>{{ product.name }}</h1>
         <p class="short-desc">{{ product.short_description }}</p>
 
+        {% if in_stock is empty %}
+            <p class="stock-status is-out">Out of stock</p>
+        {% elseif total_stock <= low_stock_threshold %}
+            <p class="stock-status is-low">Only {{ total_stock }} left</p>
+        {% else %}
+            <p class="stock-status is-in">In stock</p>
+        {% endif %}
+
         <form id="add-to-cart-form" data-no-ajax data-product-id="{{ product.id }}">
             <label for="variant-select">Choose an option</label>
-            <select id="variant-select" name="variant_id" required>
+            {% set first_available = in_stock is empty ? null : (in_stock|first).id %}
+            <select id="variant-select" name="variant_id" required {{ in_stock is empty ? 'disabled' }}>
                 {% for variant in variants %}
-                    <option value="{{ variant.id }}" data-price="{{ variant.price }}" {{ variant.stock <= 0 ? 'disabled' }}>
-                        {{ (variant.label ~ ' ' ~ variant.unit)|trim }} — {{ variant.price|money }}
-                        {{ variant.stock <= 0 ? '(out of stock)' }}
+                    <option value="{{ variant.id }}" data-price="{{ variant.price }}"
+                            {{ variant.stock <= 0 ? 'disabled' }} {{ variant.id == first_available ? 'selected' }}>
+                        {{ (variant.label ~ ' ' ~ variant.unit)|trim }}{{ variant.price > 0 ? ' — ' ~ variant.price|money }}
+                        {% if variant.stock <= 0 %}(out of stock){% elseif variant.stock <= low_stock_threshold %}(only {{ variant.stock }} left){% endif %}
                     </option>
                 {% endfor %}
             </select>
 
             <label for="quantity-input">Quantity</label>
-            <input type="number" id="quantity-input" name="quantity" value="1" min="1" required>
+            <input type="number" id="quantity-input" name="quantity" value="1" min="1" required {{ in_stock is empty ? 'disabled' }}>
 
-            <button type="submit" class="btn-primary">Add to cart</button>
-            <p id="add-to-cart-message" class="form-message" role="status"></p>
+            <button type="submit" class="btn-primary" {{ in_stock is empty ? 'disabled' }}
+                    aria-describedby="add-to-cart-message">{{ in_stock is empty ? 'Out of stock' : 'Add to cart' }}</button>
+            <p id="add-to-cart-message" class="form-message" role="status" aria-live="polite"></p>
         </form>
 
         <div class="long-description">
@@ -57,4 +108,15 @@
         </div>
     </div>
 </section>
+
+{% if related is not empty %}
+    <section class="related-products" aria-labelledby="related-heading">
+        <h2 id="related-heading">More from {{ product.category_name }}</h2>
+        <div class="product-grid">
+            {% for item in related %}
+                {% include 'shop/partials/product-card.html.twig' with {product: item} only %}
+            {% endfor %}
+        </div>
+    </section>
+{% endif %}
 {% endblock %}

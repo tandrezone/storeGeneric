@@ -54,7 +54,7 @@ MIGRATIONS_DIR="${APP_ROOT}/database/migrations"
 VERIFY_SCRIPT="${APP_ROOT}/verify-env.sh"
 # Directories the app writes to at runtime (relative to the project root):
 # images, uploaded themes, and var/ (Twig cache, logs, temporary uploads).
-WRITABLE_DIRS=(public/assets/images/generated public/assets/images/products public/assets/images/branding
+WRITABLE_DIRS=(public/assets/images/generated public/assets/images/products public/assets/images/branding public/assets/images/categories
                public/themes var var/cache var/log var/tmp)
 
 SITES_AVAILABLE="/etc/apache2/sites-available"

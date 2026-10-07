@@ -56,8 +56,68 @@
                 && !confirm('Delete ' + checked + ' selected product(s)? This cannot be undone.')) {
                 e.preventDefault();
             }
+            if (e.submitter && e.submitter.value === 'bulk_price') {
+                const mode = bulkForm.querySelector('[name="price_mode"]');
+                const value = bulkForm.querySelector('[name="price_value"]');
+                if (!value || value.value.trim() === '' || Number(value.value) < 0) {
+                    e.preventDefault();
+                    alert('Enter a price or an amount of 0 or more.');
+                    if (value) value.focus();
+                    return;
+                }
+                const label = mode ? mode.options[mode.selectedIndex].text : 'Change price';
+                if (!confirm(label + ' ' + value.value + ' for every variant of ' + checked + ' product(s)?')) {
+                    e.preventDefault();
+                }
+            }
         });
     }
+
+    // Drag and drop to reorder a product's images; the first one is the main
+    // image. On drop the new order is posted through the hidden form named
+    // by data-image-order-form (the arrow buttons work without JavaScript).
+    document.querySelectorAll('[data-image-order-form]').forEach((grid) => {
+        const form = document.getElementById(grid.dataset.imageOrderForm);
+        if (!form) return;
+        let dragged = null;
+
+        grid.addEventListener('dragstart', (e) => {
+            dragged = e.target.closest('.image-thumb');
+            if (!dragged) return;
+            dragged.classList.add('is-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', dragged.dataset.path || '');
+        });
+
+        grid.addEventListener('dragover', (e) => {
+            if (!dragged) return;
+            e.preventDefault();
+            const over = e.target.closest('.image-thumb');
+            if (!over || over === dragged) return;
+            const rect = over.getBoundingClientRect();
+            const after = (e.clientX - rect.left) > rect.width / 2;
+            over.parentNode.insertBefore(dragged, after ? over.nextSibling : over);
+        });
+
+        grid.addEventListener('dragend', () => {
+            if (dragged) dragged.classList.remove('is-dragging');
+            dragged = null;
+        });
+
+        grid.addEventListener('drop', (e) => {
+            e.preventDefault();
+            form.querySelectorAll('input[name="order[]"]').forEach((input) => input.remove());
+            grid.querySelectorAll('.image-thumb').forEach((thumb) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'order[]';
+                input.value = thumb.dataset.path || '';
+                form.appendChild(input);
+            });
+            if (form.requestSubmit) form.requestSubmit();
+            else form.submit();
+        });
+    });
 
     document.querySelectorAll('.magic-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -112,6 +172,7 @@
     function applyMagicField(productId, key, value) {
         const form = document.querySelector('#edit-' + productId + ' .edit-form');
         if (!form) return false;
+        let truncated = 0;
 
         if (key === 'long_description') {
             const editor = form.querySelector('[data-wysiwyg] .wysiwyg-editor');
@@ -120,12 +181,19 @@
         } else {
             const input = form.querySelector('[name="' + key + '"]');
             if (!input) return false;
-            input.value = value;
+            // Respect the column size (maxlength); the server rejects longer values.
+            const max = input.maxLength;
+            if (max > 0 && value.length > max) {
+                input.value = value.slice(0, max).trimEnd();
+                truncated = max;
+            } else {
+                input.value = value;
+            }
         }
 
         const row = document.getElementById('edit-' + productId);
         if (row.hidden) toggleRow(row.id, document.querySelector('.row-toggle[data-target="' + row.id + '"]'));
-        return true;
+        return truncated ? { truncated } : true;
     }
 
     function renderMagicFields(block, fields) {
@@ -157,7 +225,13 @@
             apply.className = 'btn-secondary btn-small';
             apply.textContent = 'Apply';
             apply.addEventListener('click', () => {
-                if (applyMagicField(productId, key, fields[key])) markApplied(apply);
+                const result = applyMagicField(productId, key, fields[key]);
+                if (!result) return;
+                markApplied(apply);
+                if (result.truncated) {
+                    apply.textContent = 'Applied — shortened to ' + result.truncated + ' characters';
+                    apply.title = 'The suggestion was longer than this field allows; review the end of the text.';
+                }
             });
             buttons.push(apply);
 

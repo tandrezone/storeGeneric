@@ -1,0 +1,10 @@
+{% autoescape false %}
+Hi {{ order.ship_name }},
+
+We've received your payment of {{ order.total|money }} for order {{ order.order_number }}. Thank you!
+
+{{ include('email/_items.txt.twig') }}
+View your order: {{ order_url }}
+
+{{ store_name }} — {{ store_email }}
+{% endautoescape %}

@@ -3,15 +3,45 @@
 {% set title = 'Admin — Orders' %}
 {% set active_nav = 'orders' %}
 
+{# Current filters, for links that change only one of them. #}
+{% set list_query = {status: status_filter, q: filters.q ?: null, from: filters.from ?: null, to: filters.to ?: null} %}
+
 {% block content %}
 <h1>Orders</h1>
 
 <div class="filters">
-    <a href="{{ path('admin.orders') }}" class="filter-pill {{ status_filter is null ? 'active' }}">All</a>
+    <a href="{{ path('admin.orders', {}, list_query|merge({status: null})) }}" class="filter-pill {{ status_filter is null ? 'active' }}">All</a>
     {% for status in statuses %}
-        <a href="{{ path('admin.orders', {}, {status: status}) }}" class="filter-pill {{ status_filter == status ? 'active' }}">{{ status|capitalize }}</a>
+        <a href="{{ path('admin.orders', {}, list_query|merge({status: status})) }}" class="filter-pill {{ status_filter == status ? 'active' }}">{{ status|capitalize }}</a>
     {% endfor %}
 </div>
+
+<form method="get" action="{{ path('admin.orders') }}" class="panel" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+    {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+    <label style="flex: 1 1 220px;">Search
+        <input type="search" name="q" value="{{ filters.q }}" placeholder="Order number, email or name">
+    </label>
+    <label>From
+        <input type="date" name="from" value="{{ filters.from }}">
+    </label>
+    <label>To
+        <input type="date" name="to" value="{{ filters.to }}">
+    </label>
+    <button type="submit" class="btn-primary">Filter</button>
+    {% if filters.q or filters.from or filters.to %}
+        <a href="{{ path('admin.orders', {}, {status: status_filter}) }}" class="btn-secondary">Clear</a>
+    {% endif %}
+</form>
+
+<p class="field-hint">{{ total }} order{{ total == 1 ? '' : 's' }}</p>
+
+{% if admin_can('manager') %}
+    {# Exports every order matching the filters above (not just this page). #}
+    <p class="csv-actions">
+        <a href="{{ path('admin.orders.export', {}, list_query) }}" class="btn-secondary">⬇ Export orders CSV</a>
+        <a href="{{ path('admin.orders.export', {}, list_query|merge({items: 1})) }}" class="btn-secondary">⬇ Export order items CSV</a>
+    </p>
+{% endif %}
 
 <table class="cart-table">
     <thead>
@@ -46,4 +76,14 @@
         {% endfor %}
     </tbody>
 </table>
+
+{% if total_pages > 1 %}
+    <div class="pagination">
+        <a href="{{ path('admin.orders', {}, list_query|merge({page: max(1, page - 1)})) }}"
+           class="btn-secondary {{ page <= 1 ? 'is-disabled' }}">‹ Prev</a>
+        <span class="bulk-count">Page {{ page }} of {{ total_pages }}</span>
+        <a href="{{ path('admin.orders', {}, list_query|merge({page: min(total_pages, page + 1)})) }}"
+           class="btn-secondary {{ page >= total_pages ? 'is-disabled' }}">Next ›</a>
+    </div>
+{% endif %}
 {% endblock %}

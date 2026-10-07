@@ -37,6 +37,8 @@ final class ThemeManager
         'woff', 'woff2', 'ttf', 'otf', 'json', 'md', 'txt',
     ];
     private const MAX_TEMPLATE_BYTES = 200 * 1024;
+    /** Script extensions rejected anywhere in a path, not just at the end. */
+    private const EXECUTABLE_NAME = '/\.(php\d*|phtml|phar|pht|phps|pgif|inc|cgi|pl|py|sh|asp|aspx|jsp|shtml|htaccess|htpasswd|user\.ini)(\.|\/|$)/i';
 
     /** @return list<array{slug:string,name:string,description:string,author:string,version:string,screenshot:?string,builtin:bool}> */
     public function all(): array
@@ -139,6 +141,18 @@ final class ThemeManager
                 }
                 if (str_starts_with(basename($relative), '.') || str_starts_with($relative, '__MACOSX/')) {
                     continue; // OS junk / dotfiles (.htaccess etc. are never installed)
+                }
+
+                // "x.php.css" can still run as PHP under some Apache setups
+                // (AddHandler), so any executable extension anywhere is out.
+                if (preg_match(self::EXECUTABLE_NAME, $relative)) {
+                    $skipped[] = $relative;
+                    continue;
+                }
+                // Admin parts always come from the default theme.
+                if (preg_match('#^layout/admin-[^/]*$#', $relative)) {
+                    $skipped[] = $relative;
+                    continue;
                 }
 
                 $ext = strtolower(pathinfo($relative, PATHINFO_EXTENSION));
@@ -251,6 +265,9 @@ final class ThemeManager
         // The default theme's templates, ready to edit.
         $layoutRoot = $this->paths->themes() . '/default/layout';
         foreach (glob($layoutRoot . '/{,*/}*.twig', GLOB_BRACE) ?: [] as $source) {
+            if (str_starts_with(basename($source), 'admin-')) {
+                continue; // the admin always uses the default theme's parts
+            }
             $zip->addFile($source, $base . 'layout/' . substr($source, strlen($layoutRoot) + 1));
         }
 
@@ -396,14 +413,16 @@ my-theme/
     header.html.twig            <head>, site header and navigation
     footer.html.twig            site footer and scripts
     hero.html.twig              banner at the top of the shop page
-    admin-header.html.twig      admin panel header
-    admin-footer.html.twig      admin panel footer
-    partials/*.html.twig        pieces you include, e.g. {% include 'partials/icons.html.twig' %}
+    partials/*.html.twig       pieces you include, e.g. {% include 'partials/icons.html.twig' %}
 ```
 
 Anything you leave out comes from the **default** theme, so the smallest
 working theme is just `theme.json` + `assets/css/style.css`. Delete the
 templates you don't change.
+
+The admin panel uses your stylesheet, but its header and footer templates
+always come from the default theme (admin-*.html.twig files are skipped on
+upload), and admin pages never run theme scripts.
 
 ## Variables in templates
 
@@ -414,16 +433,13 @@ templates you don't change.
 | `theme` | Active theme slug |
 | `year` | Current year |
 | `current_path` | Path of the current page, e.g. `/cart` |
-| `admin_nav` | Admin templates: list of `{key, label, url, active}` |
-| `active_nav`, `csrf_token` | Admin templates only |
 
 Functions: `asset('css/style.css')` (URL of a file in your theme, or the default theme's
 copy), `logo()` (logo image and/or store name, as set in Settings), and
 `path('route.name')` for links — never hard-code URLs.
 
 Routes you can link to: `home`, `cart`, `checkout`, `page.about`, `page.info`,
-`page.support`, `page.terms`, and for the admin header `admin.products`,
-`admin.settings`, `admin.logout`. A product link is `path('product.show', {id: 42})`;
+`page.support`, `page.terms`. A product link is `path('product.show', {id: 42})`;
 query strings go in a third argument: `path('home', {}, {category: 'tools'})`.
 
 ## Sandbox

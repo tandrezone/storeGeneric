@@ -1,0 +1,32 @@
+{% extends 'layout/shop.html.twig' %}
+
+{% set title = 'Order ' ~ order.order_number %}
+{% set robots = 'noindex, nofollow' %}
+{% set account_nav = 'orders' %}
+
+{% block content %}
+<section class="account-page confirmation-page">
+    <h1>Order {{ order.order_number }}</h1>
+    {{ include('shop/account/_nav.html.twig') }}
+
+    {% if payment_instructions %}
+        <div class="panel payment-instructions">{{ payment_instructions|raw }}</div>
+    {% endif %}
+
+    {{ include('shop/_order-details.html.twig') }}
+
+    <div class="panel">
+        <h2>Shipping to</h2>
+        <address class="account-address">
+            {{ order.ship_name }}<br>
+            {{ order.ship_address1 }}<br>
+            {% if order.ship_address2 %}{{ order.ship_address2 }}<br>{% endif %}
+            {{ order.ship_postal_code }} {{ order.ship_city }}{% if order.ship_state %}, {{ order.ship_state }}{% endif %}<br>
+            {{ order.ship_country }}
+        </address>
+    </div>
+
+    <p>Share or bookmark the order status page: <a href="{{ track_url }}">track this order</a>.</p>
+    <p><a href="{{ path('account.orders') }}">‹ All orders</a></p>
+</section>
+{% endblock %}

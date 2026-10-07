@@ -12,9 +12,13 @@
  * (e.g. storefront -> admin, admin -> login after a session expiry) fall back
  * to a normal full navigation.
  *
+ * Accessibility: after a navigation the new page's <h1> (or <main>) gets
+ * focus and its title is announced through a polite live region, so screen
+ * reader users know the page changed.
+ *
  * Other scripts can hook in via:
  *   document.addEventListener('ajax:load', e => ...)   // after every swap
- *   window.AjaxNav.visit(url) / .reload() / .toast(msg, 'error')
+ *   window.AjaxNav.visit(url) / .reload() / .toast(msg, 'error') / .announce(msg)
  */
 (function () {
     'use strict';
@@ -40,6 +44,53 @@
     toastRegion.setAttribute('aria-live', 'polite');
 
     document.body.append(progress, toastRegion);
+
+    /** Screen-reader-only live region (shared with app.js via its id). */
+    function announcer() {
+        let el = document.getElementById('a11y-announcer');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'a11y-announcer';
+            el.setAttribute('role', 'status');
+            el.setAttribute('aria-live', 'polite');
+            el.setAttribute('aria-atomic', 'true');
+            el.style.cssText = 'position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;'
+                + 'clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;';
+            document.body.appendChild(el);
+        }
+        return el;
+    }
+
+    function announce(message) {
+        if (!message) return;
+        const el = announcer();
+        el.textContent = '';
+        // A fresh text node after a tick makes screen readers repeat identical messages.
+        setTimeout(() => { el.textContent = message; }, 50);
+    }
+
+    /** Describes the focused element inside <main> so the same one can be focused after a swap. */
+    function captureFocus(main) {
+        const el = document.activeElement;
+        if (!el || el === main || !main.contains(el)) return null;
+        if (el.id) return '#' + CSS.escape(el.id);
+        if (el.matches('a[href]')) return 'a[href="' + CSS.escape(el.getAttribute('href')) + '"]';
+        if (el.name) return el.tagName.toLowerCase() + '[name="' + CSS.escape(el.name) + '"]';
+        return 'main';
+    }
+
+    function restoreFocus(main, selector) {
+        const el = selector && selector !== 'main' ? main.querySelector(selector) : null;
+        if (el) el.focus({ preventScroll: true });
+        else focusPage(main);
+    }
+
+    /** Moves keyboard focus to the new page's heading (or <main>) without scrolling. */
+    function focusPage(main) {
+        const target = main.querySelector('h1') || main;
+        if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+        target.focus({ preventScroll: true });
+    }
 
     function setBusy(on) {
         clearTimeout(busyTimer);
@@ -145,6 +196,7 @@
 
         const samePage = new URL(url, location.href).pathname === location.pathname;
         const openIds = samePage ? captureOpenState() : [];
+        const focused = captureFocus(curMain);
 
         const adopted = document.adoptNode(newMain);
         curMain.replaceWith(adopted);
@@ -163,10 +215,17 @@
 
         if (opts.scroll === 'top') {
             window.scrollTo(0, 0);
-            adopted.setAttribute('tabindex', '-1');
-            adopted.focus({ preventScroll: true });
+            focusPage(adopted);
         } else if (typeof opts.scroll === 'number') {
             window.scrollTo(0, opts.scroll);
+            focusPage(adopted);
+        } else if (focused) {
+            // Focus was inside the replaced <main>: don't drop it on <body>.
+            restoreFocus(adopted, focused);
+        }
+        // A new page (link, back/forward, GET form) — not a POST that re-renders the same one.
+        if (opts.history === 'push' || typeof opts.scroll === 'number') {
+            announce(document.title);
         }
 
         document.dispatchEvent(new CustomEvent('ajax:load', { detail: { url, main: adopted } }));
@@ -339,5 +398,5 @@
         window.addEventListener('load', () => window.scrollTo(0, initialState.scrollY), { once: true });
     }
 
-    window.AjaxNav = { visit, reload, toast };
+    window.AjaxNav = { visit, reload, toast, announce };
 })();

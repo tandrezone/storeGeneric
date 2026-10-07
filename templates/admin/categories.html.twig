@@ -6,45 +6,88 @@
 {% block content %}
 <h1>Categories</h1>
 
+{% for error in errors|default([]) %}<p class="msg error">{{ error }}</p>{% endfor %}
+
+{% set new_input = input is not null and input.id|default(0) == 0 ? input : null %}
 <div class="panel">
     <h2>Add category</h2>
-    <form method="post" action="{{ path('admin.categories.submit') }}">
+    <form method="post" action="{{ path('admin.categories.submit') }}" enctype="multipart/form-data" class="category-edit-form">
         {{ csrf_field() }}
         <input type="hidden" name="action" value="create">
-        <label>Name <input type="text" name="name" required></label>
-        <button type="submit" class="btn-primary">Add category</button>
+        <label>Name <input type="text" name="name" value="{{ new_input.name|default('') }}" maxlength="{{ limits.name }}" required></label>
+        <label>Description (optional)
+            <textarea name="description" maxlength="{{ limits.description }}" rows="3">{{ new_input.description|default('') }}</textarea>
+        </label>
+        <label>Image (optional)
+            <input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif">
+        </label>
+        <p class="field-hint">Shown at the top of the category on the storefront. PNG, JPG, WebP or GIF, up to 8 MB.</p>
+        <div><button type="submit" class="btn-primary">Add category</button></div>
     </form>
 </div>
 
 <h2>Existing categories</h2>
 <table class="cart-table admin-table">
-    <thead><tr><th>Name</th><th>Slug</th><th>Products</th><th>Actions</th></tr></thead>
+    <thead><tr><th></th><th>Name</th><th>Slug</th><th>Products</th><th>Actions</th></tr></thead>
     <tbody>
         {% for category in categories %}
+            {% set ci = input is not null and input.id|default(0) == category.id ? input : null %}
             <tr>
                 <td>
-                    <form method="post" action="{{ path('admin.categories.submit') }}" class="inline-form">
-                        {{ csrf_field() }}
-                        <input type="hidden" name="action" value="update">
-                        <input type="hidden" name="id" value="{{ category.id }}">
-                        <input type="text" name="name" value="{{ category.name }}" class="category-name-input" required>
-                        <button type="submit" class="btn-secondary">Save</button>
-                    </form>
+                    {% if category.image_path %}
+                        <img src="/{{ category.image_path }}" alt="" class="category-thumb">
+                    {% else %}
+                        <div class="product-thumb product-thumb-empty">—</div>
+                    {% endif %}
+                </td>
+                <td>
+                    {{ category.name }}
+                    {% if category.description %}<br><span class="field-hint">{{ category.description|length > 90 ? category.description|slice(0, 90) ~ '…' : category.description }}</span>{% endif %}
                 </td>
                 <td><span class="field-hint">{{ category.slug }}</span></td>
                 <td>{{ category.product_count }}</td>
                 <td>
-                    <form method="post" action="{{ path('admin.categories.submit') }}" class="inline-form"
-                          data-confirm="Delete &quot;{{ category.name }}&quot;? This cannot be undone.">
+                    <div class="table-actions">
+                        <button type="button" class="btn-secondary btn-small" data-toggle="category-edit-{{ category.id }}" aria-expanded="{{ ci ? 'true' : 'false' }}">Edit</button>
+                        {% if admin_can('manager') %}
+                            <form method="post" action="{{ path('admin.categories.submit') }}" class="inline-form"
+                                  data-confirm="Delete &quot;{{ category.name }}&quot;? This cannot be undone.">
+                                {{ csrf_field() }}
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="id" value="{{ category.id }}">
+                                <button type="submit" class="icon-btn icon-btn-danger" title="Delete category">🗑</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            <tr class="edit-row" id="category-edit-{{ category.id }}" {{ ci ? '' : 'hidden' }}>
+                <td colspan="5">
+                    <form method="post" action="{{ path('admin.categories.submit') }}" enctype="multipart/form-data" class="category-edit-form">
                         {{ csrf_field() }}
-                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="action" value="update">
                         <input type="hidden" name="id" value="{{ category.id }}">
-                        <button type="submit" class="icon-btn icon-btn-danger" title="Delete category">🗑</button>
+                        <label>Name
+                            <input type="text" name="name" value="{{ ci ? ci.name|default('') : category.name }}" maxlength="{{ limits.name }}" required>
+                        </label>
+                        <label>Description
+                            <textarea name="description" maxlength="{{ limits.description }}" rows="3">{{ ci ? ci.description|default('') : category.description }}</textarea>
+                        </label>
+                        <div class="category-image-row">
+                            {% if category.image_path %}
+                                <img src="/{{ category.image_path }}" alt="Current image">
+                                <label class="inline-check"><input type="checkbox" name="remove_image" value="1"> Remove image</label>
+                            {% endif %}
+                            <label>{{ category.image_path ? 'Replace image' : 'Image' }}
+                                <input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif">
+                            </label>
+                        </div>
+                        <div><button type="submit" class="btn-primary">Save category</button></div>
                     </form>
                 </td>
             </tr>
         {% else %}
-            <tr><td colspan="4" style="color: var(--color-muted);">No categories yet.</td></tr>
+            <tr><td colspan="5" style="color: var(--color-muted);">No categories yet.</td></tr>
         {% endfor %}
     </tbody>
 </table>

@@ -1,0 +1,57 @@
+{% extends 'layout/shop.html.twig' %}
+
+{% set title = 'Your account' %}
+{% set robots = 'noindex, nofollow' %}
+{% set account_nav = 'overview' %}
+
+{% block content %}
+<section class="account-page">
+    <h1>Hello, {{ customer.name }}</h1>
+    {{ include('shop/account/_nav.html.twig') }}
+    {{ include('shop/account/_flashes.html.twig') }}
+
+    {% if not customer.email_verified_at %}
+        <div class="panel account-verify-notice">
+            <p>Please confirm your email address <strong>{{ customer.email }}</strong> with the link we sent you.
+               Once it's confirmed, earlier orders you placed as a guest with this email show up here too.</p>
+            <form method="post" action="{{ path('account.verify.resend') }}">
+                {{ csrf_field() }}
+                <button type="submit" class="btn-secondary">Send the link again</button>
+            </form>
+        </div>
+    {% endif %}
+
+    <div class="account-grid">
+        <div class="panel">
+            <h2>Recent orders</h2>
+            {% if recent_orders is empty %}
+                <p>You haven't placed any orders with this account yet. <a href="{{ path('home') }}">Start shopping</a>.</p>
+            {% else %}
+                {{ include('shop/account/_order-list.html.twig', {orders: recent_orders}) }}
+                {% if order_count > recent_orders|length %}
+                    <p><a href="{{ path('account.orders') }}">All {{ order_count }} orders</a></p>
+                {% endif %}
+            {% endif %}
+        </div>
+
+        <div class="panel">
+            <h2>Default address</h2>
+            {% if default_address %}
+                {{ include('shop/account/_address.html.twig', {address: default_address}) }}
+            {% else %}
+                <p>No saved address yet.</p>
+            {% endif %}
+            <p><a href="{{ path('account.addresses') }}">Manage addresses</a></p>
+
+            <h2>Your details</h2>
+            <p>
+                {{ customer.name }}<br>
+                {{ customer.email }}
+                {% if customer.email_verified_at %}<span class="status-badge" data-status="paid">confirmed</span>{% else %}<span class="status-badge" data-status="pending">not confirmed</span>{% endif %}
+                {% if customer.phone %}<br>{{ customer.phone }}{% endif %}
+            </p>
+            <p><a href="{{ path('account.profile') }}">Edit profile or password</a></p>
+        </div>
+    </div>
+</section>
+{% endblock %}

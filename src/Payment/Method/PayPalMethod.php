@@ -7,7 +7,9 @@ namespace App\Payment\Method;
 use App\Http\Router;
 use App\Infrastructure\HttpClient;
 use App\Payment\AbstractPaymentMethod;
+use App\Service\OrderLinks;
 use App\Support\Config;
+use App\Support\Money;
 use RuntimeException;
 
 /**
@@ -18,9 +20,9 @@ use RuntimeException;
  */
 final class PayPalMethod extends AbstractPaymentMethod
 {
-    public function __construct(Config $config, Router $router, private readonly HttpClient $http)
+    public function __construct(Config $config, Router $router, OrderLinks $links, private readonly HttpClient $http)
     {
-        parent::__construct($config, $router);
+        parent::__construct($config, $router, $links);
     }
 
     public function id(): string
@@ -65,7 +67,7 @@ final class PayPalMethod extends AbstractPaymentMethod
     public function start(array $order): string
     {
         $number = (string) $order['order_number'];
-        $return = $this->absoluteUrl('payment.paypal.return', [], ['order' => $number]);
+        $return = $this->absoluteUrl('payment.paypal.return', [], $this->links->query($number));
 
         $response = $this->http->request('POST', $this->baseUrl() . '/v2/checkout/orders', [
             'Authorization: Bearer ' . $this->accessToken(),
@@ -78,7 +80,7 @@ final class PayPalMethod extends AbstractPaymentMethod
                 'description'  => 'Order ' . $number,
                 'amount'       => [
                     'currency_code' => $this->currency(),
-                    'value'         => number_format((float) $order['total'], 2, '.', ''),
+                    'value'         => number_format((float) $order['total'], Money::exponent($this->currency()), '.', ''),
                 ],
             ]],
             'payment_source' => ['paypal' => ['experience_context' => [

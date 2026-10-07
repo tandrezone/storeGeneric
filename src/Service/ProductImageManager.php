@@ -7,7 +7,6 @@ namespace App\Service;
 use App\Repository\ProductRepository;
 use App\Support\Paths;
 use Psr\Http\Message\UploadedFileInterface;
-use RuntimeException;
 
 /**
  * Admin-driven counterpart to ImageDownloader: instead of pulling an image
@@ -21,17 +20,11 @@ final class ProductImageManager
     public function __construct(
         private readonly Paths $paths,
         private readonly ProductRepository $products,
+        private readonly ImageUploader $uploader,
     ) {
     }
 
     private const PUBLIC_SUBDIR = 'assets/images/products';
-    private const MAX_BYTES = 8 * 1024 * 1024;
-    private const ALLOWED_MIME = [
-        'image/jpeg' => 'jpg',
-        'image/png'  => 'png',
-        'image/webp' => 'webp',
-        'image/gif'  => 'gif',
-    ];
 
     /**
      * Validates an uploaded image and, if it passes, saves it and
@@ -42,32 +35,7 @@ final class ProductImageManager
      */
     public function addUpload(int $productId, UploadedFileInterface $file): string
     {
-        if ($file->getError() !== UPLOAD_ERR_OK) {
-            throw new RuntimeException($this->uploadErrorMessage($file->getError()));
-        }
-        if ((int) $file->getSize() > self::MAX_BYTES) {
-            throw new RuntimeException('Image is larger than ' . (self::MAX_BYTES / 1024 / 1024) . 'MB.');
-        }
-
-        $dir = $this->localDir();
-        if (!is_dir($dir)) {
-            mkdir($dir, 0775, true);
-        }
-
-        // Move first, then inspect the real file — never trust the client's type.
-        $tmp = $dir . '/.upload-' . bin2hex(random_bytes(6));
-        $file->moveTo($tmp);
-        $info = @getimagesize($tmp);
-        $ext = is_array($info) ? (self::ALLOWED_MIME[$info['mime']] ?? null) : null;
-        if ($ext === null) {
-            @unlink($tmp);
-            throw new RuntimeException('Only JPEG, PNG, WebP, and GIF images are allowed.');
-        }
-
-        $filename = $productId . '-' . bin2hex(random_bytes(6)) . '.' . $ext;
-        rename($tmp, $dir . '/' . $filename);
-
-        $relativePath = self::PUBLIC_SUBDIR . '/' . $filename;
+        $relativePath = $this->uploader->store($file, self::PUBLIC_SUBDIR, (string) $productId);
         $paths = $this->products->imagePaths($productId);
         $paths[] = $relativePath;
         $this->products->saveImagePaths($productId, array_values(array_unique($paths)));
@@ -155,13 +123,43 @@ final class ProductImageManager
         $this->products->saveImagePaths($productId, array_values(array_unique($merged)));
     }
 
-    private function uploadErrorMessage(int $code): string
+    /**
+     * Moves one image $offset places (-1 = earlier, +1 = later) in
+     * $productId's list; the first image is the main one. No-ops for paths
+     * that aren't this product's or moves past either end.
+     */
+    public function move(int $productId, string $relativePath, int $offset): void
     {
-        return match ($code) {
-            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'That image is too large.',
-            UPLOAD_ERR_NO_FILE => 'No file was uploaded.',
-            default => 'Upload failed.',
-        };
+        $paths = $this->products->imagePaths($productId);
+        $from = array_search($relativePath, $paths, true);
+        if ($from === false) {
+            return;
+        }
+        $to = $from + $offset;
+        if ($to < 0 || $to >= count($paths) || $to === $from) {
+            return;
+        }
+
+        array_splice($paths, $from, 1);
+        array_splice($paths, $to, 0, [$relativePath]);
+        $this->products->saveImagePaths($productId, $paths);
+    }
+
+    /**
+     * Saves a new order for $productId's images (e.g. after drag and drop).
+     * Only the product's own paths are kept; any it has that are missing from
+     * $order stay at the end, so a stale page can't drop images.
+     *
+     * @param list<string> $order
+     */
+    public function reorder(int $productId, array $order): void
+    {
+        $paths = $this->products->imagePaths($productId);
+        $ordered = array_values(array_unique(array_filter($order, static fn (string $p) => in_array($p, $paths, true))));
+        $reordered = array_values(array_unique(array_merge($ordered, $paths)));
+        if ($reordered !== $paths) {
+            $this->products->saveImagePaths($productId, $reordered);
+        }
     }
 
     private function localDir(): string

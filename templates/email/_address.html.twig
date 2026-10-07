@@ -1,0 +1,8 @@
+<p style="font-size:14px;">
+    <strong>Shipping to</strong><br>
+    {{ order.ship_name }}<br>
+    {{ order.ship_address1 }}<br>
+    {% if order.ship_address2 %}{{ order.ship_address2 }}<br>{% endif %}
+    {{ order.ship_city }}{{ order.ship_state ? ', ' ~ order.ship_state }} {{ order.ship_postal_code }}<br>
+    {{ order.ship_country }}
+</p>

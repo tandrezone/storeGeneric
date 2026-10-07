@@ -1,10 +1,14 @@
 {#
   Admin header. Extra variables: active_nav, csrf_token,
-  admin_nav (list of {key, label, url, active}).
+  admin_nav (list of {key, label, url, active}, already limited to the admin's role),
+  admin_account ({username, role, role_label, url, active} of the logged-in admin, or null),
+  lang (<html lang> of the admin's language).
   Keep the csrf-token meta tag and data-layout="admin" — admin scripts rely on them.
+  Admin parts are always rendered from this (default) theme, never from an
+  uploaded one, so a theme can't put markup or scripts into the admin.
 #}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang|default('en') }}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,12 +20,18 @@
 <body data-layout="admin">
 <header class="site-header">
     <div class="container header-inner">
-        <a href="{{ path('admin.products') }}" class="logo">{{ logo() }} <span class="admin-tag">Admin</span></a>
-        <nav class="main-nav">
+        <a href="{{ path('admin.dashboard') }}" class="logo">{{ logo() }} <span class="admin-tag">{{ 'Admin'|trans }}</span></a>
+        <nav class="main-nav" aria-label="{{ 'Main'|trans }}">
             {% for item in admin_nav %}
                 <a href="{{ item.url }}" class="{{ item.active ? 'active' : '' }}">{{ item.label }}</a>
             {% endfor %}
-            <a href="{{ path('admin.logout') }}" data-no-ajax>Log out</a>
+            {% if admin_account|default(null) %}
+                <a href="{{ admin_account.url }}" class="nav-account {{ admin_account.active ? 'active' : '' }}" title="{{ 'My account ({role})'|trans({role: admin_account.role_label|default(admin_account.role)}) }}">{{ admin_account.username }}</a>
+            {% endif %}
+            <form method="post" action="{{ path('admin.logout') }}" class="nav-logout-form" data-no-ajax>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="nav-logout">{{ 'Log out'|trans }}</button>
+            </form>
         </nav>
     </div>
 </header>

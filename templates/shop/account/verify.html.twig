@@ -1,0 +1,25 @@
+{% extends 'layout/shop.html.twig' %}
+
+{% set title = 'Confirm your email' %}
+{% set robots = 'noindex, nofollow' %}
+{% set canonical = null %}
+
+{% block content %}
+<section class="account-page account-auth-page">
+    <h1>Confirm your email</h1>
+    <p>This confirmation link is invalid, has already been used or has expired, or it was for an email address
+       the account no longer uses.</p>
+    {% if customer %}
+        {% if customer.email_verified_at %}
+            <p>Your email address {{ customer.email }} is confirmed. <a href="{{ path('account') }}">Go to your account</a>.</p>
+        {% else %}
+            <form method="post" action="{{ path('account.verify.resend') }}">
+                {{ csrf_field() }}
+                <button type="submit" class="btn-primary">Send a new link to {{ customer.email }}</button>
+            </form>
+        {% endif %}
+    {% else %}
+        <p><a href="{{ path('account.login', {}, {next: path('account')}) }}">Sign in</a> to get a new link.</p>
+    {% endif %}
+</section>
+{% endblock %}

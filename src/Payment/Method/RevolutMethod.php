@@ -7,6 +7,7 @@ namespace App\Payment\Method;
 use App\Http\Router;
 use App\Infrastructure\HttpClient;
 use App\Payment\AbstractPaymentMethod;
+use App\Service\OrderLinks;
 use App\Support\Config;
 use RuntimeException;
 
@@ -18,9 +19,9 @@ use RuntimeException;
  */
 final class RevolutMethod extends AbstractPaymentMethod
 {
-    public function __construct(Config $config, Router $router, private readonly HttpClient $http)
+    public function __construct(Config $config, Router $router, OrderLinks $links, private readonly HttpClient $http)
     {
-        parent::__construct($config, $router);
+        parent::__construct($config, $router, $links);
     }
 
     public function id(): string

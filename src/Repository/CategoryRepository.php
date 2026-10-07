@@ -18,21 +18,45 @@ final class CategoryRepository extends Repository
         return $this->one('SELECT id, name, slug FROM categories WHERE slug = :slug', ['slug' => $slug]);
     }
 
+    /** @return array<string, mixed>|null a category with its storefront description and image */
+    public function findForStorefront(string $slug): ?array
+    {
+        return $this->one('SELECT id, name, slug, description, image_path FROM categories WHERE slug = :slug', ['slug' => $slug]);
+    }
+
     /** @return list<array<string, mixed>> every category with how many products use it */
     public function findAllWithProductCounts(): array
     {
         return $this->all('
-            SELECT c.id, c.name, c.slug, COUNT(p.id) AS product_count
+            SELECT c.id, c.name, c.slug, c.description, c.image_path, COUNT(p.id) AS product_count
             FROM categories c
             LEFT JOIN products p ON p.category_id = c.id
-            GROUP BY c.id, c.name, c.slug
+            GROUP BY c.id, c.name, c.slug, c.description, c.image_path
             ORDER BY c.name ASC
         ');
     }
 
-    public function create(string $name): int
+    /** @return array<string, mixed>|null any category (admin) */
+    public function findById(int $id): ?array
     {
-        $this->run('INSERT INTO categories (name, slug) VALUES (:name, :slug)', ['name' => $name, 'slug' => $this->uniqueSlug($name)]);
+        return $this->one('SELECT id, name, slug, description, image_path FROM categories WHERE id = :id', ['id' => $id]);
+    }
+
+    /** Admin edit: name, description and image. The slug never changes. */
+    public function updateDetails(int $id, string $name, ?string $description, ?string $imagePath): void
+    {
+        $this->run(
+            'UPDATE categories SET name = :name, description = :description, image_path = :image_path WHERE id = :id',
+            ['name' => $name, 'description' => $description, 'image_path' => $imagePath, 'id' => $id]
+        );
+    }
+
+    public function create(string $name, ?string $description = null): int
+    {
+        $this->run(
+            'INSERT INTO categories (name, slug, description) VALUES (:name, :slug, :description)',
+            ['name' => $name, 'slug' => $this->uniqueSlug($name), 'description' => $description]
+        );
 
         return $this->lastId();
     }

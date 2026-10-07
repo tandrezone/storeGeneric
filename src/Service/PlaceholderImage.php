@@ -107,7 +107,6 @@ final class PlaceholderImage
         // a concurrent request never serves a half-written file.
         $tmp = $destination . '.' . bin2hex(random_bytes(4)) . '.tmp';
         imagejpeg($image, $tmp, 88);
-        imagedestroy($image);
         rename($tmp, $destination);
     }
 

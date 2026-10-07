@@ -1,0 +1,20 @@
+{# The customer's orders (`orders`, with `payment_labels`), linking to account.order. #}
+<table class="cart-table account-orders">
+    <thead>
+        <tr><th>Order</th><th>Placed</th><th>Status</th><th>Payment</th><th>Total</th></tr>
+    </thead>
+    <tbody>
+        {% for order in orders %}
+            <tr>
+                <td><a href="{{ path('account.order', {number: order.order_number}) }}">{{ order.order_number }}</a></td>
+                <td>{{ order.created_at|date('j M Y') }}</td>
+                <td><span class="status-badge" data-status="{{ order.status }}">{{ order.status }}</span></td>
+                <td>
+                    <span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status }}</span>
+                    <span class="field-hint">{{ payment_labels[order.payment_method] ?? order.payment_method }}</span>
+                </td>
+                <td>{{ order.total|money }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>

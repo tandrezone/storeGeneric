@@ -1,0 +1,9 @@
+{% extends 'email/_layout.html.twig' %}
+
+{% block body %}
+<p>New order <strong>{{ order.order_number }}</strong> — {{ order.total|money }}, {{ payment_label }} (payment: {{ order.payment_status }}).</p>
+<p style="font-size:14px;">Customer: {{ order.ship_name }} &lt;{{ order.email }}&gt;{% if order.phone %}, {{ order.phone }}{% endif %}</p>
+{{ include('email/_items.html.twig') }}
+{{ include('email/_address.html.twig') }}
+<p><a href="{{ admin_url }}">Open the order in the admin</a></p>
+{% endblock %}

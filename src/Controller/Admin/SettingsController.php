@@ -8,6 +8,7 @@ use App\Http\Responder;
 use App\Http\Session;
 use App\Repository\SettingRepository;
 use App\Service\StoreSettings;
+use App\Service\TaxSettings;
 use App\Support\Paths;
 use App\Theme\Theme;
 use App\Theme\ThemeManager;
@@ -16,7 +17,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
 
-/** Admin → Settings: store name, email and logo; choose, upload and delete themes. */
+/** Admin → Settings: store name, email and logo; low-stock threshold; tax (VAT); choose, upload and delete themes. */
 final class SettingsController
 {
     private const LOGO_TYPES = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp', 'image/gif' => 'gif'];
@@ -30,6 +31,7 @@ final class SettingsController
         private readonly ThemeManager $themes,
         private readonly Theme $theme,
         private readonly Paths $paths,
+        private readonly TaxSettings $tax,
     ) {
     }
 
@@ -53,6 +55,20 @@ final class SettingsController
                 case 'save_store':
                     $this->saveStore($body, $files['logo'] ?? null);
                     $this->session->flash('success', 'Store settings saved.');
+                    break;
+
+                case 'save_inventory':
+                    $threshold = filter_var($body['low_stock_threshold'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 1000000]]);
+                    if ($threshold === false) {
+                        throw new RuntimeException('The low-stock threshold must be a whole number of 0 or more.');
+                    }
+                    $this->settings->set('low_stock_threshold', (string) $threshold);
+                    $this->session->flash('success', 'Inventory settings saved.');
+                    break;
+
+                case 'save_tax':
+                    $this->tax->save($body);
+                    $this->session->flash('success', 'Tax settings saved.');
                     break;
 
                 case 'remove_logo':
@@ -190,6 +206,8 @@ final class SettingsController
             'active_theme'        => $this->theme->name(),
             'saved_email'         => $this->store->savedEmail(),
             'show_name_with_logo' => $this->store->showNameWithLogo(),
+            'low_stock_threshold' => $this->store->lowStockThreshold(),
+            'tax'                 => $this->tax->toArray(),
             'errors'              => $errors,
         ], $status);
     }

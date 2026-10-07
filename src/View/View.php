@@ -16,7 +16,7 @@ final class View
 {
     private Environment $twig;
 
-    public function __construct(Paths $paths, ViewExtension $extension, string $cacheDir, bool $debug)
+    public function __construct(Paths $paths, ViewExtension $extension, CatalogExtension $catalog, AdminExtension $admin, CustomerExtension $customer, TranslationExtension $translation, string $cacheDir, bool $debug)
     {
         $this->twig = new Environment(new FilesystemLoader($paths->templates()), [
             'cache'            => $cacheDir,
@@ -26,6 +26,10 @@ final class View
             'debug'            => $debug,
         ]);
         $this->twig->addExtension($extension);
+        $this->twig->addExtension($catalog);
+        $this->twig->addExtension($admin);
+        $this->twig->addExtension($customer);
+        $this->twig->addExtension($translation);
     }
 
     /** @param array<string, mixed> $data */

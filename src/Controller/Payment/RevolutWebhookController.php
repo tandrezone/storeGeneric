@@ -8,6 +8,7 @@ use App\Http\Responder;
 use App\Payment\Method\RevolutMethod;
 use App\Payment\PaymentRecorder;
 use App\Support\Config;
+use App\Support\Money;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
@@ -68,7 +69,7 @@ final class RevolutWebhookController
                 'revolut',
                 $status,
                 $revolutOrderId,
-                isset($remote['amount']) ? $remote['amount'] / 100 : null,
+                isset($remote['amount']) ? Money::fromMinor((int) $remote['amount'], (string) ($remote['currency'] ?? '')) : null,
                 (string) ($remote['currency'] ?? ''),
                 $raw
             );

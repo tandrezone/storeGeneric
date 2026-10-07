@@ -1,0 +1,129 @@
+{% extends 'layout/admin.html.twig' %}
+
+{% set title = 'Admin — Users' %}
+{% set active_nav = 'users' %}
+
+{% block content %}
+{% set new_input = input is not null and (input.action ?? '') == 'create' ? input : {} %}
+<h1>Users</h1>
+
+{% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
+
+<p class="field-hint">
+    <strong>Owner</strong> — everything, including users, settings and themes.
+    <strong>Manager</strong> — everything except users, settings and themes.
+    <strong>Staff</strong> — products, categories and orders; can't delete products or categories, no revenue figures.
+</p>
+
+<details class="panel" {{ new_input ? 'open' }}>
+    <summary class="panel-summary">Add user</summary>
+    <form method="post" action="{{ path('admin.users.submit') }}" autocomplete="off">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="create">
+        <div class="form-row">
+            <label>Username
+                <input type="text" name="username" value="{{ new_input.username ?? '' }}" required minlength="3" maxlength="60" pattern="[A-Za-z0-9._@\-]{3,60}">
+            </label>
+            <label>Email (optional)
+                <input type="email" name="email" value="{{ new_input.email ?? '' }}" maxlength="190">
+            </label>
+            <label>Role
+                <select name="role">
+                    {% for role in roles %}
+                        <option value="{{ role }}" {{ (new_input.role ?? 'staff') == role ? 'selected' }}>{{ role|capitalize }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+        <div class="form-row">
+            <label>Password
+                <input type="password" name="password" required minlength="{{ min_password }}" autocomplete="new-password">
+            </label>
+            <label>Repeat password
+                <input type="password" name="password_confirm" required minlength="{{ min_password }}" autocomplete="new-password">
+            </label>
+        </div>
+        <p class="field-hint">At least {{ min_password }} characters.</p>
+        <button type="submit" class="btn-primary">Add user</button>
+    </form>
+</details>
+
+<table class="cart-table admin-table">
+    <thead>
+        <tr><th>User</th><th>Role</th><th>Status</th><th>Last login</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+            {% set is_me = me and user.id == me.id %}
+            <tr>
+                <td>
+                    <strong>{{ user.username }}</strong>{% if is_me %} <span class="field-hint">(you)</span>{% endif %}
+                    {% if user.email %}<br><span class="field-hint">{{ user.email }}</span>{% endif %}
+                </td>
+                <td><span class="status-badge" data-status="{{ user.role }}">{{ user.role }}</span></td>
+                <td><span class="status-badge" data-status="{{ user.active ? 'paid' : 'cancelled' }}">{{ user.active ? 'active' : 'inactive' }}</span></td>
+                <td class="field-hint">{{ user.last_login_at ?: 'never' }}</td>
+                <td>
+                    <div class="table-actions">
+                        <button type="button" class="btn-secondary" data-toggle="user-edit-{{ user.id }}" aria-expanded="false">Edit</button>
+                        {% if not is_me %}
+                            <form method="post" action="{{ path('admin.users.submit') }}" class="inline-form"
+                                  {% if user.active %}data-confirm="Deactivate {{ user.username }}? They are logged out on their next request."{% endif %}>
+                                {{ csrf_field() }}
+                                <input type="hidden" name="action" value="set_active">
+                                <input type="hidden" name="id" value="{{ user.id }}">
+                                <input type="hidden" name="active" value="{{ user.active ? '' : '1' }}">
+                                <button type="submit" class="{{ user.active ? 'btn-danger' : 'btn-secondary' }}">{{ user.active ? 'Deactivate' : 'Activate' }}</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            <tr id="user-edit-{{ user.id }}" hidden>
+                <td colspan="5">
+                    <form method="post" action="{{ path('admin.users.submit') }}">
+                        {{ csrf_field() }}
+                        <input type="hidden" name="action" value="update">
+                        <input type="hidden" name="id" value="{{ user.id }}">
+                        <div class="form-row">
+                            <label>Email (optional)
+                                <input type="email" name="email" value="{{ user.email }}" maxlength="190">
+                            </label>
+                            <label>Role
+                                <select name="role" {{ is_me ? 'disabled' }}>
+                                    {% for role in roles %}
+                                        <option value="{{ role }}" {{ user.role == role ? 'selected' }}>{{ role|capitalize }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                        </div>
+                        {% if is_me %}
+                            <input type="hidden" name="role" value="{{ user.role }}">
+                            <p class="field-hint">You can't change your own role.</p>
+                        {% endif %}
+                        <button type="submit" class="btn-primary">Save</button>
+                    </form>
+                    {% if not is_me %}
+                        <form method="post" action="{{ path('admin.users.submit') }}" autocomplete="off" style="margin-top: 16px;">
+                            {{ csrf_field() }}
+                            <input type="hidden" name="action" value="reset_password">
+                            <input type="hidden" name="id" value="{{ user.id }}">
+                            <div class="form-row">
+                                <label>New password
+                                    <input type="password" name="password" required minlength="{{ min_password }}" autocomplete="new-password">
+                                </label>
+                                <label>Repeat new password
+                                    <input type="password" name="password_confirm" required minlength="{{ min_password }}" autocomplete="new-password">
+                                </label>
+                            </div>
+                            <button type="submit" class="btn-secondary">Reset password</button>
+                        </form>
+                    {% else %}
+                        <p class="field-hint">Change your own password in <a href="{{ path('admin.account') }}">My account</a>.</p>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

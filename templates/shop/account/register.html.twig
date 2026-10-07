@@ -1,0 +1,36 @@
+{% extends 'layout/shop.html.twig' %}
+
+{% set title = 'Create an account' %}
+{% set robots = 'noindex, nofollow' %}
+
+{% block content %}
+<section class="account-page account-auth-page">
+    <h1>Create an account</h1>
+    <p>Save your addresses for a faster checkout and see all your orders in one place.</p>
+    {{ include('shop/account/_flashes.html.twig') }}
+
+    {# data-no-ajax: registering signs you in (new header and form token). #}
+    <form method="post" action="{{ path('account.register.submit') }}" class="shipping-form account-form" data-no-ajax>
+        {{ csrf_field() }}
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+
+        <label for="register-name">Full name</label>
+        <input type="text" id="register-name" name="name" required maxlength="150" value="{{ form.name }}" autocomplete="name">
+
+        <label for="register-email">Email</label>
+        <input type="email" id="register-email" name="email" required maxlength="190" value="{{ form.email }}" autocomplete="email" aria-describedby="register-email-hint">
+        <p class="field-hint" id="register-email-hint">We'll send you a link to confirm it.</p>
+
+        <label for="register-password">Password</label>
+        <input type="password" id="register-password" name="password" required minlength="{{ min_password }}" autocomplete="new-password" aria-describedby="register-password-hint">
+        <p class="field-hint" id="register-password-hint">At least {{ min_password }} characters.</p>
+
+        <label for="register-password-confirm">Repeat password</label>
+        <input type="password" id="register-password-confirm" name="password_confirm" required minlength="{{ min_password }}" autocomplete="new-password">
+
+        <button type="submit" class="btn-primary">Create account</button>
+    </form>
+
+    <p>Already have an account? <a href="{{ path('account.login', {}, {next: next ?: null}) }}">Sign in</a></p>
+</section>
+{% endblock %}

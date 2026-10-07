@@ -1,0 +1,15 @@
+{% autoescape false %}
+Hi {{ order.ship_name }},
+
+Good news — your order {{ order.order_number }} is on its way{% if order.carrier %} with {{ order.carrier }}{% endif %}.
+{% if order.tracking_number %}
+Tracking number: {{ order.tracking_number }}
+{% endif %}
+
+Shipping to:
+{{ include('email/_address.txt.twig') }}
+{{ include('email/_items.txt.twig') }}
+Track your order: {{ order_url }}
+
+{{ store_name }} — {{ store_email }}
+{% endautoescape %}

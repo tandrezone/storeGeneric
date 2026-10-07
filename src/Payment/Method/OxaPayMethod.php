@@ -7,15 +7,16 @@ namespace App\Payment\Method;
 use App\Http\Router;
 use App\Infrastructure\OxaPayClient;
 use App\Payment\AbstractPaymentMethod;
+use App\Service\OrderLinks;
 use App\Support\Config;
 use RuntimeException;
 
 /** OxaPay crypto invoices, confirmed by the HMAC-signed callback (OxaPayWebhookController). */
 final class OxaPayMethod extends AbstractPaymentMethod
 {
-    public function __construct(Config $config, Router $router, private readonly OxaPayClient $client)
+    public function __construct(Config $config, Router $router, OrderLinks $links, private readonly OxaPayClient $client)
     {
-        parent::__construct($config, $router);
+        parent::__construct($config, $router, $links);
     }
 
     public function id(): string

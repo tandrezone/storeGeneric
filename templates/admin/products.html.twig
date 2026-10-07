@@ -23,22 +23,27 @@
     </div>
 {% endmacro %}
 
-{% macro sort_link(column, label, sort, dir, status_filter) %}
+{# Sort link that keeps the other filters (and goes back to page 1). #}
+{% macro sort_link(column, label, sort, dir, list_query) %}
     {% set next_dir = sort == column and dir == 'asc' ? 'desc' : 'asc' %}
-    <a href="{{ path('admin.products', {}, {sort: column, dir: next_dir, status: status_filter}) }}" class="sort-link">
+    <a href="{{ path('admin.products', {}, list_query|merge({sort: column, dir: next_dir, page: null})) }}" class="sort-link">
         {{- label }}{{ sort == column ? (dir == 'asc' ? ' ▲' : ' ▼') -}}
     </a>
 {% endmacro %}
 
 {% block content %}
 {% import _self as ui %}
+{# Every form posts back with the list's filters/sort/page so the redirect returns here. #}
+{% set submit_url = path('admin.products.submit', {}, list_query) %}
 <h1>Products</h1>
 
-{% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
+{% if edit_input is null %}
+    {% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
+{% endif %}
 
 <details class="panel" id="add-product-panel" {{ create_input is not null ? 'open' }}>
     <summary class="panel-summary">Add product</summary>
-    <form method="post" action="{{ path('admin.products.submit') }}">
+    <form method="post" action="{{ submit_url }}">
         {{ csrf_field() }}
         <input type="hidden" name="action" value="create">
 
@@ -50,19 +55,19 @@
             </select>
         </label>
 
-        <label>Name <input type="text" name="name" value="{{ create_input.name|default('') }}" required></label>
-        <label>Short description <input type="text" name="short_description" value="{{ create_input.short_description|default('') }}" required></label>
+        <label>Name <input type="text" name="name" value="{{ create_input.name|default('') }}" maxlength="{{ limits.name }}" required></label>
+        <label>Short description <input type="text" name="short_description" value="{{ create_input.short_description|default('') }}" maxlength="{{ limits.short_description }}" required></label>
         <label>Long description</label>
         {{ ui.wysiwyg(create_input.long_description|default('')) }}
 
         <h3>First variant</h3>
         <div class="form-row">
-            <label>SKU <input type="text" name="sku" value="{{ create_input.sku|default('') }}" required></label>
-            <label>Label <input type="text" name="label" value="{{ create_input.label|default('') }}" placeholder="6"></label>
+            <label>SKU <input type="text" name="sku" value="{{ create_input.sku|default('') }}" maxlength="{{ limits.variant_field }}" required></label>
+            <label>Label <input type="text" name="label" value="{{ create_input.label|default('') }}" maxlength="{{ limits.variant_field }}" placeholder="6"></label>
         </div>
         <div class="form-row">
-            <label>Unit <input type="text" name="unit" value="{{ create_input.unit|default('') }}" placeholder="pack"></label>
-            <label>Price <input type="number" name="price" value="{{ create_input.price|default('') }}" step="0.01" min="0.01" required></label>
+            <label>Unit <input type="text" name="unit" value="{{ create_input.unit|default('') }}" maxlength="{{ limits.variant_field }}" placeholder="pack"></label>
+            <label>Price <input type="number" name="price" value="{{ create_input.price|default('') }}" step="0.01" min="0.01" max="99999999.99" required></label>
         </div>
         <label>Stock <input type="number" name="stock" value="{{ create_input.stock|default(0) }}" min="0" required></label>
 
@@ -74,22 +79,43 @@
 
 <h2>Existing products</h2>
 
+{% if admin_can('manager') %}
+    {# Export honours the status / low-stock filters below; one row per variant. #}
+    <p class="csv-actions">
+        <a href="{{ path('admin.products.export', {}, {status: list_query.status ?? null, stock: list_query.stock ?? null}) }}" class="btn-secondary">⬇ Export CSV</a>
+        <a href="{{ path('admin.products.import') }}" class="btn-secondary">⬆ Import CSV</a>
+    </p>
+{% endif %}
+
 <div class="filters">
-    <a href="{{ path('admin.products') }}" class="filter-pill {{ status_filter is null ? 'active' }}">All</a>
+    <a href="{{ path('admin.products', {}, list_query|merge({status: null, page: null})) }}" class="filter-pill {{ status_filter is null ? 'active' }}">All</a>
     {% for status in statuses %}
-        <a href="{{ path('admin.products', {}, {status: status}) }}" class="filter-pill {{ status_filter == status ? 'active' }}">{{ status|capitalize }}</a>
+        <a href="{{ path('admin.products', {}, list_query|merge({status: status, page: null})) }}" class="filter-pill {{ status_filter == status ? 'active' }}">{{ status|capitalize }}</a>
     {% endfor %}
+    <a href="{{ path('admin.products', {}, list_query|merge({stock: low_stock_only ? null : 'low', page: null})) }}"
+       class="filter-pill filter-pill-low-stock {{ low_stock_only ? 'active' }}"
+       title="Products with an active variant at or below {{ low_stock_threshold }} in stock (Admin → Settings)">⚠ Low stock (≤ {{ low_stock_threshold }})</a>
 </div>
 
-<form id="bulk-form" method="post" action="{{ path('admin.products.submit') }}" class="bulk-actions">
+{# The status select is required for "Set status" only; the other buttons skip browser validation (the server checks). #}
+<form id="bulk-form" method="post" action="{{ submit_url }}" class="bulk-actions">
     {{ csrf_field() }}
     <span class="bulk-count" data-bulk-count>0 selected</span>
-    <button type="submit" name="action" value="bulk_delete" class="btn-danger" title="Delete selected">🗑 Delete selected</button>
+    {% if admin_can('manager') %}
+        <button type="submit" name="action" value="bulk_delete" class="btn-danger" title="Delete selected" formnovalidate>🗑 Delete selected</button>
+    {% endif %}
     <select name="status" class="status-select" required>
         <option value="" disabled selected>— choose status —</option>
         {% for status in statuses %}<option value="{{ status }}">{{ status }}</option>{% endfor %}
     </select>
     <button type="submit" name="action" value="bulk_set_status" class="btn-secondary">Set status</button>
+    <span class="bulk-price">
+        <select name="price_mode" class="status-select" title="Price change for every variant of the selected products">
+            {% for mode, label in price_modes %}<option value="{{ mode }}">{{ label }}</option>{% endfor %}
+        </select>
+        <input type="number" name="price_value" step="0.01" min="0" max="99999999.99" placeholder="0.00" class="bulk-price-value" aria-label="Price or change">
+        <button type="submit" name="action" value="bulk_price" class="btn-secondary" formnovalidate>Apply price</button>
+    </span>
 </form>
 
 <table class="cart-table admin-table">
@@ -99,16 +125,18 @@
             <th></th>
             <th>ID</th>
             <th></th>
-            <th>{{ ui.sort_link('name', 'Name', sort, dir, status_filter) }}</th>
-            <th>{{ ui.sort_link('category', 'Category', sort, dir, status_filter) }}</th>
-            <th>{{ ui.sort_link('variants', 'Variants', sort, dir, status_filter) }}</th>
-            <th>{{ ui.sort_link('status', 'Status', sort, dir, status_filter) }}</th>
+            <th>{{ ui.sort_link('name', 'Name', sort, dir, list_query) }}</th>
+            <th>{{ ui.sort_link('category', 'Category', sort, dir, list_query) }}</th>
+            <th>{{ ui.sort_link('variants', 'Variants', sort, dir, list_query) }}</th>
+            <th>{{ ui.sort_link('status', 'Status', sort, dir, list_query) }}</th>
             <th>Actions</th>
         </tr>
     </thead>
     <tbody>
         {% for p in products %}
             {% set open = expanded_id == p.id %}
+            {# Values posted to a failed "Save changes" are shown again instead of the stored ones. #}
+            {% set ei = edit_input is not null and edit_input.id == p.id ? edit_input : null %}
             <tr class="product-row {{ open ? 'is-open' }}" data-product-id="{{ p.id }}">
                 <td><input type="checkbox" form="bulk-form" name="ids[]" value="{{ p.id }}" class="product-select"></td>
                 <td>
@@ -124,11 +152,16 @@
                         <div class="product-thumb product-thumb-empty">—</div>
                     {% endif %}
                 </td>
-                <td>{{ p.name }}</td>
+                <td>
+                    {{ p.name }}
+                    {% if p.low_stock_count > 0 %}
+                        <span class="low-stock-badge" title="{{ p.low_stock_count }} active variant(s) at or below {{ low_stock_threshold }} in stock">Low stock</span>
+                    {% endif %}
+                </td>
                 <td>{{ p.category_name }}</td>
                 <td><button type="button" class="variant-count-btn row-toggle" data-target="edit-{{ p.id }}" title="View variants">{{ p.variant_count }}</button></td>
                 <td>
-                    <form method="post" action="{{ path('admin.products.submit') }}" class="inline-form">
+                    <form method="post" action="{{ submit_url }}" class="inline-form">
                         {{ csrf_field() }}
                         <input type="hidden" name="action" value="set_status">
                         <input type="hidden" name="id" value="{{ p.id }}">
@@ -143,13 +176,15 @@
                 <td>
                     <div class="table-actions">
                         <button type="button" class="icon-btn magic-btn" data-target="magic-{{ p.id }}" title="Magic edit with AI">✨</button>
-                        <form method="post" action="{{ path('admin.products.submit') }}" class="inline-form"
-                              data-confirm="Delete &quot;{{ p.name }}&quot;? This cannot be undone.">
-                            {{ csrf_field() }}
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="id" value="{{ p.id }}">
-                            <button type="submit" class="icon-btn icon-btn-danger" title="Delete product">🗑</button>
-                        </form>
+                        {% if admin_can('manager') %}
+                            <form method="post" action="{{ submit_url }}" class="inline-form"
+                                  data-confirm="Delete &quot;{{ p.name }}&quot;? This cannot be undone.">
+                                {{ csrf_field() }}
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="id" value="{{ p.id }}">
+                                <button type="submit" class="icon-btn icon-btn-danger" title="Delete product">🗑</button>
+                            </form>
+                        {% endif %}
                     </div>
                 </td>
             </tr>
@@ -162,14 +197,29 @@
                             {% if p.images is empty %}
                                 <p class="field-hint">No images yet — upload one below.</p>
                             {% else %}
-                                <div class="image-grid">
+                                <p class="field-hint">The first image is the main one. Drag to reorder, or use the arrows.</p>
+                                {# Drag and drop (admin.js) fills and submits this form with the new order. #}
+                                <form method="post" action="{{ submit_url }}" id="image-order-{{ p.id }}" hidden>
+                                    {{ csrf_field() }}
+                                    <input type="hidden" name="action" value="reorder_images">
+                                    <input type="hidden" name="id" value="{{ p.id }}">
+                                </form>
+                                <div class="image-grid" data-image-order-form="image-order-{{ p.id }}">
                                     {% for image in p.images %}
-                                        <div class="image-thumb {{ loop.first ? 'is-main' }}">
-                                            <img src="/{{ image }}" alt="">
+                                        <div class="image-thumb {{ loop.first ? 'is-main' }}" draggable="true" data-path="{{ image }}">
+                                            <img src="/{{ image }}" alt="" draggable="false">
                                             {% if loop.first %}<span class="main-badge">main</span>{% endif %}
                                             <div class="image-thumb-actions">
                                                 {% if not loop.first %}
-                                                    <form method="post" action="{{ path('admin.products.submit') }}" class="inline-form">
+                                                    <form method="post" action="{{ submit_url }}" class="inline-form">
+                                                        {{ csrf_field() }}
+                                                        <input type="hidden" name="action" value="move_image">
+                                                        <input type="hidden" name="id" value="{{ p.id }}">
+                                                        <input type="hidden" name="path" value="{{ image }}">
+                                                        <input type="hidden" name="offset" value="-1">
+                                                        <button type="submit" class="icon-btn" title="Move earlier">&#8592;</button>
+                                                    </form>
+                                                    <form method="post" action="{{ submit_url }}" class="inline-form">
                                                         {{ csrf_field() }}
                                                         <input type="hidden" name="action" value="set_main_image">
                                                         <input type="hidden" name="id" value="{{ p.id }}">
@@ -177,7 +227,17 @@
                                                         <button type="submit" class="icon-btn" title="Set as main image">&#9733;</button>
                                                     </form>
                                                 {% endif %}
-                                                <form method="post" action="{{ path('admin.products.submit') }}" class="inline-form" data-confirm="Remove this image?">
+                                                {% if not loop.last %}
+                                                    <form method="post" action="{{ submit_url }}" class="inline-form">
+                                                        {{ csrf_field() }}
+                                                        <input type="hidden" name="action" value="move_image">
+                                                        <input type="hidden" name="id" value="{{ p.id }}">
+                                                        <input type="hidden" name="path" value="{{ image }}">
+                                                        <input type="hidden" name="offset" value="1">
+                                                        <button type="submit" class="icon-btn" title="Move later">&#8594;</button>
+                                                    </form>
+                                                {% endif %}
+                                                <form method="post" action="{{ submit_url }}" class="inline-form" data-confirm="Remove this image?">
                                                     {{ csrf_field() }}
                                                     <input type="hidden" name="action" value="delete_image">
                                                     <input type="hidden" name="id" value="{{ p.id }}">
@@ -190,7 +250,7 @@
                                 </div>
                             {% endif %}
 
-                            <form method="post" action="{{ path('admin.products.submit') }}" enctype="multipart/form-data" class="upload-form">
+                            <form method="post" action="{{ submit_url }}" enctype="multipart/form-data" class="upload-form">
                                 {{ csrf_field() }}
                                 <input type="hidden" name="action" value="upload_images">
                                 <input type="hidden" name="id" value="{{ p.id }}">
@@ -202,25 +262,31 @@
                         </div>
 
                         <div class="edit-block-grid">
-                            <form method="post" action="{{ path('admin.products.submit') }}" class="edit-form">
+                            <form method="post" action="{{ submit_url }}" class="edit-form">
                                 {{ csrf_field() }}
                                 <input type="hidden" name="action" value="update">
                                 <input type="hidden" name="id" value="{{ p.id }}">
 
+                                {% if ei %}
+                                    {% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
+                                    <p class="field-hint">Your changes have not been saved yet — fix the above and click "Save changes".</p>
+                                {% endif %}
+
                                 <div class="form-row">
-                                    <label>Name <input type="text" name="name" value="{{ p.name }}" required></label>
+                                    <label>Name <input type="text" name="name" value="{{ ei ? ei.name|default('') : p.name }}" maxlength="{{ limits.name }}" required></label>
                                     <label>Category
+                                        {% set selected_category = ei ? ei.category_id : p.category_id %}
                                         <select name="category_id" required>
                                             {% for category in categories %}
-                                                <option value="{{ category.id }}" {{ p.category_id == category.id ? 'selected' }}>{{ category.name }}</option>
+                                                <option value="{{ category.id }}" {{ selected_category == category.id ? 'selected' }}>{{ category.name }}</option>
                                             {% endfor %}
                                         </select>
                                     </label>
                                 </div>
 
-                                <label>Short description <input type="text" name="short_description" value="{{ p.short_description }}" required></label>
+                                <label>Short description <input type="text" name="short_description" value="{{ ei ? ei.short_description|default('') : p.short_description }}" maxlength="{{ limits.short_description }}" required></label>
                                 <label>Long description</label>
-                                {{ ui.wysiwyg(p.long_description_html) }}
+                                {{ ui.wysiwyg(ei ? ei.long_description : p.long_description_html) }}
 
                                 <button type="submit" class="btn-primary">Save changes</button>
                             </form>
@@ -232,9 +298,16 @@
                                 {% endif %}
                                 {# Forms can't wrap <tr>, so each row's inputs point at their own form via form="…". #}
                                 {% for v in variants[p.id] %}
-                                    <form method="post" action="{{ path('admin.products.submit') }}" id="variant-form-{{ v.id }}" hidden>
+                                    <form method="post" action="{{ submit_url }}" id="variant-form-{{ v.id }}" hidden>
                                         {{ csrf_field() }}
                                         <input type="hidden" name="action" value="update_variant">
+                                        <input type="hidden" name="id" value="{{ p.id }}">
+                                        <input type="hidden" name="variant_id" value="{{ v.id }}">
+                                    </form>
+                                    <form method="post" action="{{ submit_url }}" id="variant-delete-{{ v.id }}" hidden
+                                          data-confirm="Delete variant &quot;{{ v.sku }}&quot;? This cannot be undone.">
+                                        {{ csrf_field() }}
+                                        <input type="hidden" name="action" value="delete_variant">
                                         <input type="hidden" name="id" value="{{ p.id }}">
                                         <input type="hidden" name="variant_id" value="{{ v.id }}">
                                     </form>
@@ -244,31 +317,35 @@
                                     <tbody>
                                         {% for v in variants[p.id] %}
                                             {% set f = 'variant-form-' ~ v.id %}
-                                            <tr>
-                                                <td><input type="text" form="{{ f }}" name="sku" value="{{ v.sku }}" maxlength="64" required></td>
-                                                <td><input type="text" form="{{ f }}" name="label" value="{{ v.label }}" maxlength="64"></td>
-                                                <td><input type="text" form="{{ f }}" name="unit" value="{{ v.unit }}" maxlength="64"></td>
-                                                <td><input type="number" form="{{ f }}" name="price" value="{{ v.price }}" step="0.01" min="0" required></td>
+                                            {% set low = v.is_active and v.stock <= low_stock_threshold %}
+                                            <tr class="{{ low ? 'is-low-stock' }}" {% if low %}title="Low stock (≤ {{ low_stock_threshold }})"{% endif %}>
+                                                <td><input type="text" form="{{ f }}" name="sku" value="{{ v.sku }}" maxlength="{{ limits.variant_field }}" required></td>
+                                                <td><input type="text" form="{{ f }}" name="label" value="{{ v.label }}" maxlength="{{ limits.variant_field }}"></td>
+                                                <td><input type="text" form="{{ f }}" name="unit" value="{{ v.unit }}" maxlength="{{ limits.variant_field }}"></td>
+                                                <td><input type="number" form="{{ f }}" name="price" value="{{ v.price }}" step="0.01" min="0" max="99999999.99" required></td>
                                                 <td><input type="number" form="{{ f }}" name="stock" value="{{ v.stock }}" min="0" required></td>
                                                 <td><input type="checkbox" form="{{ f }}" name="is_active" value="1" {{ v.is_active ? 'checked' }}></td>
-                                                <td><button type="submit" form="{{ f }}" class="btn-secondary btn-small">Save</button></td>
+                                                <td class="variant-actions">
+                                                    <button type="submit" form="{{ f }}" class="btn-secondary btn-small">Save</button>
+                                                    <button type="submit" form="variant-delete-{{ v.id }}" class="icon-btn icon-btn-danger" title="Delete variant">🗑</button>
+                                                </td>
                                             </tr>
                                         {% endfor %}
                                     </tbody>
                                     {% set nf = 'variant-new-' ~ p.id %}
                                     <tfoot>
                                         <tr class="variant-new-row">
-                                            <td><input type="text" form="{{ nf }}" name="sku" placeholder="New SKU" maxlength="64" required></td>
-                                            <td><input type="text" form="{{ nf }}" name="label" placeholder="12" maxlength="64"></td>
-                                            <td><input type="text" form="{{ nf }}" name="unit" placeholder="pack" maxlength="64"></td>
-                                            <td><input type="number" form="{{ nf }}" name="price" step="0.01" min="0" placeholder="0.00" required></td>
+                                            <td><input type="text" form="{{ nf }}" name="sku" placeholder="New SKU" maxlength="{{ limits.variant_field }}" required></td>
+                                            <td><input type="text" form="{{ nf }}" name="label" placeholder="12" maxlength="{{ limits.variant_field }}"></td>
+                                            <td><input type="text" form="{{ nf }}" name="unit" placeholder="pack" maxlength="{{ limits.variant_field }}"></td>
+                                            <td><input type="number" form="{{ nf }}" name="price" step="0.01" min="0" max="99999999.99" placeholder="0.00" required></td>
                                             <td><input type="number" form="{{ nf }}" name="stock" value="0" min="0" required></td>
                                             <td><input type="checkbox" form="{{ nf }}" name="is_active" value="1" checked></td>
                                             <td><button type="submit" form="{{ nf }}" class="btn-primary btn-small">+ Add</button></td>
                                         </tr>
                                     </tfoot>
                                 </table>
-                                <form method="post" action="{{ path('admin.products.submit') }}" id="{{ nf }}" hidden>
+                                <form method="post" action="{{ submit_url }}" id="{{ nf }}" hidden>
                                     {{ csrf_field() }}
                                     <input type="hidden" name="action" value="add_variant">
                                     <input type="hidden" name="id" value="{{ p.id }}">
@@ -297,17 +374,17 @@
                 </td>
             </tr>
         {% else %}
-            <tr><td colspan="9" style="color: var(--color-muted);">No products{{ status_filter ? ' with status ' ~ status_filter }} yet.</td></tr>
+            <tr><td colspan="9" style="color: var(--color-muted);">No products{{ status_filter ? ' with status ' ~ status_filter }}{{ low_stock_only ? ' with low stock' }} yet.</td></tr>
         {% endfor %}
     </tbody>
 </table>
 
 {% if total_pages > 1 %}
     <div class="pagination">
-        <a href="{{ path('admin.products', {}, {page: max(1, page - 1), status: status_filter, sort: sort, dir: sort ? dir}) }}"
+        <a href="{{ path('admin.products', {}, list_query|merge({page: max(1, page - 1)})) }}"
            class="btn-secondary {{ page <= 1 ? 'is-disabled' }}">‹ Prev</a>
         <span class="bulk-count">Page {{ page }} of {{ total_pages }}</span>
-        <a href="{{ path('admin.products', {}, {page: min(total_pages, page + 1), status: status_filter, sort: sort, dir: sort ? dir}) }}"
+        <a href="{{ path('admin.products', {}, list_query|merge({page: min(total_pages, page + 1)})) }}"
            class="btn-secondary {{ page >= total_pages ? 'is-disabled' }}">Next ›</a>
     </div>
 {% endif %}

@@ -48,4 +48,12 @@ final class Input
     {
         return isset($this->options[$name]);
     }
+
+    /** Value of --name=value ($default when missing or given as a bare flag). */
+    public function option(string $name, ?string $default = null): ?string
+    {
+        $value = $this->options[$name] ?? null;
+
+        return is_string($value) ? $value : $default;
+    }
 }

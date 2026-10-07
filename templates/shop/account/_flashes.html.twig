@@ -1,0 +1,9 @@
+{# One-time messages (Session::flash) and form errors for account pages; ajax-nav.js also shows `main .msg` as a toast. #}
+{% for flash in flashes() %}
+    <p class="msg {{ flash.type == 'error' ? 'error' }}" role="{{ flash.type == 'error' ? 'alert' : 'status' }}">{{ flash.message }}</p>
+{% endfor %}
+{% if errors is defined and errors is not empty %}
+    <div class="form-errors" role="alert">
+        <ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>
+    </div>
+{% endif %}

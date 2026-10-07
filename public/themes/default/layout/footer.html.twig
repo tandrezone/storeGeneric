@@ -1,14 +1,23 @@
-{# Storefront footer — closes what header.html.twig opened. Keep the two scripts. #}
+{# Storefront footer — closes what header.html.twig opened. Keep the two scripts.
+   languages: [{code, name, html_lang, url, active}] — the language switcher (see header). #}
 </main>
 <footer class="site-footer">
     <div class="container footer-inner">
-        <nav class="footer-nav">
-            <a href="{{ path('page.about') }}">About Us</a>
-            <a href="{{ path('page.info') }}">Info</a>
-            <a href="{{ path('page.support') }}">Support</a>
-            <a href="{{ path('page.terms') }}">Terms &amp; Conditions</a>
+        <nav class="footer-nav" aria-label="{{ 'Footer'|trans }}">
+            <a href="{{ path('page.about') }}">{{ 'About Us'|trans }}</a>
+            <a href="{{ path('page.info') }}">{{ 'Info'|trans }}</a>
+            <a href="{{ path('page.support') }}">{{ 'Support'|trans }}</a>
+            <a href="{{ path('order.track') }}">{{ 'Track your order'|trans }}</a>
+            <a href="{{ path('page.terms') }}">{{ 'Terms & Conditions'|trans }}</a>
         </nav>
-        <p>&copy; {{ year }} {{ store.name }}. All rights reserved.</p>
+        {% if languages|default([])|length > 1 %}
+            <nav class="footer-lang" aria-label="{{ 'Language'|trans }}">
+                {% for language in languages %}
+                    <a href="{{ language.url }}" hreflang="{{ language.html_lang }}" lang="{{ language.html_lang }}" data-no-ajax{% if language.active %} aria-current="true" class="active"{% endif %}>{{ language.name }}</a>
+                {% endfor %}
+            </nav>
+        {% endif %}
+        <p>&copy; {{ year }} {{ store.name }}. {{ 'All rights reserved.'|trans }}</p>
     </div>
 </footer>
 <script src="/assets/js/ajax-nav.js"></script>

@@ -1,0 +1,40 @@
+{% extends 'layout/admin.html.twig' %}
+
+{% set title = 'Admin — My account' %}
+{% set active_nav = 'account' %}
+
+{% block content %}
+<h1>My account</h1>
+
+{% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
+
+<div class="panel">
+    <p>
+        Logged in as <strong>{{ me.username }}</strong>
+        <span class="status-badge" data-status="{{ me.role }}">{{ me.role }}</span>
+    </p>
+    {% if me.email %}<p class="field-hint">{{ me.email }}</p>{% endif %}
+    <p class="field-hint">Last login: {{ me.last_login_at ?: '—' }}. Your email and role are managed by an owner in Users.</p>
+</div>
+
+<div class="panel">
+    <h2>Change password</h2>
+    <form method="post" action="{{ path('admin.account.submit') }}" autocomplete="off">
+        {{ csrf_field() }}
+        <input type="hidden" name="username" value="{{ me.username }}" autocomplete="username">
+        <label>Current password
+            <input type="password" name="current_password" required autocomplete="current-password">
+        </label>
+        <div class="form-row">
+            <label>New password
+                <input type="password" name="new_password" required minlength="{{ min_password }}" autocomplete="new-password">
+            </label>
+            <label>Repeat new password
+                <input type="password" name="new_password_confirm" required minlength="{{ min_password }}" autocomplete="new-password">
+            </label>
+        </div>
+        <p class="field-hint">At least {{ min_password }} characters. Your other sessions are logged out.</p>
+        <button type="submit" class="btn-primary">Change password</button>
+    </form>
+</div>
+{% endblock %}

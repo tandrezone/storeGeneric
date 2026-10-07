@@ -39,10 +39,26 @@ final class CartService
         $this->carts->removeItem($this->id(), $variantId);
     }
 
-    /** @return list<array<string, mixed>> */
+    /** @return list<array<string, mixed>> lines that can still be bought */
     public function items(): array
     {
         return $this->carts->items($this->id());
+    }
+
+    /**
+     * Deletes lines whose product or option is no longer for sale.
+     *
+     * @return list<string> names of the products removed (to tell the customer)
+     */
+    public function removeUnavailable(): array
+    {
+        return $this->carts->removeUnavailable($this->id());
+    }
+
+    /** Quantity of a variant already in the cart (0 if none). */
+    public function quantityOf(int $variantId): int
+    {
+        return $this->carts->quantity($this->id(), $variantId);
     }
 
     /** @param list<array<string, mixed>>|null $items pass items() to avoid a second query */

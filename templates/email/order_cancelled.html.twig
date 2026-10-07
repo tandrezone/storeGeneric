@@ -1,0 +1,13 @@
+{% extends 'email/_layout.html.twig' %}
+
+{% block body %}
+<p>Hi {{ order.ship_name }},</p>
+{% if refunded %}
+    <p>Your order <strong>{{ order.order_number }}</strong> has been refunded. The amount of <strong>{{ order.total|money }}</strong>
+       goes back to your original payment method ({{ payment_label }}); depending on your bank this can take a few days to show.</p>
+{% else %}
+    <p>Your order <strong>{{ order.order_number }}</strong> has been cancelled. Nothing was charged for it.</p>
+{% endif %}
+{{ include('email/_items.html.twig') }}
+<p>If you have any questions, just reply to this email.</p>
+{% endblock %}

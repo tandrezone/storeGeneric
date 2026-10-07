@@ -1,0 +1,8 @@
+{% autoescape false %}
+{{ order.ship_name }}
+{{ order.ship_address1 }}
+{% if order.ship_address2 %}{{ order.ship_address2 }}
+{% endif %}
+{{ order.ship_city }}{{ order.ship_state ? ', ' ~ order.ship_state }} {{ order.ship_postal_code }}
+{{ order.ship_country }}
+{% endautoescape %}

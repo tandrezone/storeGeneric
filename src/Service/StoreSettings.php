@@ -15,6 +15,7 @@ use App\Support\Paths;
 final class StoreSettings
 {
     public const LOGO_DIR = 'assets/images/branding';
+    public const DEFAULT_LOW_STOCK_THRESHOLD = 5;
 
     public function __construct(
         private readonly SettingRepository $settings,
@@ -44,6 +45,16 @@ final class StoreSettings
         return strtoupper($this->config->get('STORE_CURRENCY', 'EUR'));
     }
 
+    /**
+     * Default storefront language (and of emails for orders without one):
+     * Admin → Settings, else STORE_LANGUAGE, else English. A code such as
+     * "pt" or "pt-PT"; the Translator falls back to English if unsupported.
+     */
+    public function language(): string
+    {
+        return $this->settings->get('store_language') ?? $this->config->get('STORE_LANGUAGE', 'en');
+    }
+
     /** Slug of the selected theme (not validated — see Theme::name()). */
     public function themeSlug(): string
     {
@@ -63,6 +74,12 @@ final class StoreSettings
         $path = $this->logoPath();
 
         return $path === null ? null : '/' . $path . '?v=' . filemtime($this->paths->public($path));
+    }
+
+    /** Active variants with this much stock or less count as "low stock" in the admin. */
+    public function lowStockThreshold(): int
+    {
+        return max(0, (int) $this->settings->get('low_stock_threshold', (string) self::DEFAULT_LOW_STOCK_THRESHOLD));
     }
 
     public function showNameWithLogo(): bool

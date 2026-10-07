@@ -2,26 +2,83 @@
   Storefront header — opens <html>, <body> and <main>; footer.html.twig closes them.
   Available: page_title, store.name, store.email, store.logo_url, store.currency,
              theme, year, current_path, asset('path'), logo(), path('route', {params})
+  SEO (any may be empty, so wrap them in {% if %}):
+             lang             <html lang> code of the active language, e.g. "en", "pt-PT"
+             meta_description plain text, at most ~155 characters
+             canonical        absolute URL of the page
+             alternates       [{hreflang, url}] the page in every language (hreflang links)
+             robots           e.g. "noindex, follow" on search results
+             og_type          "website" or "product"
+             og_image         absolute image URL for social cards
+             product_price    "12.50" on product pages (currency: store.currency)
+             search_query     current shop search (?q=), for the search box
+  Account:   customer_name    signed-in customer's name, '' for visitors — link to
+                              path('account') ("Account") or path('account.login') ("Sign in")
+  Languages: languages      [{code, name, html_lang, url, active}] — links that switch the
+                              storefront language (add data-no-ajax: the whole page changes)
+  Text:      wrap it in |trans ({{ 'Sign in'|trans }}, {{ 'Hi {name}'|trans({name: x}) }}) so it
+             follows the visitor's language — see translations/*.php.
+  Keep the skip link and <main id="main">: assets/js/ajax-nav.js moves focus there.
 #}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang|default('en') }}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ page_title }}</title>
+{% if meta_description|default('') %}<meta name="description" content="{{ meta_description }}">{% endif %}
+{% if robots|default('') %}<meta name="robots" content="{{ robots }}">{% endif %}
+{% if canonical|default('') %}<link rel="canonical" href="{{ canonical }}">{% endif %}
+{% for alternate in alternates|default([]) %}<link rel="alternate" hreflang="{{ alternate.hreflang }}" href="{{ alternate.url }}">
+{% endfor %}
+<meta property="og:site_name" content="{{ store.name }}">
+<meta property="og:type" content="{{ og_type|default('website') }}">
+<meta property="og:title" content="{{ page_title }}">
+{% if meta_description|default('') %}<meta property="og:description" content="{{ meta_description }}">{% endif %}
+{% if canonical|default('') %}<meta property="og:url" content="{{ canonical }}">{% endif %}
+{% if og_image|default('') %}<meta property="og:image" content="{{ og_image }}">{% endif %}
+{% if product_price|default('') %}
+<meta property="product:price:amount" content="{{ product_price }}">
+<meta property="product:price:currency" content="{{ store.currency }}">
+{% endif %}
+<meta name="twitter:card" content="{{ og_image|default('') ? 'summary_large_image' : 'summary' }}">
+<meta name="twitter:title" content="{{ page_title }}">
+{% if meta_description|default('') %}<meta name="twitter:description" content="{{ meta_description }}">{% endif %}
+{% if og_image|default('') %}<meta name="twitter:image" content="{{ og_image }}">{% endif %}
 {% include 'partials/icons.html.twig' %}
 <link rel="stylesheet" href="{{ asset('css/style.css') }}">
 </head>
 <body data-layout="store">
+<a class="skip-link" href="#main">{{ 'Skip to content'|trans }}</a>
 <header class="site-header">
     <div class="container header-inner">
         <a href="{{ path('home') }}" class="logo">{{ logo() }}</a>
-        <nav class="main-nav">
-            <a href="{{ path('home') }}">Shop</a>
+        <form class="header-search" action="{{ path('home') }}" method="get" role="search">
+            <label for="header-search-input" class="visually-hidden">{{ 'Search products'|trans }}</label>
+            <input type="search" id="header-search-input" name="q" value="{{ search_query|default('') }}"
+                   placeholder="{{ 'Search products…'|trans }}" maxlength="100" autocomplete="off">
+            <button type="submit" aria-label="{{ 'Search'|trans }}">
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+        </form>
+        <nav class="main-nav" aria-label="{{ 'Main'|trans }}">
+            <a href="{{ path('home') }}">{{ 'Shop'|trans }}</a>
+            {% if customer_name|default('') %}
+                <a href="{{ path('account') }}" class="account-link" title="{{ 'Signed in as {name}'|trans({name: customer_name}) }}">{{ 'Account'|trans }}</a>
+            {% else %}
+                <a href="{{ path('account.login') }}" class="account-link">{{ 'Sign in'|trans }}</a>
+            {% endif %}
             <a href="{{ path('cart') }}" class="cart-link">
-                Cart <span id="cart-count" class="cart-count">0</span>
+                {{ 'Cart'|trans }} <span id="cart-count" class="cart-count">0</span><span class="visually-hidden"> {{ 'items in cart'|trans }}</span>
             </a>
+            {% if languages|default([])|length > 1 %}
+                <span class="lang-switch" role="group" aria-label="{{ 'Language'|trans }}">
+                    {% for language in languages %}
+                        <a href="{{ language.url }}" hreflang="{{ language.html_lang }}" lang="{{ language.html_lang }}" title="{{ language.name }}" data-no-ajax{% if language.active %} aria-current="true" class="active"{% endif %}>{{ language.code|upper }}</a>
+                    {% endfor %}
+                </span>
+            {% endif %}
         </nav>
     </div>
 </header>
-<main class="container">
+<main class="container" id="main" tabindex="-1">

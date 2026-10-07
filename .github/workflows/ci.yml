@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.4', '8.5']
+
+    # Integration tests (tests/Integration) run against this throwaway database.
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: store_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_mysql, curl, json, zip, gd, intl, mbstring, zlib
+          coverage: none
+          tools: composer
+        env:
+          # Dependencies come from GitHub (Packagist is disabled in composer.json).
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ matrix.php }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ matrix.php }}-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Lint PHP files
+        run: |
+          find src config tests public -name '*.php' -print0 | xargs -0 -n1 -P4 php -l > /dev/null
+          php -l bin/console > /dev/null
+          php -l router.php > /dev/null
+
+      - name: Check JavaScript syntax
+        run: for f in public/assets/js/*.js; do node --check "$f"; done
+
+      - name: Console smoke test
+        run: php bin/console list
+
+      - name: Run tests
+        env:
+          TEST_DB_HOST: 127.0.0.1
+          TEST_DB_PORT: 3306
+          TEST_DB_NAME: store_test
+          TEST_DB_USER: root
+          TEST_DB_PASS: root
+        run: php tests/run.php -v
+
+  quality:
+    name: Static analysis & code style
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, curl, json, zip, gd, intl, mbstring
+          coverage: none
+          tools: composer, phpstan, phpcs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: PHPStan (phpstan.neon.dist, level 6)
+        run: phpstan analyse --no-progress --memory-limit=1G
+
+      - name: PHP_CodeSniffer (phpcs.xml.dist, PSR-12)
+        run: phpcs

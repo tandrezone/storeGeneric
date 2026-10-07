@@ -1,0 +1,74 @@
+{% extends 'layout/admin.html.twig' %}
+
+{% set title = 'Admin — Customers' %}
+{% set active_nav = 'customers' %}
+
+{% set list_query = {status: filters.status, q: filters.q ?: null} %}
+
+{% block content %}
+<h1>Customers</h1>
+
+<p class="field-hint">Storefront accounts. Guest orders aren't listed here — they appear under a customer only after
+    the customer confirms the same email address. "Spent" counts paid orders that weren't refunded.</p>
+
+<div class="filters">
+    <a href="{{ path('admin.customers', {}, list_query|merge({status: null})) }}" class="filter-pill {{ filters.status is null ? 'active' }}">All</a>
+    {% for status in statuses %}
+        <a href="{{ path('admin.customers', {}, list_query|merge({status: status})) }}" class="filter-pill {{ filters.status == status ? 'active' }}">{{ status|capitalize }}</a>
+    {% endfor %}
+</div>
+
+<form method="get" action="{{ path('admin.customers') }}" class="panel" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+    {% if filters.status %}<input type="hidden" name="status" value="{{ filters.status }}">{% endif %}
+    <label style="flex: 1 1 260px;">Search
+        <input type="search" name="q" value="{{ filters.q }}" placeholder="Email, name or phone">
+    </label>
+    <button type="submit" class="btn-primary">Search</button>
+    {% if filters.q %}
+        <a href="{{ path('admin.customers', {}, {status: filters.status}) }}" class="btn-secondary">Clear</a>
+    {% endif %}
+</form>
+
+<p class="field-hint">{{ total }} customer{{ total == 1 ? '' : 's' }}</p>
+
+<table class="cart-table admin-table">
+    <thead>
+        <tr><th>Customer</th><th>Status</th><th>Orders</th><th>Spent</th><th>Registered</th><th>Last sign-in</th><th></th></tr>
+    </thead>
+    <tbody>
+        {% for c in customers %}
+            <tr>
+                <td>
+                    <strong>{{ c.name }}</strong><br>
+                    <span class="field-hint">{{ c.email }}</span>
+                    {% if not c.email_verified_at and not c.deleted_at %}<span class="field-hint">(not confirmed)</span>{% endif %}
+                </td>
+                <td>
+                    {% if c.deleted_at %}
+                        <span class="status-badge" data-status="cancelled">deleted</span>
+                    {% else %}
+                        <span class="status-badge" data-status="{{ c.active ? 'paid' : 'cancelled' }}">{{ c.active ? 'active' : 'inactive' }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ c.order_count }}</td>
+                <td>{{ c.total_spent|money }}</td>
+                <td class="field-hint">{{ c.created_at|date('Y-m-d') }}</td>
+                <td class="field-hint">{{ c.last_login_at ?: 'never' }}</td>
+                <td><a href="{{ path('admin.customer', {id: c.id}) }}" class="btn-secondary">Open</a></td>
+            </tr>
+        {% else %}
+            <tr><td colspan="7" class="field-hint">No customers found.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if total_pages > 1 %}
+    <div class="pagination">
+        <a href="{{ path('admin.customers', {}, list_query|merge({page: max(1, page - 1)})) }}"
+           class="btn-secondary {{ page <= 1 ? 'is-disabled' }}">‹ Prev</a>
+        <span class="bulk-count">Page {{ page }} of {{ total_pages }}</span>
+        <a href="{{ path('admin.customers', {}, list_query|merge({page: min(total_pages, page + 1)})) }}"
+           class="btn-secondary {{ page >= total_pages ? 'is-disabled' }}">Next ›</a>
+    </div>
+{% endif %}
+{% endblock %}

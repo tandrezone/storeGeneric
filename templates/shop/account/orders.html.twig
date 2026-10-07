@@ -1,0 +1,31 @@
+{% extends 'layout/shop.html.twig' %}
+
+{% set title = 'Your orders' %}
+{% set robots = 'noindex, nofollow' %}
+{% set account_nav = 'orders' %}
+
+{% block content %}
+<section class="account-page">
+    <h1>Your orders</h1>
+    {{ include('shop/account/_nav.html.twig') }}
+    {{ include('shop/account/_flashes.html.twig') }}
+
+    {% if orders is empty %}
+        <p>No orders yet. <a href="{{ path('home') }}">Start shopping</a>.</p>
+        {% if not customer.email_verified_at %}
+            <p class="field-hint">Orders you placed as a guest appear here once you confirm your email address.</p>
+        {% endif %}
+    {% else %}
+        <p class="field-hint">{{ total }} order{{ total == 1 ? '' : 's' }}</p>
+        {{ include('shop/account/_order-list.html.twig') }}
+
+        {% if total_pages > 1 %}
+            <nav class="pagination" aria-label="Pages">
+                {% if page > 1 %}<a href="{{ path('account.orders', {}, {page: page - 1}) }}" class="btn-secondary" rel="prev">‹ Newer</a>{% endif %}
+                <span>Page {{ page }} of {{ total_pages }}</span>
+                {% if page < total_pages %}<a href="{{ path('account.orders', {}, {page: page + 1}) }}" class="btn-secondary" rel="next">Older ›</a>{% endif %}
+            </nav>
+        {% endif %}
+    {% endif %}
+</section>
+{% endblock %}

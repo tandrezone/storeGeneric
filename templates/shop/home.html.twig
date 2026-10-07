@@ -1,37 +1,131 @@
 {% extends 'layout/shop.html.twig' %}
 
+{% set title = search != '' ? 'Search: ' ~ search ~ (category ? ' in ' ~ category.name) : (category ? category.name : (page > 1 ? 'All products' : store.name)) ~ (page > 1 ? ' – page ' ~ page) %}
+{% set meta_description = category and category.description
+    ? category.description|striptags|slice(0, 155)
+    : (category ? 'Shop ' ~ category.name ~ ' at ' ~ store.name ~ '.' : 'Browse ' ~ total ~ ' products at ' ~ store.name ~ '.') %}
+{# Search results and re-sorted lists aren't separate pages for search engines. #}
+{% set robots = search != '' ? 'noindex, follow' : null %}
+{% set canonical = absolute_url(path('home', {}, {category: active_category, page: page > 1 ? page : null})) %}
+{% if category and category.image_path and image_size(category.image_path) %}
+    {% set og_image = absolute_url(category.image_path) %}
+{% elseif products is not empty and products[0].image_path %}
+    {% set og_image = absolute_url(products[0].image_path) %}
+{% endif %}
+
 {% block content %}
-{{ theme_part('hero') }}
+{{ json_ld({
+    '@graph': [
+        {'@type': 'Organization', '@id': absolute_url('/') ~ '#organization', name: store.name, url: absolute_url('/'), email: store.email}
+            |merge(store.logo_url ? {logo: absolute_url(store.logo_url|split('?')|first)} : {}),
+        {'@type': 'WebSite', '@id': absolute_url('/') ~ '#website', name: store.name, url: absolute_url('/'),
+         publisher: {'@id': absolute_url('/') ~ '#organization'},
+         potentialAction: {'@type': 'SearchAction', target: {'@type': 'EntryPoint', urlTemplate: absolute_url('/') ~ '?q={search_term_string}'}, 'query-input': 'required name=search_term_string'}}
+    ]
+}) }}
 
-<section class="filters">
-    <a href="{{ path('home') }}" class="filter-pill {{ active_category is null ? 'active' }}">All</a>
-    {% for category in categories %}
-        <a href="{{ path('home', {}, {category: category.slug}) }}"
-           class="filter-pill {{ active_category == category.slug ? 'active' }}">{{ category.name }}</a>
+{% if page == 1 and search == '' and category is null %}
+    {{ theme_part('hero') }}
+{% elseif category is null %}
+    <h1 class="page-heading">{{ search != '' ? 'Search results' : 'All products' }}</h1>
+{% endif %}
+
+{% if category %}
+    <section class="category-intro">
+        {% set category_image = category.image_path ? image_size(category.image_path) : null %}
+        {% if category_image %}
+            <img src="/{{ category.image_path }}" alt="" class="category-intro-image"
+                 width="{{ category_image.width }}" height="{{ category_image.height }}" decoding="async">
+        {% endif %}
+        <div class="category-intro-text">
+            <h1>{{ category.name }}</h1>
+            {% if category.description %}
+                <p>{{ category.description|striptags|nl2br }}</p>
+            {% endif %}
+        </div>
+    </section>
+{% endif %}
+
+<nav class="filters" aria-label="Categories">
+    <a href="{{ path('home', {}, {q: filters.q, sort: filters.sort}) }}" class="filter-pill {{ active_category is null ? 'active' }}"
+       {% if active_category is null %}aria-current="page"{% endif %}>All</a>
+    {% for cat in categories %}
+        <a href="{{ path('home', {}, {category: cat.slug, q: filters.q, sort: filters.sort}) }}"
+           class="filter-pill {{ active_category == cat.slug ? 'active' }}"
+           {% if active_category == cat.slug %}aria-current="page"{% endif %}>{{ cat.name }}</a>
     {% endfor %}
-</section>
+</nav>
 
-<section class="product-grid">
-    {% for product in products %}
-        <a class="product-card" href="{{ path('product.show', {id: product.id}) }}">
-            <div class="product-card-image">
-                {% if product.image_path %}
-                    <img src="/{{ product.image_path }}" alt="{{ product.name }}">
+<div class="shop-toolbar">
+    <p class="results-summary">
+    {% if search != '' %}
+        {{ total }} {{ total == 1 ? 'result' : 'results' }} for “{{ search }}”{{ category ? ' in ' ~ category.name }}.
+        <a href="{{ path('home', {}, {category: active_category}) }}">Clear search</a>
+    {% elseif total > 0 %}
+        {{ total }} {{ total == 1 ? 'product' : 'products' }}{% if pages > 1 %} · page {{ page }} of {{ pages }}{% endif %}
+    {% endif %}
+    </p>
+    {% if total > 1 %}
+        {# Search itself lives in the header (theme part); this form keeps q and category. #}
+        <form class="sort-form" action="{{ path('home') }}" method="get">
+            {% if active_category %}<input type="hidden" name="category" value="{{ active_category }}">{% endif %}
+            {% if search != '' %}<input type="hidden" name="q" value="{{ search }}">{% endif %}
+            <label for="shop-sort">Sort by</label>
+            <select id="shop-sort" name="sort" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
+                {% for key, label in sort_labels %}
+                    <option value="{{ key }}" {{ key == sort ? 'selected' }}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <noscript><button type="submit" class="btn-secondary">Sort</button></noscript>
+        </form>
+    {% endif %}
+</div>
+
+{% if products is not empty %}
+    <section class="product-grid" aria-label="Products">
+        {% for product in products %}
+            {% include 'shop/partials/product-card.html.twig' with {product: product, eager: loop.index <= 4 and page == 1} only %}
+        {% endfor %}
+    </section>
+{% else %}
+    <div class="empty-state">
+        {% if search != '' %}
+            <h2>No products match “{{ search }}”</h2>
+            <p>Check the spelling, try fewer words{{ category ? ', or search all categories' }}.</p>
+            <p>
+                {% if category %}<a class="btn-secondary" href="{{ path('home', {}, {q: search}) }}">Search all categories</a>{% endif %}
+                <a class="btn-primary" href="{{ path('home') }}">Browse all products</a>
+            </p>
+        {% elseif category %}
+            <h2>Nothing in {{ category.name }} yet</h2>
+            <p>New products are on their way. Have a look at the rest of the shop in the meantime.</p>
+            <p><a class="btn-primary" href="{{ path('home') }}">Browse all products</a></p>
+        {% else %}
+            <h2>The shop is being stocked</h2>
+            <p>There are no products yet — please check back soon.</p>
+        {% endif %}
+    </div>
+{% endif %}
+
+{% if pages > 1 %}
+    <nav class="pagination" aria-label="Pages">
+        {% if page > 1 %}
+            <a href="{{ path('home', {}, filters|merge({page: page - 1 > 1 ? page - 1 : null})) }}" rel="prev">‹ Previous</a>
+        {% endif %}
+        {% for p in 1..pages %}
+            {% if p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
+                {% if p == page %}
+                    <span class="is-current" aria-current="page">{{ p }}</span>
                 {% else %}
-                    <div class="image-placeholder">No image</div>
+                    <a href="{{ path('home', {}, filters|merge({page: p > 1 ? p : null})) }}" aria-label="Page {{ p }}">{{ p }}</a>
                 {% endif %}
-            </div>
-            <div class="product-card-body">
-                <span class="category-badge">{{ product.category_name }}</span>
-                <h3>{{ product.name }}</h3>
-                <p class="short-desc">{{ product.short_description }}</p>
-                {% if product.from_price is not null %}
-                    <p class="price">From {{ product.from_price|money }}</p>
-                {% endif %}
-            </div>
-        </a>
-    {% else %}
-        <p>No products found in this category yet.</p>
-    {% endfor %}
-</section>
+            {% elseif p == page - 3 or p == page + 3 %}
+                <span class="pagination-gap" aria-hidden="true">…</span>
+            {% endif %}
+        {% endfor %}
+        {% if page < pages %}
+            <a href="{{ path('home', {}, filters|merge({page: page + 1})) }}" rel="next">Next ›</a>
+        {% endif %}
+    </nav>
+{% endif %}
 {% endblock %}

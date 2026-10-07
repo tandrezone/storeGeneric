@@ -50,6 +50,60 @@
 </section>
 
 <section class="panel">
+    <h2>Inventory</h2>
+    <form method="post" action="{{ path('admin.settings.submit') }}">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="save_inventory">
+        <label>Low-stock threshold
+            <input type="number" name="low_stock_threshold" value="{{ low_stock_threshold }}" min="0" max="1000000" step="1" required>
+        </label>
+        <p class="field-hint">
+            Active variants with this many items or fewer are flagged as <strong>low stock</strong> in Admin → Products
+            (use 0 to flag only sold-out variants).
+        </p>
+        <button type="submit" class="btn-primary">Save inventory settings</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Tax</h2>
+    <form method="post" action="{{ path('admin.settings.submit') }}">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="save_tax">
+        <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="tax_enabled" value="1" style="width: auto;" {{ tax.enabled ? 'checked' }}>
+            Charge VAT
+        </label>
+        <div class="form-row">
+            <label>Default VAT rate (%)
+                <input type="number" name="tax_rate" value="{{ tax.rate }}" min="0" max="100" step="0.01" required>
+            </label>
+            <label>Rates per country (optional)
+                <input type="text" name="tax_country_rates" value="{{ tax.country_rates }}" maxlength="2000" placeholder="PT=23, ES=21, Germany=19">
+            </label>
+        </div>
+        <p class="field-hint">
+            Countries are matched against what the customer types in the Country field (not case-sensitive), like shipping
+            countries — list both the code and the name if customers might type either. Other countries use the default rate.
+        </p>
+        <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="tax_prices_include" value="1" style="width: auto;" {{ tax.prices_include ? 'checked' }}>
+            Prices include VAT
+        </label>
+        <p class="field-hint">
+            Ticked: product prices already contain VAT — totals don't change and the VAT part is shown on orders.
+            Unticked: VAT is added on top of the prices at checkout.
+        </p>
+        <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="tax_shipping" value="1" style="width: auto;" {{ tax.shipping ? 'checked' }}>
+            Charge VAT on shipping
+        </label>
+        <p class="field-hint">Discount codes come off the subtotal before VAT is worked out. Orders keep the rate they were placed with.</p>
+        <button type="submit" class="btn-primary">Save tax settings</button>
+    </form>
+</section>
+
+<section class="panel">
     <h2>Themes</h2>
     <p class="field-hint" style="margin-bottom: 18px;">The theme changes how the shop (and this admin panel) looks. Your products and orders aren't affected.</p>
 

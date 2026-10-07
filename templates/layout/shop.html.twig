@@ -1,7 +1,36 @@
 {#
   Base layout for storefront views. The page chrome (<head>, header,
   footer) comes from the active theme's parts; views fill `content`.
+  Views can set (outside their blocks): title, meta_description, canonical
+  (absolute URL, defaults to the current path; null for none), robots, og_type, og_image,
+  product_price; `search` fills the header search box.
+  customer_name (signed-in customer, else '') drives the header's Account / Sign in link.
+  lang / languages (language switcher links) / alternates (hreflang links to
+  the page in every language) follow the active language (?lang=, see LocaleMiddleware).
+  i18n.js carries the strings scripts need (translations/js-keys.php).
 #}
-{{ theme_part('header', {page_title: title|default(store.name)}) }}
+{% set current_customer = customer() %}
+{% set page_canonical = canonical is defined ? canonical : absolute_url(current_path|default('/')) %}
+{% set page_alternates = [] %}
+{% if page_canonical and languages()|length > 1 %}
+    {% for language in languages() %}
+        {% set page_alternates = page_alternates|merge([{hreflang: language.html_lang, url: page_canonical ~ (('?' in page_canonical) ? '&' : '?') ~ 'lang=' ~ language.code}]) %}
+    {% endfor %}
+    {% set page_alternates = page_alternates|merge([{hreflang: 'x-default', url: page_canonical}]) %}
+{% endif %}
+{{ theme_part('header', {
+    page_title: title is defined and title and title != store.name ? title ~ ' | ' ~ store.name : store.name,
+    lang: html_lang(),
+    meta_description: meta_description|default(null),
+    canonical: page_canonical,
+    alternates: page_alternates,
+    robots: robots|default(null),
+    og_type: og_type|default('website'),
+    og_image: og_image|default(null),
+    product_price: product_price|default(null),
+    search_query: search|default(''),
+    customer_name: current_customer ? current_customer.name : '',
+}) }}
+<script src="/assets/js/i18n.js" data-i18n="{{ i18n_js() }}" data-locale="{{ html_lang() }}"></script>
 {% block content %}{% endblock %}
 {{ theme_part('footer') }}

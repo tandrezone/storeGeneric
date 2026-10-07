@@ -31,15 +31,14 @@ final class LegacyUrlMiddleware implements MiddlewareInterface
         '/terms.php'                => '/terms',
         '/order-confirmation.php'   => '/order/confirmation',
         '/api/cart.php'             => '/api/cart',
-        '/admin'                    => '/admin/products',
-        '/admin/index.php'          => '/admin/products',
+        '/admin/index.php'          => '/admin',
         '/admin/products.php'       => '/admin/products',
         '/admin/categories.php'     => '/admin/categories',
         '/admin/orders.php'         => '/admin/orders',
         '/admin/shipping.php'       => '/admin/shipping',
         '/admin/analytics.php'      => '/admin/analytics',
         '/admin/login.php'          => '/admin/login',
-        '/admin/logout.php'         => '/admin/logout',
+        '/admin/logout.php'         => '/admin/products',
         '/admin/api/magic-edit.php' => '/admin/api/magic-edit',
     ];
 
