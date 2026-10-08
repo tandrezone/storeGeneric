@@ -126,5 +126,6 @@ return static function (RouteCollection $r): void {
         $r->get('/users', [Admin\UserController::class, 'index'], 'admin.users')->admin('owner');
         $r->post('/users', [Admin\UserController::class, 'handle'], 'admin.users.submit')->admin('owner');
         $r->post('/api/magic-edit', [Admin\MagicEditController::class, 'suggest'], 'admin.api.magic_edit')->admin('staff')->withoutAudit();
+        $r->post('/api/translate-product', [Admin\ProductTranslationController::class, 'suggest'], 'admin.api.translate')->admin('staff')->withoutAudit();
     }, static fn (Route $route) => $route->admin());
 };

@@ -34,27 +34,44 @@ final class ProductRepository extends Repository
      * ORDER BY expression, hence the repeated aggregate.)
      */
     public const SHOP_SORTS = [
-        'name'       => 'p.name ASC, p.id ASC',
-        'price_asc'  => self::FROM_PRICE_SQL . ' IS NULL, from_price ASC, p.name ASC',
-        'price_desc' => self::FROM_PRICE_SQL . ' IS NULL, from_price DESC, p.name ASC',
+        'name'       => 'name ASC, p.id ASC',
+        'price_asc'  => self::FROM_PRICE_SQL . ' IS NULL, from_price ASC, name ASC',
+        'price_desc' => self::FROM_PRICE_SQL . ' IS NULL, from_price DESC, name ASC',
         'newest'     => 'p.created_at DESC, p.id DESC',
     ];
 
-    /** Columns for storefront product cards. */
+    /**
+     * Joins the visitor's language onto a product query (placeholder :loc;
+     * '' matches no row, i.e. the store's own text). Name and descriptions
+     * fall back to the original when the translation is empty.
+     */
+    private const TRANSLATION_JOIN = '
+        LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = :loc
+    ';
+
+    /**
+     * Columns for storefront product cards. `name` / `short_description` are
+     * in the visitor's language; `base_name` is the original, which URL
+     * slugs are built from so a product keeps one address in every language.
+     */
     private const LISTING_SELECT = "
-        SELECT p.id, p.name, p.short_description, p.image_path, p.created_at,
+        SELECT p.id, p.name AS base_name,
+               COALESCE(NULLIF(MAX(pt.name), ''), p.name) AS name,
+               COALESCE(NULLIF(MAX(pt.short_description), ''), p.short_description) AS short_description,
+               p.image_path, p.created_at,
                c.name AS category_name, c.slug AS category_slug,
                " . self::FROM_PRICE_SQL . " AS from_price,
                COALESCE(SUM(CASE WHEN v.price > 0 THEN GREATEST(v.stock, 0) END), 0) AS stock
         FROM products p
         JOIN categories c ON c.id = p.category_id
         LEFT JOIN product_variants v ON v.product_id = p.id AND v.is_active = 1
-    ";
+        " . self::TRANSLATION_JOIN;
 
     /**
      * One page of visible products with their lowest price and total stock,
      * filtered by category slug and a search over name, short description,
-     * category name and variant SKU (every word must match).
+     * category name and variant SKU (every word must match). Text comes in
+     * $locale ('' = the store's own language) and the search covers it too.
      *
      * @return list<array<string, mixed>>
      */
@@ -64,8 +81,10 @@ final class ProductRepository extends Repository
         string $sort = 'name',
         ?int $limit = null,
         int $offset = 0,
+        string $locale = '',
     ): array {
         [$where, $params] = $this->visibleFilter($categorySlug, $search);
+        $params['loc'] = $locale;
         $sql = self::LISTING_SELECT . $where . ' GROUP BY p.id ORDER BY ' . (self::SHOP_SORTS[$sort] ?? self::SHOP_SORTS['name']);
         if ($limit !== null) {
             $sql .= sprintf(' LIMIT %d OFFSET %d', max(1, $limit), max(0, $offset));
@@ -75,15 +94,19 @@ final class ProductRepository extends Repository
     }
 
     /** Number of products findVisible() would return without a limit. */
-    public function countVisible(?string $categorySlug = null, string $search = ''): int
+    public function countVisible(?string $categorySlug = null, string $search = '', string $locale = ''): int
     {
         [$where, $params] = $this->visibleFilter($categorySlug, $search);
+        $params['loc'] = $locale;
 
-        return (int) $this->value('SELECT COUNT(*) FROM products p JOIN categories c ON c.id = p.category_id' . $where, $params);
+        return (int) $this->value(
+            'SELECT COUNT(*) FROM products p JOIN categories c ON c.id = p.category_id' . self::TRANSLATION_JOIN . $where,
+            $params
+        );
     }
 
     /** @return list<array<string, mixed>> other visible products in the same category (product page) */
-    public function findRelated(int $productId, int $categoryId, int $limit = 4): array
+    public function findRelated(int $productId, int $categoryId, int $limit = 4, string $locale = ''): array
     {
         return $this->all(
             self::LISTING_SELECT . "
@@ -92,7 +115,7 @@ final class ProductRepository extends Repository
             GROUP BY p.id
             ORDER BY p.created_at DESC, p.id DESC
             LIMIT " . max(1, $limit),
-            ['category_id' => $categoryId, 'id' => $productId]
+            ['category_id' => $categoryId, 'id' => $productId, 'loc' => $locale]
         );
     }
 
@@ -122,9 +145,10 @@ final class ProductRepository extends Repository
             $like = '%' . addcslashes($word, '%_\\') . '%';
             // Native prepares: every placeholder needs its own name.
             $where .= " AND (p.name LIKE :q{$i}a OR p.short_description LIKE :q{$i}b OR c.name LIKE :q{$i}c
+                OR pt.name LIKE :q{$i}e OR pt.short_description LIKE :q{$i}f
                 OR EXISTS (SELECT 1 FROM product_variants sv
                            WHERE sv.product_id = p.id AND sv.is_active = 1 AND sv.sku LIKE :q{$i}d))";
-            foreach (['a', 'b', 'c', 'd'] as $suffix) {
+            foreach (['a', 'b', 'c', 'd', 'e', 'f'] as $suffix) {
                 $params["q{$i}{$suffix}"] = $like;
             }
         }
@@ -132,15 +156,26 @@ final class ProductRepository extends Repository
         return [$where, $params];
     }
 
-    /** @return array<string, mixed>|null a visible product */
-    public function findVisibleById(int $id): ?array
+    /**
+     * A visible product with its text in $locale ('' = the store's own
+     * language); `base_name` is the original name (URL slugs).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findVisibleById(int $id, string $locale = ''): ?array
     {
         return $this->one("
-            SELECT p.*, c.name AS category_name, c.slug AS category_slug
+            SELECT p.id, p.category_id, p.image_path, p.images, p.import_status, p.is_active, p.created_at, p.updated_at,
+                   p.name AS base_name,
+                   COALESCE(NULLIF(pt.name, ''), p.name) AS name,
+                   COALESCE(NULLIF(pt.short_description, ''), p.short_description) AS short_description,
+                   COALESCE(NULLIF(pt.long_description, ''), p.long_description) AS long_description,
+                   c.name AS category_name, c.slug AS category_slug
             FROM products p
             JOIN categories c ON c.id = p.category_id
+            " . self::TRANSLATION_JOIN . "
             WHERE p.id = :id AND p.is_active = 1 AND p.import_status = 'approved'
-        ", ['id' => $id]);
+        ", ['id' => $id, 'loc' => $locale]);
     }
 
     /** @return array<string, mixed>|null any product, regardless of status */

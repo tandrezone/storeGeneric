@@ -27,6 +27,7 @@ return [
     'Select at least one product first.',
     'Delete {count} selected product? This cannot be undone.',
     'Enter a price or an amount of 0 or more.',
+    'Translated. Review the fields, then click "Save translation".',
     'Change price',
     '{action} {value} for every variant of {count} product?',
     'Link URL (https://…):',

@@ -154,6 +154,9 @@
                 </td>
                 <td>
                     {{ p.name }}
+                    {% for code in (translations[p.id] ?? [])|keys %}
+                        <span class="lang-chip" title="{{ 'Translated: {language}'|trans({language: translation_locales[code] ?? code}) }}">{{ code|upper }}</span>
+                    {% endfor %}
                     {% if p.low_stock_count > 0 %}
                         <span class="low-stock-badge" title="{{ '{count} active variant at or below {threshold} in stock'|trans_plural(p.low_stock_count, {threshold: low_stock_threshold}) }}">{{ 'Low stock'|trans }}</span>
                     {% endif %}
@@ -352,6 +355,57 @@
                                 </form>
                             </div>
                         </div>
+
+                        {% if translation_locales is not empty %}
+                            <div class="translations-panel">
+                                <h3>{{ 'Translations'|trans }}</h3>
+                                <p class="field-hint">{{ 'The text above is the original. Add the name and descriptions in other languages — a field left empty shows the original.'|trans }}</p>
+                                {% for code, language in translation_locales %}
+                                    {% set row = (translations[p.id] ?? [])[code] ?? null %}
+                                    {% set posted = translation_input is not null and translation_input.id == p.id and translation_input.locale == code ? translation_input : null %}
+                                    {% set tr = posted ?? row %}
+                                    <details class="translation-block" {{ posted ? 'open' }}>
+                                        <summary>
+                                            {{ language }}
+                                            <span class="status-badge" data-status="{{ row ? 'approved' : 'created' }}">{{ row ? 'translated'|trans : 'not translated'|trans }}</span>
+                                        </summary>
+                                        <form method="post" action="{{ submit_url }}" class="translation-form"
+                                              data-product-id="{{ p.id }}" data-locale="{{ code }}"
+                                              data-endpoint="{{ path('admin.api.translate') }}" data-csrf="{{ csrf_token() }}">
+                                            {{ csrf_field() }}
+                                            <input type="hidden" name="action" value="save_translation">
+                                            <input type="hidden" name="id" value="{{ p.id }}">
+                                            <input type="hidden" name="locale" value="{{ code }}">
+                                            <label>{{ 'Name'|trans }}
+                                                <input type="text" name="name" value="{{ tr.name ?? '' }}" placeholder="{{ p.name }}" maxlength="{{ limits.name }}">
+                                            </label>
+                                            <label>{{ 'Short description'|trans }}
+                                                <input type="text" name="short_description" value="{{ tr.short_description ?? '' }}" placeholder="{{ p.short_description }}" maxlength="{{ limits.short_description }}">
+                                            </label>
+                                            <label>{{ 'Long description'|trans }}</label>
+                                            {{ ui.wysiwyg(tr.long_description ?? '') }}
+                                            <p class="translation-status field-hint" role="status" aria-live="polite"></p>
+                                            <div class="translation-actions">
+                                                <button type="submit" class="btn-primary">{{ 'Save translation'|trans }}</button>
+                                                <button type="button" class="btn-secondary translation-ai" title="{{ 'Fills the fields with an AI translation of the original. Review it, then save.'|trans }}">✨ {{ 'Translate with AI'|trans }}</button>
+                                                {% if row %}
+                                                    <button type="submit" form="translation-delete-{{ p.id }}-{{ code }}" class="btn-danger" formnovalidate>{{ 'Remove translation'|trans }}</button>
+                                                {% endif %}
+                                            </div>
+                                        </form>
+                                        {% if row %}
+                                            <form method="post" action="{{ submit_url }}" id="translation-delete-{{ p.id }}-{{ code }}" hidden
+                                                  data-confirm="{{ 'Remove the {language} translation?'|trans({language: language}) }}">
+                                                {{ csrf_field() }}
+                                                <input type="hidden" name="action" value="delete_translation">
+                                                <input type="hidden" name="id" value="{{ p.id }}">
+                                                <input type="hidden" name="locale" value="{{ code }}">
+                                            </form>
+                                        {% endif %}
+                                    </details>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
                     </div>
                 </td>
             </tr>

@@ -64,7 +64,8 @@ final class PlaceholderImage
     /** @param array<string, mixed> $product */
     private function nameOf(array $product): string
     {
-        return trim((string) ($product['name'] ?? '')) ?: 'Product';
+        // base_name: the original name, so every language shares one placeholder file.
+        return trim((string) ($product['base_name'] ?? $product['name'] ?? '')) ?: 'Product';
     }
 
     /** @param array<string, mixed> $product */

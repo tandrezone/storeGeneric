@@ -30,7 +30,7 @@
             <tbody id="cart-items-body">
                 {% for item in items %}
                     <tr data-variant-id="{{ item.variant_id }}">
-                        <td><a href="{{ path('product.show', {id: item.product_id, slug: item.product_name|slug}) }}">{{ item.product_name }}</a></td>
+                        <td><a href="{{ path('product.show', {id: item.product_id, slug: item.base_name|slug}) }}">{{ item.product_name }}</a></td>
                         <td>{{ (item.label ~ ' ' ~ item.unit)|trim }}</td>
                         <td>{{ item.price|money }}</td>
                         <td>

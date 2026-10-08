@@ -62,12 +62,12 @@ final class CatalogExtension extends AbstractExtension implements GlobalsInterfa
         ];
     }
 
-    /** @param array<string, mixed> $product needs id and name */
+    /** @param array<string, mixed> $product needs id and name (base_name, the original name, when the text is translated) */
     public function productUrl(array $product): string
     {
         return $this->router->url('product.show', [
             'id'   => (int) $product['id'],
-            'slug' => Slug::from((string) ($product['name'] ?? ''), 'product'),
+            'slug' => Slug::from((string) ($product['base_name'] ?? $product['name'] ?? ''), 'product'),
         ]);
     }
 

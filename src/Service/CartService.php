@@ -15,6 +15,7 @@ final class CartService
     public function __construct(
         private readonly CartRepository $carts,
         private readonly Session $session,
+        private readonly ProductTranslations $translations,
     ) {
     }
 
@@ -42,7 +43,7 @@ final class CartService
     /** @return list<array<string, mixed>> lines that can still be bought */
     public function items(): array
     {
-        return $this->carts->items($this->id());
+        return $this->carts->items($this->id(), $this->translations->storefrontLocale());
     }
 
     /**

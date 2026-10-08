@@ -57,7 +57,7 @@ final class DatabaseMigratorTest extends IntegrationTestCase
     {
         $migrator = $this->get(DatabaseMigrator::class);
 
-        $result = $migrator->migrate(null, 27);
+        $result = $migrator->migrate(null, 999);
 
         $this->assertSame($migrator->files(), $result['baselined']);
         $this->assertSame([], $result['applied']);

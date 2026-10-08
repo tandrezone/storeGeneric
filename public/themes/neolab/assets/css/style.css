@@ -1153,3 +1153,30 @@ form[aria-busy="true"] input[type="submit"] {
     .account-nav .account-logout { margin-left: 0; }
     .account-orders th:nth-child(4), .account-orders td:nth-child(4) { display: none; }
 }
+
+/* Admin: product translations */
+.lang-chip {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--color-muted);
+    vertical-align: middle;
+}
+.translations-panel { margin-top: 8px; }
+.translations-panel h3 { margin: 0 0 4px; font-size: 1rem; }
+.translation-block {
+    margin: 10px 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+}
+.translation-block > summary { cursor: pointer; padding: 10px 14px; font-weight: 600; }
+.translation-block > summary .status-badge { margin-left: 8px; }
+.translation-form { padding: 0 14px 14px; }
+.translation-form label { margin-top: 10px; }
+.translation-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }

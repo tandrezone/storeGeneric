@@ -48,22 +48,25 @@ final class CartRepository extends Repository
     /**
      * Lines joined with variant and product details. Lines whose variant or
      * product is hidden (inactive, not approved) or unpriced are left out;
-     * removeUnavailable() deletes them.
+     * removeUnavailable() deletes them. product_name is in $locale ('' = the
+     * store's own language); base_name is the original (URL slugs).
      *
      * @return list<array<string, mixed>>
      */
-    public function items(int $cartId): array
+    public function items(int $cartId, string $locale = ''): array
     {
-        return $this->all('
+        return $this->all("
             SELECT ci.variant_id, ci.quantity,
                    v.sku, v.label, v.unit, v.price, v.stock,
-                   p.id AS product_id, p.name AS product_name, p.image_path
+                   p.id AS product_id, p.name AS base_name,
+                   COALESCE(NULLIF(pt.name, ''), p.name) AS product_name, p.image_path
             FROM cart_items ci
             JOIN product_variants v ON v.id = ci.variant_id
             JOIN products p ON p.id = v.product_id
-            WHERE ci.cart_id = :cart_id AND ' . self::AVAILABLE . '
+            LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = :loc
+            WHERE ci.cart_id = :cart_id AND " . self::AVAILABLE . "
             ORDER BY ci.id ASC
-        ', ['cart_id' => $cartId]);
+        ", ['cart_id' => $cartId, 'loc' => $locale]);
     }
 
     /** @return list<string> names of the products whose lines were removed */

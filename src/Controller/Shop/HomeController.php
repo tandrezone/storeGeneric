@@ -8,6 +8,7 @@ use App\Http\Responder;
 use App\Repository\CategoryRepository;
 use App\Repository\ProductRepository;
 use App\Service\ProductImages;
+use App\Service\ProductTranslations;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -30,6 +31,7 @@ final class HomeController
         private readonly ProductRepository $products,
         private readonly CategoryRepository $categories,
         private readonly ProductImages $images,
+        private readonly ProductTranslations $translations,
     ) {
     }
 
@@ -46,7 +48,9 @@ final class HomeController
         $search = mb_substr($param('q'), 0, 100);
         $sort = isset(self::SORT_LABELS[$param('sort')]) ? $param('sort') : 'name';
 
-        $total = $this->products->countVisible($slug, $search);
+        $locale = $this->translations->storefrontLocale();
+
+        $total = $this->products->countVisible($slug, $search, $locale);
         $pages = max(1, (int) ceil($total / self::PER_PAGE));
         $page = min($pages, max(1, (int) $param('page')));
 
@@ -54,7 +58,7 @@ final class HomeController
             'categories'      => $this->categories->findAll(),
             'category'        => $category,
             'products'        => $this->images->forListing(
-                $this->products->findVisible($slug, $search, $sort, self::PER_PAGE, ($page - 1) * self::PER_PAGE)
+                $this->products->findVisible($slug, $search, $sort, self::PER_PAGE, ($page - 1) * self::PER_PAGE, $locale)
             ),
             'active_category' => $slug,
             'search'          => $search,

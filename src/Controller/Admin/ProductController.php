@@ -10,9 +10,11 @@ use App\Http\Session;
 use App\Infrastructure\Database;
 use App\Repository\CategoryRepository;
 use App\Repository\ProductRepository;
+use App\Repository\ProductTranslationRepository;
 use App\Repository\VariantRepository;
 use App\Security\HtmlSanitizer;
 use App\Service\ProductImageManager;
+use App\Service\ProductTranslations;
 use App\Service\StoreSettings;
 use PDOException;
 use Psr\Http\Message\ResponseInterface;
@@ -55,6 +57,8 @@ final class ProductController
         private readonly StoreSettings $store,
         private readonly LoggerInterface $logger,
         private readonly Translator $translator,
+        private readonly ProductTranslations $translations,
+        private readonly ProductTranslationRepository $translationRows,
     ) {
     }
 
@@ -114,6 +118,27 @@ final class ProductController
                     if ($errors !== []) {
                         return $this->page($request, $errors, null, 422, ['id' => $id] + $body);
                     }
+                    $editId = $id;
+                }
+                break;
+
+            case 'save_translation':
+                if ($id > 0) {
+                    $locale = (string) ($body['locale'] ?? '');
+                    $errors = $this->translations->save($id, $locale, $body);
+                    if ($errors !== []) {
+                        return $this->page($request, $errors, null, 422, null, ['id' => $id, 'locale' => $locale] + $body);
+                    }
+                    $this->session->flash('success', $this->t('Translation saved ({language}).', ['language' => $this->translations->locales()[$locale] ?? $locale]));
+                    $editId = $id;
+                }
+                break;
+
+            case 'delete_translation':
+                if ($id > 0) {
+                    $locale = (string) ($body['locale'] ?? '');
+                    $this->translations->delete($id, $locale);
+                    $this->session->flash('success', $this->t('Translation removed ({language}).', ['language' => $this->translations->locales()[$locale] ?? $locale]));
                     $editId = $id;
                 }
                 break;
@@ -551,8 +576,9 @@ final class ProductController
      * @param list<string>              $errors
      * @param array<string, mixed>|null $createInput posted "add product" values to show again
      * @param array<string, mixed>|null $editInput   posted edit-form values (with 'id') to show again
+     * @param array<string, mixed>|null $translationInput posted translation form (with 'id', 'locale') to show again
      */
-    private function page(ServerRequestInterface $request, array $errors = [], ?array $createInput = null, int $status = 200, ?array $editInput = null): ResponseInterface
+    private function page(ServerRequestInterface $request, array $errors = [], ?array $createInput = null, int $status = 200, ?array $editInput = null, ?array $translationInput = null): ResponseInterface
     {
         $query = $request->getQueryParams();
         $listQuery = $this->listQuery($query);
@@ -593,10 +619,18 @@ final class ProductController
             $editInput['long_description'] = $this->sanitizer->clean((string) ($editInput['long_description'] ?? ''));
         }
 
+        if ($translationInput !== null) {
+            $translationInput['id'] = (int) ($translationInput['id'] ?? 0);
+            $translationInput['long_description'] = $this->sanitizer->clean((string) ($translationInput['long_description'] ?? ''));
+        }
+
         return $this->responder->view($request, 'admin/products.html.twig', [
             'errors'              => $errors,
             'create_input'        => $createInput,
             'edit_input'          => $editInput,
+            'translation_locales' => $this->translations->locales(),
+            'translations'        => $this->translationRows->forProducts(array_map('intval', array_column($products, 'id'))),
+            'translation_input'   => $translationInput,
             'categories'          => $this->categories->findAll(),
             'statuses'            => ProductRepository::STATUSES,
             'status_filter'       => $statusFilter,
@@ -606,7 +640,7 @@ final class ProductController
             'dir'                 => $dir,
             'list_query'          => $listQuery,
             'products'            => $products,
-            'expanded_id'         => $editInput['id'] ?? (int) ($query['edit'] ?? 0),
+            'expanded_id'         => $editInput['id'] ?? $translationInput['id'] ?? (int) ($query['edit'] ?? 0),
             'variants'            => $variants,
             'page'                => $page,
             'total_pages'         => $totalPages,

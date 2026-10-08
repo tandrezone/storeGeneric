@@ -305,4 +305,53 @@
             }
         });
     });
+    // Product translations: "Translate with AI" fills the language's form with
+    // a suggestion from the original text; nothing is saved until "Save translation".
+    document.querySelectorAll('.translation-form').forEach((form) => {
+        const button = form.querySelector('.translation-ai');
+        const status = form.querySelector('.translation-status');
+        if (!button) return;
+
+        const say = (text) => { if (status) status.textContent = text; };
+
+        button.addEventListener('click', async () => {
+            button.disabled = true;
+            say(__('Thinking…'));
+
+            try {
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                const response = await fetch(form.dataset.endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        product_id: form.dataset.productId,
+                        locale: form.dataset.locale,
+                        csrf_token: form.dataset.csrf || (meta ? meta.content : ''),
+                    }),
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    say(__('Error: {message}', { message: data.error }));
+                    return;
+                }
+
+                ['name', 'short_description'].forEach((key) => {
+                    const input = form.querySelector('[name="' + key + '"]');
+                    if (input && data.fields[key]) {
+                        input.value = input.maxLength > 0 ? data.fields[key].slice(0, input.maxLength) : data.fields[key];
+                    }
+                });
+                if (data.fields.long_description) {
+                    const editor = form.querySelector('[data-wysiwyg] .wysiwyg-editor');
+                    editor.innerHTML = data.fields.long_description;
+                    editor.dispatchEvent(new Event('input'));
+                }
+                say(__('Translated. Review the fields, then click "Save translation".'));
+            } catch (err) {
+                say(__('Request failed: {message}', { message: err.message }));
+            } finally {
+                button.disabled = false;
+            }
+        });
+    });
 })();

@@ -12,6 +12,7 @@ use App\Repository\ProductRepository;
 use App\Repository\VariantRepository;
 use App\Security\HtmlSanitizer;
 use App\Service\ProductImages;
+use App\Service\ProductTranslations;
 use App\Support\Slug;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -27,15 +28,18 @@ final class ProductController
         private readonly HtmlSanitizer $sanitizer,
         private readonly PageViewRepository $pageViews,
         private readonly Session $session,
+        private readonly ProductTranslations $translations,
     ) {
     }
 
     public function show(ServerRequestInterface $request, int $id, int|string|null $slug = null): ResponseInterface
     {
-        $product = $this->products->findVisibleById($id)
+        $locale = $this->translations->storefrontLocale();
+        $product = $this->products->findVisibleById($id, $locale)
             ?? throw HttpException::notFound('Sorry, that product could not be found.');
 
-        $canonicalSlug = Slug::from((string) $product['name'], 'product');
+        // The address is built from the original name, so it is the same in every language.
+        $canonicalSlug = Slug::from((string) $product['base_name'], 'product');
         if ((string) $slug !== $canonicalSlug) {
             parse_str($request->getUri()->getQuery(), $query);
 
@@ -49,7 +53,7 @@ final class ProductController
             'images'           => $this->images->gallery($product),
             'variants'         => $this->variants->findAvailableForProduct($id),
             'description_html' => $this->sanitizer->clean((string) $product['long_description']),
-            'related'          => $this->images->forListing($this->products->findRelated($id, (int) $product['category_id'])),
+            'related'          => $this->images->forListing($this->products->findRelated($id, (int) $product['category_id'], 4, $locale)),
         ]);
     }
 }

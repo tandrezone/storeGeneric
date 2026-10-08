@@ -126,6 +126,24 @@ bin/console db:backup [--output=path] [--gzip] [--with-uploads] [--keep=N]   bac
 bin/console db:restore <file> --force [--with-uploads[=zip]]                  restore a backup
 ```
 
+### Product translations
+
+The product name, short description and description you type are in the store's own language
+(**Admin → Settings → Store language**). To show them in another language, expand a product in
+**Admin → Products** and open **Translations**: one block per language the store has a catalog for
+(`translations/<code>.php`, see [Languages](#languages-translations)). Fields left empty fall back
+to the original, so a product can be translated partly; products with translations show a language chip
+(`PT`) in the list. **Translate with AI** (needs `GEMINI_API_KEY`) fills the form from the original — review
+it, then **Save translation**.
+
+Visitors see the translation in the language they browse in (the language switcher / `?lang=`) — product
+cards, the product page, search (it matches the translated text too), related products, the cart and the
+checkout. Product web addresses are always built from the original name, so a product has one URL in every
+language. Order lines keep the name the product had in the store's language when the order was placed
+(they are a record of the sale), so order emails and the order page show that name. CSV import/export
+and the sitemap use the original text. Translations are stored in `product_translations` (migration
+`028`) and deleted with the product.
+
 ### Migrations
 
 `bin/console db:migrate` applies the files in `database/migrations/` that haven't run yet, in order,
@@ -508,7 +526,7 @@ The store speaks **English** (default) and **Portuguese (pt-PT)**; no extra Comp
 `@name`, `@html_lang` (`es-ES`) and `@intl` (`es_ES`) and translate every value (keep the keys and
 `{placeholders}`). It then appears in the switcher, Settings and My account. `php tests/run.php
 --filter=Catalog` checks it has the same keys and placeholders as `en.php`. Languages whose plural
-forms aren't "one when n = 1" need a rule in `Translator::PLURAL_RULES`.
+forms aren't "one when n = 1" need a rule in `Translator::PLURAL_RULES`. A new language also shows up under **Translations** on every product.
 
 **Translate a theme**: wrap its text in `|trans` and add the English strings to every catalog
 (uploaded themes can only use texts that exist in the catalogs; anything else simply shows in
