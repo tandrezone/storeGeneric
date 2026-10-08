@@ -109,6 +109,10 @@ return static function (RouteCollection $r): void {
         $r->get('/products/export', [Admin\ProductCsvController::class, 'export'], 'admin.products.export');
         $r->get('/products/import', [Admin\ProductCsvController::class, 'form'], 'admin.products.import');
         $r->post('/products/import', [Admin\ProductCsvController::class, 'handle'], 'admin.products.import.submit');
+        // JSON export / import: products with variants, translations and images.
+        $r->get('/products/export-json', [Admin\ProductJsonController::class, 'export'], 'admin.products.export_json');
+        $r->get('/products/import-json', [Admin\ProductJsonController::class, 'form'], 'admin.products.import_json');
+        $r->post('/products/import-json', [Admin\ProductJsonController::class, 'handle'], 'admin.products.import_json.submit');
         $r->get('/orders/export', [Admin\OrderExportController::class, 'export'], 'admin.orders.export');
         $r->get('/shipping', [Admin\ShippingController::class, 'index'], 'admin.shipping');
         $r->post('/shipping', [Admin\ShippingController::class, 'handle'], 'admin.shipping.submit');

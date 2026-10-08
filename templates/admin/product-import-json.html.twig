@@ -1,0 +1,110 @@
+{% extends 'layout/admin.html.twig' %}
+
+{% set title = 'Admin — Import products (JSON)'|trans %}
+{% set active_nav = 'products' %}
+
+{% block content %}
+<h1>{{ 'Import products from JSON'|trans }}</h1>
+<p><a href="{{ path('admin.products') }}">‹ {{ 'Back to products'|trans }}</a></p>
+
+{% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
+
+{% if report is not null %}
+    {% set c = report.counts %}
+    <div class="panel">
+        <h2>{{ 'Preview'|trans }}{{ pending ? ' — ' ~ pending.filename }}</h2>
+        <p>{{ 'Nothing has been saved yet. Applying this file will:'|trans }}</p>
+        <ul class="import-summary">
+            <li>{{ '<strong>{count}</strong> new product'|trans_plural(c.create)|raw }}</li>
+            <li>{{ '<strong>{count}</strong> update'|trans_plural(c.update)|raw }}</li>
+            <li>{{ '<strong>{count}</strong> unchanged product'|trans_plural(c.unchanged)|raw }}</li>
+            {% if c.skip %}<li>{{ '<strong>{count}</strong> existing product left as it is'|trans_plural(c.skip)|raw }}</li>{% endif %}
+            <li>{{ '<strong>{count}</strong> variant added, <strong>{updated}</strong> updated'|trans_plural(c.variants_added, {updated: c.variants_updated})|raw }}</li>
+            {% if c.translations %}<li>{{ '<strong>{count}</strong> translation'|trans_plural(c.translations)|raw }}</li>{% endif %}
+            {% if c.new_categories %}<li>{{ '<strong>{count}</strong> new category'|trans_plural(c.new_categories)|raw }}</li>{% endif %}
+            <li>{{ '<strong>{count}</strong> image already stored here'|trans_plural(c.images_local)|raw }}</li>
+            <li>{{ '<strong>{count}</strong> image to download from its URL'|trans_plural(c.images_download)|raw }}{% if c.images_embedded %}, {{ '<strong>{count}</strong> embedded in the file'|trans_plural(c.images_embedded)|raw }}{% endif %}</li>
+            <li class="{{ c.error ? 'import-has-errors' }}">{{ '<strong>{count}</strong> product with errors — skipped when applying'|trans_plural(c.error)|raw }}</li>
+        </ul>
+        {% if c.images_download > 0 %}
+            <p class="field-hint">{{ 'Images are downloaded when you apply, which can take a while. For a big catalog use <code>bin/console products:import</code> instead.'|trans|raw }}</p>
+        {% endif %}
+
+        {% if pending and c.create + c.update > 0 %}
+            <form method="post" action="{{ path('admin.products.import_json.submit') }}" class="inline-form"
+                  data-confirm="{{ 'Apply this import? It changes {count} product in one go.'|trans_plural(c.create + c.update) }}">
+                {{ csrf_field() }}
+                <input type="hidden" name="action" value="apply">
+                <input type="hidden" name="token" value="{{ pending.token }}">
+                <button type="submit" class="btn-primary">{{ 'Apply import'|trans }}</button>
+            </form>
+        {% else %}
+            <p class="field-hint">{{ 'There is nothing to apply.'|trans }}</p>
+        {% endif %}
+        <form method="post" action="{{ path('admin.products.import_json.submit') }}" class="inline-form">
+            {{ csrf_field() }}
+            <input type="hidden" name="action" value="cancel">
+            <button type="submit" class="btn-secondary">{{ 'Cancel'|trans }}</button>
+        </form>
+    </div>
+
+    <table class="cart-table admin-table import-preview">
+        <thead>
+            <tr><th>#</th><th>{{ 'SKU'|trans }}</th><th>{{ 'Product'|trans }}</th><th>{{ 'Result'|trans }}</th><th>{{ 'Details'|trans }}</th></tr>
+        </thead>
+        <tbody>
+            {% for row in report.rows %}
+                <tr class="import-row" data-action="{{ row.action }}">
+                    <td class="tabular">{{ row.number }}</td>
+                    <td>{{ row.sku }}</td>
+                    <td>{{ row.name }}</td>
+                    <td><span class="status-badge" data-status="{{ row.action == 'error' ? 'failed' : (row.action in ['unchanged', 'skip'] ? 'pending' : 'paid') }}">{{ row.action|capitalize|trans }}</span></td>
+                    <td>
+                        {% for error in row.errors %}<div class="import-error">{{ error }}</div>{% endfor %}
+                        {% for warning in row.warnings %}<div class="field-hint">⚠ {{ warning }}</div>{% endfor %}
+                        {% for change in row.changes %}<div>{{ change }}</div>{% endfor %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if report.hidden_rows is defined %}
+        <p class="field-hint">{{ 'And {count} more product (products with errors are listed first). The numbers above cover the whole file.'|trans_plural(report.hidden_rows) }}</p>
+    {% endif %}
+{% endif %}
+
+<details class="panel" {{ report is null ? 'open' }}>
+    <summary class="panel-summary">{{ report is null ? 'Upload a JSON file'|trans : 'Upload a different file'|trans }}</summary>
+    <form method="post" action="{{ path('admin.products.import_json.submit') }}" enctype="multipart/form-data">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="preview">
+        <label>{{ 'JSON file (max {mb} MB, {products} products)'|trans({mb: max_mb, products: max_products}) }}
+            <input type="file" name="json" accept=".json,application/json" required>
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="update_existing" value="1" style="width: auto;" {{ pending is null or pending.options.update_existing ? 'checked' }}>
+            {{ 'Update products that already exist (matched by SKU); otherwise they are left as they are'|trans }}
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="create_categories" value="1" style="width: auto;" {{ pending and pending.options.create_categories ? 'checked' }}>
+            {{ 'Create missing categories (otherwise products with an unknown category are errors)'|trans }}
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="images" value="1" style="width: auto;" {{ pending is null or pending.options.images ? 'checked' }}>
+            {{ 'Download images that are not stored here yet'|trans }}
+        </label>
+        <button type="submit" class="btn-primary">{{ 'Preview import'|trans }}</button>
+    </form>
+</details>
+
+<div class="panel">
+    <h2>{{ 'File format'|trans }}</h2>
+    <p>{{ 'The file written by <a href="{url}">Export JSON</a> (or <code>bin/console products:export</code>): every product with its category, variants, translations and images. Keys such as <code>sku</code> or <code>variants</code> are literal and stay in English.'|trans({url: path('admin.products.export_json')})|raw }}</p>
+    <ul>
+        <li>{{ 'Products are matched by the <strong>SKU</strong> of their variants (a product without variants by its name and category). A match is updated: fields in the file overwrite, fields missing from it keep their value, variants are matched by SKU and added when new, and each translation is replaced. Anything else becomes a new product.'|trans|raw }}</li>
+        <li>{{ 'The status is taken from the file (<strong>{statuses}</strong>), so products exported as <em>approved</em> are visible on the shop right after the import.'|trans({statuses: statuses|join(', ')|e})|raw }}</li>
+        <li>{{ 'Each image has the <strong>path</strong> it had in the original shop and its <strong>url</strong>. An image already stored for the matched product is kept; any other is downloaded from its URL (public addresses only) and saved under <code>assets/images/products/</code>. If the file was exported with the images included, they are saved from the file instead. An image that cannot be fetched is reported and skipped; it never stops the product from importing.'|trans|raw }}</li>
+        <li>{{ 'Nothing is deleted: products, variants and images missing from the file are left alone.'|trans }}</li>
+    </ul>
+</div>
+{% endblock %}

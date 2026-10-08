@@ -122,6 +122,8 @@ bin/console images:regenerate [--force]            placeholder images for produc
 bin/console db:migrate [--status] [--dry-run] [--baseline=NNN]   apply the migrations that haven't run yet
 bin/console db:reimport --force                    DEV ONLY: drop all tables, rebuild from schema + migrations
 bin/console orders:expire [--hours=48]             cancel unpaid online orders and restock them (run from cron)
+bin/console products:export [--output=path] [--status=approved] [--embed-images]   products + variants + translations + images as JSON
+bin/console products:import <file> [--dry-run] [--create-categories] [--no-update] [--no-images]   import such a file, fetching missing images
 bin/console db:backup [--output=path] [--gzip] [--with-uploads] [--keep=N]   back up to var/backups/
 bin/console db:restore <file> --force [--with-uploads[=zip]]                  restore a backup
 ```
@@ -352,6 +354,37 @@ large (limit …)".
   buttons (these work without JavaScript).
 - **Categories** have an optional description and image (`categories.description`,
   `categories.image_path`, stored in `public/assets/images/categories/`), shown on the storefront.
+
+### JSON export and import (managers and owners)
+
+For moving a whole catalog — products **with their images** — between shops, or backing it up:
+
+- **Products → Export JSON** (and **Export JSON with images**) / `bin/console products:export` writes
+  one file with every product matching the list's status / low-stock filter: name, short and long
+  description, status, active flag, category (name, slug, description), **variants** (SKU, label, unit,
+  price, stock, active), **translations** and **images**. Each image has the `path` it has in this shop
+  and an absolute `url` (from `APP_URL`); with *with images* / `--embed-images` the image bytes are
+  included too (base64, files up to 8 MB each — a big file, but it imports where the URL can't be reached,
+  e.g. from a local or private shop).
+- **Products → Import JSON** / `bin/console products:import <file>` reads such a file. The admin page is
+  two steps like the CSV one — a **preview** (per product: create, update with each change, unchanged,
+  errors and warnings; how many images are stored here, to download or embedded) and **Apply**. Options:
+  update products that already exist, create missing categories, fetch images. Files up to 64 MB /
+  5 000 products; large catalogs with many images are better imported on the command line (no request
+  time limit; `--dry-run` previews).
+  - **Matching:** by the SKU of a product's variants (a product without variants: by name + category).
+    A match is updated — fields in the file overwrite, fields missing from it keep their value;
+    variants are matched by SKU and added when new; each translation is replaced. Anything else is a new
+    product. The **status is kept** from the file, so products exported as *approved* are visible right
+    after the import. Nothing is deleted.
+  - **Images:** an image the matched product already has (same file, or the same bytes, or the file an
+    earlier download of that URL produced) is kept. Any other is **downloaded from its `url`** — public
+    addresses only, JPEG/PNG/WebP/GIF up to 15 MB, like `images:add` — or decoded from embedded data, and
+    stored as `assets/images/products/<id>-….<ext>`; the file's order is kept (the first is the main
+    image) and images the product already had but the file doesn't list stay after them. An image that
+    can't be fetched is reported as a warning and skipped — it never fails the product.
+  - Each product is written in its own transaction, then its images are fetched: one bad product doesn't
+    undo the others. Descriptions are sanitized like the admin editor does.
 
 ### CSV export and import (managers and owners)
 

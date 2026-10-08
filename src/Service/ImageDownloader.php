@@ -65,18 +65,33 @@ final class ImageDownloader
             return null;
         }
 
+        return $this->storeBytes($data, $filenameBase);
+    }
+
+    /**
+     * Stores image bytes (already in memory, e.g. embedded in an export) as
+     * assets/images/products/<$name>.<ext> after checking they really are a
+     * JPEG/PNG/WebP/GIF. Returns the path relative to /public, or null when
+     * they aren't (or are too large). Idempotent for the same $name.
+     */
+    public function storeBytes(string $data, string $name): ?string
+    {
+        if ($data === '' || strlen($data) > self::MAX_BYTES || !preg_match('/^[A-Za-z0-9._-]+$/', $name)) {
+            return null;
+        }
+
         $info = @getimagesizefromstring($data);
-        $mime = $info['mime'] ?? null;
-        $ext = self::ALLOWED_MIME[$mime] ?? null;
+        $ext = self::ALLOWED_MIME[$info['mime'] ?? ''] ?? null;
         if ($ext === null) {
             return null;
         }
 
+        $dir = $this->localDir();
         if (!is_dir($dir)) {
             mkdir($dir, 0775, true);
         }
 
-        $destination = $dir . '/' . $filenameBase . '.' . $ext;
+        $destination = $dir . '/' . $name . '.' . $ext;
 
         // Write to a temp file and rename into place — rename() is atomic,
         // so a concurrent request never sees a half-written file.

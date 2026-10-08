@@ -84,6 +84,9 @@
     <p class="csv-actions">
         <a href="{{ path('admin.products.export', {}, {status: list_query.status ?? null, stock: list_query.stock ?? null}) }}" class="btn-secondary">⬇ {{ 'Export CSV'|trans }}</a>
         <a href="{{ path('admin.products.import') }}" class="btn-secondary">⬆ {{ 'Import CSV'|trans }}</a>
+        <a href="{{ path('admin.products.export_json', {}, {status: list_query.status ?? null, stock: list_query.stock ?? null}) }}" class="btn-secondary" title="{{ 'Products with variants, translations and image links'|trans }}">⬇ {{ 'Export JSON'|trans }}</a>
+        <a href="{{ path('admin.products.export_json', {}, {status: list_query.status ?? null, stock: list_query.stock ?? null, embed_images: 1}) }}" class="btn-secondary" title="{{ 'Also includes the image files, so it imports anywhere (large file)'|trans }}">⬇ {{ 'Export JSON with images'|trans }}</a>
+        <a href="{{ path('admin.products.import_json') }}" class="btn-secondary">⬆ {{ 'Import JSON'|trans }}</a>
     </p>
 {% endif %}
 

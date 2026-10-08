@@ -245,21 +245,25 @@ final class ProductRepository extends Repository
         return $this->all('SELECT id, name, image_path FROM products ORDER BY id');
     }
 
-    /** @param array{category_id: int, name: string, short_description: string, long_description: string} $data */
+    /**
+     * New products start as 'created' and active unless the data says otherwise (JSON import).
+     *
+     * @param array{category_id: int, name: string, short_description: string, long_description: string, import_status?: string, is_active?: int} $data
+     */
     public function create(array $data): int
     {
         $this->run("
-            INSERT INTO products (category_id, name, short_description, long_description, import_status)
-            VALUES (:category_id, :name, :short_description, :long_description, 'created')
-        ", $data);
+            INSERT INTO products (category_id, name, short_description, long_description, import_status, is_active)
+            VALUES (:category_id, :name, :short_description, :long_description, :import_status, :is_active)
+        ", $data + ['import_status' => 'created', 'is_active' => 1]);
 
         return $this->lastId();
     }
 
-    /** @param array<string, mixed> $fields name, category_id, short_description, long_description */
+    /** @param array<string, mixed> $fields name, category_id, short_description, long_description, import_status, is_active */
     public function update(int $id, array $fields): void
     {
-        $allowed = array_intersect_key($fields, array_flip(['name', 'category_id', 'short_description', 'long_description']));
+        $allowed = array_intersect_key($fields, array_flip(['name', 'category_id', 'short_description', 'long_description', 'import_status', 'is_active']));
         if ($allowed === []) {
             return;
         }
