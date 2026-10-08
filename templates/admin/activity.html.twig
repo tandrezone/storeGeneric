@@ -1,65 +1,65 @@
 {% extends 'layout/admin.html.twig' %}
 
-{% set title = 'Admin — Activity log' %}
+{% set title = 'Admin — {page}'|trans({page: 'Activity log'|trans}) %}
 {% set active_nav = 'activity' %}
 
 {# Current filters, for the pagination links. #}
 {% set list_query = {user: filters.username, action: filters.action, from: filters.from ?: null, to: filters.to ?: null} %}
 
 {% block content %}
-<h1>Activity log</h1>
+<h1>{{ 'Activity log'|trans }}</h1>
 
 <form method="get" action="{{ path('admin.activity') }}" class="panel" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
-    <label>User
+    <label>{{ 'User'|trans }}
         <select name="user">
-            <option value="">Everyone</option>
+            <option value="">{{ 'Everyone'|trans }}</option>
             {% for name in usernames %}
                 <option value="{{ name }}" {{ filters.username == name ? 'selected' }}>{{ name }}</option>
             {% endfor %}
         </select>
     </label>
-    <label>Action
+    <label>{{ 'Action'|trans }}
         <select name="action">
-            <option value="">All actions</option>
+            <option value="">{{ 'All actions'|trans }}</option>
             {% for action in actions %}
                 <option value="{{ action }}" {{ filters.action == action ? 'selected' }}>{{ action }}</option>
             {% endfor %}
         </select>
     </label>
-    <label>From
+    <label>{{ 'From'|trans }}
         <input type="date" name="from" value="{{ filters.from }}">
     </label>
-    <label>To
+    <label>{{ 'To'|trans }}
         <input type="date" name="to" value="{{ filters.to }}">
     </label>
-    <button type="submit" class="btn-primary">Filter</button>
+    <button type="submit" class="btn-primary">{{ 'Filter'|trans }}</button>
     {% if filters.username or filters.action or filters.from or filters.to %}
-        <a href="{{ path('admin.activity') }}" class="btn-secondary">Clear</a>
+        <a href="{{ path('admin.activity') }}" class="btn-secondary">{{ 'Clear'|trans }}</a>
     {% endif %}
 </form>
 
-<p class="field-hint">{{ total|number_format }} entr{{ total == 1 ? 'y' : 'ies' }}</p>
+<p class="field-hint">{{ '{count} entry'|trans_plural(total, {count: total|number_format}) }}</p>
 
 <table class="cart-table admin-table">
     <thead>
-        <tr><th>When</th><th>User</th><th>Action</th><th>What</th><th>IP</th></tr>
+        <tr><th>{{ 'When'|trans }}</th><th>{{ 'User'|trans }}</th><th>{{ 'Action'|trans }}</th><th>{{ 'What'|trans }}</th><th>IP</th></tr>
     </thead>
     <tbody>
         {% for entry in entries %}
             <tr>
                 <td class="field-hint" style="white-space: nowrap;">{{ entry.created_at }}</td>
-                <td>{{ entry.username ?: '—' }}{% if entry.user_id is null and entry.username %} <span class="field-hint">(not logged in)</span>{% endif %}</td>
+                <td>{{ entry.username ?: '—' }}{% if entry.user_id is null and entry.username %} <span class="field-hint">{{ '(not logged in)'|trans }}</span>{% endif %}</td>
                 <td><code>{{ entry.action }}</code></td>
                 <td>
                     {{ entry.summary }}
                     {% if entry.entity_type == 'order' and entry.entity_id %}
-                        · <a href="{{ path('admin.order', {id: entry.entity_id}) }}">open</a>
+                        · <a href="{{ path('admin.order', {id: entry.entity_id}) }}">{{ 'open'|trans }}</a>
                     {% elseif entry.entity_type == 'product' and entry.entity_id %}
-                        · <a href="{{ path('admin.products', {}, {edit: entry.entity_id}) }}">open</a>
+                        · <a href="{{ path('admin.products', {}, {edit: entry.entity_id}) }}">{{ 'open'|trans }}</a>
                     {% endif %}
                     {% if entry.details_pretty %}
                         <details class="audit-details">
-                            <summary class="field-hint">Details</summary>
+                            <summary class="field-hint">{{ 'Details'|trans }}</summary>
                             <pre>{{ entry.details_pretty }}</pre>
                         </details>
                     {% endif %}
@@ -67,7 +67,7 @@
                 <td class="field-hint">{{ entry.ip_address }}</td>
             </tr>
         {% else %}
-            <tr><td colspan="5" style="color: var(--color-muted);">No activity recorded{{ filters.username or filters.action or filters.from or filters.to ? ' for these filters' }}.</td></tr>
+            <tr><td colspan="5" style="color: var(--color-muted);">{{ filters.username or filters.action or filters.from or filters.to ? 'No activity recorded for these filters.'|trans : 'No activity recorded.'|trans }}</td></tr>
         {% endfor %}
     </tbody>
 </table>
@@ -75,10 +75,10 @@
 {% if total_pages > 1 %}
     <div class="pagination">
         <a href="{{ path('admin.activity', {}, list_query|merge({page: max(1, page - 1)})) }}"
-           class="btn-secondary {{ page <= 1 ? 'is-disabled' }}">‹ Prev</a>
-        <span class="bulk-count">Page {{ page }} of {{ total_pages }}</span>
+           class="btn-secondary {{ page <= 1 ? 'is-disabled' }}">‹ {{ 'Previous'|trans }}</a>
+        <span class="bulk-count">{{ 'Page {page} of {pages}'|trans({page: page, pages: total_pages}) }}</span>
         <a href="{{ path('admin.activity', {}, list_query|merge({page: min(total_pages, page + 1)})) }}"
-           class="btn-secondary {{ page >= total_pages ? 'is-disabled' }}">Next ›</a>
+           class="btn-secondary {{ page >= total_pages ? 'is-disabled' }}">{{ 'Next'|trans }} ›</a>
     </div>
 {% endif %}
 {% endblock %}

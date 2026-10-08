@@ -2,18 +2,18 @@
   Account area menu. `account_nav` (set by each view) marks the current item.
   Signing out reloads the whole page (data-no-ajax) so the header and form token update.
 #}
-<nav class="account-nav" aria-label="Your account">
+<nav class="account-nav" aria-label="{{ 'Your account'|trans }}">
     {% for item in [
-        {key: 'overview',  label: 'Overview',  route: 'account'},
-        {key: 'orders',    label: 'Orders',    route: 'account.orders'},
-        {key: 'addresses', label: 'Addresses', route: 'account.addresses'},
-        {key: 'profile',   label: 'Profile & password', route: 'account.profile'},
+        {key: 'overview',  label: 'Overview'|trans,  route: 'account'},
+        {key: 'orders',    label: 'Orders'|trans,    route: 'account.orders'},
+        {key: 'addresses', label: 'Addresses'|trans, route: 'account.addresses'},
+        {key: 'profile',   label: 'Profile & password'|trans, route: 'account.profile'},
     ] %}
         <a href="{{ path(item.route) }}" class="filter-pill {{ account_nav|default('') == item.key ? 'active' }}"
            {% if account_nav|default('') == item.key %}aria-current="page"{% endif %}>{{ item.label }}</a>
     {% endfor %}
     <form method="post" action="{{ path('account.logout') }}" class="account-logout" data-no-ajax>
         {{ csrf_field() }}
-        <button type="submit" class="btn-secondary">Sign out</button>
+        <button type="submit" class="btn-secondary">{{ 'Sign out'|trans }}</button>
     </form>
 </nav>

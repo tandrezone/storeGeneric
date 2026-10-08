@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller\Api;
 
 use App\Http\Responder;
+use App\I18n\Translator;
 use App\Repository\VariantRepository;
 use App\Service\CartService;
 use InvalidArgumentException;
@@ -21,6 +22,7 @@ final class CartApiController
         private readonly Responder $responder,
         private readonly CartService $cart,
         private readonly VariantRepository $variants,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -44,7 +46,7 @@ final class CartApiController
                 ),
                 'update' => $this->cart->update($quantity > 0 ? $this->checkStock($variantId, $quantity) : $variantId, $quantity),
                 'remove' => $this->cart->remove($variantId),
-                default => throw new InvalidArgumentException('Unknown cart action.'),
+                default => throw new InvalidArgumentException($this->translator->trans('Unknown cart action.')),
             };
         } catch (InvalidArgumentException $e) {
             return $this->responder->json(['success' => false, 'error' => $e->getMessage()], 400);
@@ -57,9 +59,9 @@ final class CartApiController
     private function checkStock(int $variantId, int $quantity): int
     {
         $variant = $this->variants->findAvailable($variantId)
-            ?? throw new InvalidArgumentException('That option is not available.');
+            ?? throw new InvalidArgumentException($this->translator->trans('That option is not available.'));
         if ((int) $variant['stock'] < $quantity) {
-            throw new InvalidArgumentException('Not enough stock available — only ' . max(0, (int) $variant['stock']) . ' left.');
+            throw new InvalidArgumentException($this->translator->transPlural('Not enough stock available — only {count} left.', max(0, (int) $variant['stock'])));
         }
 
         return $variantId;

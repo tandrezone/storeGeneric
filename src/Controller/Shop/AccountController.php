@@ -7,6 +7,7 @@ namespace App\Controller\Shop;
 use App\Http\Exception\HttpException;
 use App\Http\Responder;
 use App\Http\Session;
+use App\I18n\Translator;
 use App\Payment\PaymentRegistry;
 use App\Repository\CustomerAddressRepository;
 use App\Repository\OrderRepository;
@@ -36,6 +37,7 @@ final class AccountController
         private readonly OrderRepository $orders,
         private readonly PaymentRegistry $payments,
         private readonly OrderLinks $links,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -123,28 +125,40 @@ final class AccountController
             switch ($action) {
                 case 'profile':
                     $this->accounts->updateProfile($id, $body);
-                    $this->session->flash('success', 'Your details have been saved.');
+                    $this->session->flash('success', $this->translator->trans('Your details have been saved.'));
                     break;
 
                 case 'email':
                     if ($this->accounts->changeEmail($id, $body)) {
-                        $this->session->flash('success', 'Your email address has been changed. We sent a link to the new address to confirm it.');
+                        $this->session->flash('success', $this->translator->trans('Your email address has been changed. We sent a link to the new address to confirm it.'));
                     }
                     break;
 
                 case 'password':
                     $this->accounts->changePassword($id, $body);
-                    $this->session->flash('success', 'Your password has been changed. Other devices have been signed out.');
+                    $this->session->flash('success', $this->translator->trans('Your password has been changed. Other devices have been signed out.'));
                     break;
+
+                case 'language':
+                    $locale = $this->translator->normalize((string) ($body['locale'] ?? ''));
+                    if ($locale === null) {
+                        throw new RuntimeException($this->translator->trans('Please choose one of the listed languages.'));
+                    }
+                    $this->accounts->setLanguage($id, $locale);
+                    $this->session->set('locale', $locale);
+                    $this->session->flash('success', $this->translator->withLocale($locale, fn (): string => $this->translator->trans('Your language has been saved.')));
+
+                    // ?lang= also updates the language cookie (LocaleMiddleware).
+                    return $this->responder->redirectToRoute('account.profile', [], ['lang' => $locale]);
 
                 case 'delete':
                     if (empty($body['confirm'])) {
-                        throw new RuntimeException('Tick the box to confirm that you want to delete your account.');
+                        throw new RuntimeException($this->translator->trans('Tick the box to confirm that you want to delete your account.'));
                     }
                     $this->accounts->deleteAccount($id, (string) ($body['current_password'] ?? ''));
                     $this->auth->logout();
                     $this->links->forgetPlaced();
-                    $this->session->flash('success', 'Your account has been deleted. Your past orders are kept for our records.');
+                    $this->session->flash('success', $this->translator->trans('Your account has been deleted. Your past orders are kept for our records.'));
 
                     return $this->responder->redirectToRoute('account.login');
 
@@ -185,7 +199,7 @@ final class AccountController
             switch ((string) ($body['action'] ?? '')) {
                 case 'create':
                     $this->addresses->create($customerId, $this->accounts->addressFromInput($body), !empty($body['is_default']));
-                    $this->session->flash('success', 'Address saved.');
+                    $this->session->flash('success', $this->translator->trans('Address saved.'));
                     break;
 
                 case 'update':
@@ -196,21 +210,21 @@ final class AccountController
                     if (!empty($body['is_default'])) {
                         $this->addresses->setDefault($customerId, $addressId);
                     }
-                    $this->session->flash('success', 'Address updated.');
+                    $this->session->flash('success', $this->translator->trans('Address updated.'));
                     break;
 
                 case 'delete':
                     if (!$this->addresses->delete($customerId, $addressId)) {
                         throw HttpException::notFound('Address not found.');
                     }
-                    $this->session->flash('success', 'Address deleted.');
+                    $this->session->flash('success', $this->translator->trans('Address deleted.'));
                     break;
 
                 case 'set_default':
                     if (!$this->addresses->setDefault($customerId, $addressId)) {
                         throw HttpException::notFound('Address not found.');
                     }
-                    $this->session->flash('success', 'Default address changed.');
+                    $this->session->flash('success', $this->translator->trans('Default address changed.'));
                     break;
 
                 default:
@@ -229,7 +243,7 @@ final class AccountController
     {
         $uri = $request->getUri();
         $path = $request->getMethod() === 'GET' ? $uri->getPath() . ($uri->getQuery() !== '' ? '?' . $uri->getQuery() : '') : $uri->getPath();
-        $this->session->flash('error', 'Please sign in to see your account.');
+        $this->session->flash('error', $this->translator->trans('Please sign in to see your account.'));
 
         return $this->responder->redirectToRoute('account.login', [], ['next' => $path]);
     }

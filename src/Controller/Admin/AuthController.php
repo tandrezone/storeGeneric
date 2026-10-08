@@ -7,6 +7,7 @@ namespace App\Controller\Admin;
 use App\Http\ClientIp;
 use App\Http\Responder;
 use App\Http\Session;
+use App\I18n\Translator;
 use App\Security\AdminAuthenticator;
 use App\Service\AuditLog;
 use Psr\Http\Message\ResponseInterface;
@@ -20,6 +21,7 @@ final class AuthController
         private readonly ClientIp $clientIp,
         private readonly Session $session,
         private readonly AuditLog $audit,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -41,7 +43,7 @@ final class AuthController
             $user = $this->auth->user();
             if ($this->auth->wasBootstrapped()) {
                 $this->audit->record($request, $user, 'user.bootstrap', 'admin_user', $user['id'] ?? null, 'Saved the .env admin account as the first owner');
-                $this->session->flash('success', 'Your .env admin account is now the first Owner user. ADMIN_USERNAME / ADMIN_PASSWORD_HASH are no longer used — manage accounts in Users.');
+                $this->session->flash('success', $this->translator->trans('Your .env admin account is now the first Owner user. ADMIN_USERNAME / ADMIN_PASSWORD_HASH are no longer used — manage accounts in Users.'));
             }
             $this->audit->record($request, $user, 'login', 'admin_user', $user['id'] ?? null, 'Logged in');
 
@@ -52,7 +54,7 @@ final class AuthController
         $this->audit->record($request, null, 'login.failed', 'admin_user', null, 'Failed login: ' . $reason, [], $username);
 
         return $this->responder->view($request, 'admin/login.html.twig', [
-            'error' => 'Invalid username or password.',
+            'error' => $this->translator->trans('Invalid username or password.'),
             'username' => $username,
         ], 401);
     }
@@ -65,7 +67,7 @@ final class AuthController
             $this->audit->record($request, $user, 'logout', 'admin_user', $user['id'], 'Logged out');
         }
         $this->auth->logout();
-        $this->session->flash('success', 'You have been logged out.');
+        $this->session->flash('success', $this->translator->trans('You have been logged out.'));
 
         return $this->responder->redirectToRoute('admin.login');
     }

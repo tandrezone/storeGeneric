@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\I18n\Translator;
 use App\Infrastructure\Database;
 use App\Repository\OrderRepository;
 use App\Repository\VariantRepository;
@@ -26,6 +27,7 @@ final class CheckoutService
         private readonly ShippingService $shipping,
         private readonly CouponService $coupons,
         private readonly TaxCalculator $tax,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -75,11 +77,11 @@ final class CheckoutService
     public function placeOrder(array $customer, array $items, string $shippingCode, string $paymentMethod, string $couponCode = ''): array
     {
         if ($items === []) {
-            throw new RuntimeException('Your cart is empty.');
+            throw new RuntimeException($this->translator->trans('Your cart is empty.'));
         }
 
         $method = $this->shipping->available($shippingCode, $customer['country'])
-            ?? throw new RuntimeException('That shipping method is not available for your country.');
+            ?? throw new RuntimeException($this->translator->trans('That shipping method is not available for your country.'));
 
         // Lock in a fixed order so two checkouts with the same items can't deadlock.
         usort($items, static fn (array $a, array $b) => (int) $a['variant_id'] <=> (int) $b['variant_id']);
@@ -91,17 +93,17 @@ final class CheckoutService
                 $quantity = (int) $item['quantity'];
                 $row = $this->variants->lockForUpdate((int) $item['variant_id']);
                 if ($row === null || !(int) $row['available']) {
-                    throw new RuntimeException($item['product_name'] . ' is no longer available.');
+                    throw new RuntimeException($this->translator->trans('{product} is no longer available.', ['product' => (string) $item['product_name']]));
                 }
 
                 // A variant without a real price isn't for sale — treat it as out of stock.
                 $price = (float) $row['price'];
                 $available = $price <= 0.0 ? 0 : (int) $row['stock'];
                 if ($quantity < 1 || $available < $quantity) {
-                    throw new RuntimeException("Not enough stock for {$row['product_name']} — only {$available} left.");
+                    throw new RuntimeException($this->translator->transPlural('Not enough stock for {product} — only {count} left.', $available, ['product' => (string) $row['product_name']]));
                 }
                 if (abs($price - (float) $item['price']) >= 0.005) {
-                    throw new RuntimeException("The price of {$row['product_name']} has changed. Please review your order and place it again.");
+                    throw new RuntimeException($this->translator->trans('The price of {product} has changed. Please review your order and place it again.', ['product' => (string) $row['product_name']]));
                 }
 
                 $lineTotal = round($price * $quantity, 2);
@@ -130,6 +132,7 @@ final class CheckoutService
             $orderId = $this->orders->insert([
                 'order_number'       => $orderNumber,
                 'customer_id'        => $customer['customer_id'] ?? null,
+                'locale'             => $this->translator->locale(),
                 'email'              => $customer['email'],
                 'phone'              => $customer['phone'] ?: null,
                 'ship_name'          => $customer['name'],

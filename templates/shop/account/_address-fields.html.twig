@@ -1,38 +1,38 @@
 {# Address form fields. `prefix` keeps ids unique per form; `values` fills them (customer_addresses row or rejected input). #}
 {% set values = values|default({}) %}
-<label for="{{ prefix }}-label">Label (optional)</label>
-<input type="text" id="{{ prefix }}-label" name="label" maxlength="60" placeholder="Home, Work…" value="{{ values.label ?? '' }}">
+<label for="{{ prefix }}-label">{{ 'Label (optional)'|trans }}</label>
+<input type="text" id="{{ prefix }}-label" name="label" maxlength="60" placeholder="{{ 'Home, Work…'|trans }}" value="{{ values.label ?? '' }}">
 
-<label for="{{ prefix }}-name">Full name</label>
+<label for="{{ prefix }}-name">{{ 'Full name'|trans }}</label>
 <input type="text" id="{{ prefix }}-name" name="name" required maxlength="150" value="{{ values.name ?? '' }}" autocomplete="name">
 
-<label for="{{ prefix }}-phone">Phone (optional)</label>
+<label for="{{ prefix }}-phone">{{ 'Phone (optional)'|trans }}</label>
 <input type="tel" id="{{ prefix }}-phone" name="phone" maxlength="40" value="{{ values.phone ?? '' }}" autocomplete="tel">
 
-<label for="{{ prefix }}-address1">Address</label>
+<label for="{{ prefix }}-address1">{{ 'Address'|trans }}</label>
 <input type="text" id="{{ prefix }}-address1" name="address1" required maxlength="190" value="{{ values.address1 ?? '' }}" autocomplete="address-line1">
 
-<label for="{{ prefix }}-address2">Address line 2 (optional)</label>
+<label for="{{ prefix }}-address2">{{ 'Address line 2 (optional)'|trans }}</label>
 <input type="text" id="{{ prefix }}-address2" name="address2" maxlength="190" value="{{ values.address2 ?? '' }}" autocomplete="address-line2">
 
 <div class="form-row">
     <div>
-        <label for="{{ prefix }}-city">City</label>
+        <label for="{{ prefix }}-city">{{ 'City'|trans }}</label>
         <input type="text" id="{{ prefix }}-city" name="city" required maxlength="100" value="{{ values.city ?? '' }}" autocomplete="address-level2">
     </div>
     <div>
-        <label for="{{ prefix }}-state">State / Province</label>
+        <label for="{{ prefix }}-state">{{ 'State / Province'|trans }}</label>
         <input type="text" id="{{ prefix }}-state" name="state" maxlength="100" value="{{ values.state ?? '' }}" autocomplete="address-level1">
     </div>
 </div>
 
 <div class="form-row">
     <div>
-        <label for="{{ prefix }}-postal_code">Postal code</label>
+        <label for="{{ prefix }}-postal_code">{{ 'Postal code'|trans }}</label>
         <input type="text" id="{{ prefix }}-postal_code" name="postal_code" required maxlength="20" value="{{ values.postal_code ?? '' }}" autocomplete="postal-code">
     </div>
     <div>
-        <label for="{{ prefix }}-country">Country</label>
+        <label for="{{ prefix }}-country">{{ 'Country'|trans }}</label>
         <input type="text" id="{{ prefix }}-country" name="country" required maxlength="100" value="{{ values.country ?? '' }}" autocomplete="country-name">
     </div>
 </div>

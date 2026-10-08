@@ -7,6 +7,7 @@ namespace App\Controller\Admin;
 use App\Http\Exception\HttpException;
 use App\Http\Responder;
 use App\Http\Session;
+use App\I18n\Translator;
 use App\Payment\PaymentMethod;
 use App\Payment\PaymentRegistry;
 use App\Repository\OrderRepository;
@@ -27,6 +28,7 @@ final class OrderController
         private readonly PaymentRepository $paymentLog,
         private readonly PaymentRegistry $payments,
         private readonly OrderService $service,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -89,30 +91,30 @@ final class OrderController
             switch ((string) ($body['action'] ?? '')) {
                 case 'set_status':
                     $this->service->setStatus($id, (string) ($body['status'] ?? ''));
-                    $this->session->flash('success', 'Status updated.');
+                    $this->session->flash('success', $this->translator->trans('Status updated.'));
                     break;
                 case 'mark_paid':
                     $this->service->markPaid($id);
-                    $this->session->flash('success', 'Payment recorded — order marked as paid.');
+                    $this->session->flash('success', $this->translator->trans('Payment recorded — order marked as paid.'));
                     break;
                 case 'cancel':
                     $this->service->cancel($id);
-                    $this->session->flash('success', 'Order cancelled and its stock put back.');
+                    $this->session->flash('success', $this->translator->trans('Order cancelled and its stock put back.'));
                     break;
                 case 'refund':
                     $this->service->refund($id, $restock);
-                    $this->session->flash('success', $restock ? 'Order marked as refunded and restocked.' : 'Order marked as refunded.');
+                    $this->session->flash('success', $restock ? $this->translator->trans('Order marked as refunded and restocked.') : $this->translator->trans('Order marked as refunded.'));
                     break;
                 case 'ship':
                     $this->service->ship($id, $tracking, $carrier);
-                    $this->session->flash('success', 'Order marked as shipped — the customer has been emailed.');
+                    $this->session->flash('success', $this->translator->trans('Order marked as shipped — the customer has been emailed.'));
                     break;
                 case 'tracking':
                     $this->service->updateTracking($id, $tracking, $carrier);
-                    $this->session->flash('success', 'Tracking details saved.');
+                    $this->session->flash('success', $this->translator->trans('Tracking details saved.'));
                     break;
                 default:
-                    throw new RuntimeException('Unknown action.');
+                    throw new RuntimeException($this->translator->trans('Unknown action.'));
             }
         } catch (RuntimeException $e) {
             $this->session->flash('error', $e->getMessage());

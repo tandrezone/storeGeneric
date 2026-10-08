@@ -15,12 +15,12 @@
                  alt="{{ product.name }}"
                  {% if eager|default(false) %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async">
         {% else %}
-            <div class="image-placeholder">No image</div>
+            <div class="image-placeholder">{{ 'No image'|trans }}</div>
         {% endif %}
         {% if sold_out %}
-            <span class="stock-badge is-out">Out of stock</span>
+            <span class="stock-badge is-out">{{ 'Out of stock'|trans }}</span>
         {% elseif product.stock <= low_stock_threshold %}
-            <span class="stock-badge is-low">Only {{ product.stock }} left</span>
+            <span class="stock-badge is-low">{{ 'Only {count} left'|trans_plural(product.stock) }}</span>
         {% endif %}
     </div>
     <div class="product-card-body">
@@ -28,7 +28,7 @@
         <h3>{{ product.name }}</h3>
         <p class="short-desc">{{ product.short_description }}</p>
         {% if product.from_price is not null %}
-            <p class="price">From {{ product.from_price|money }}</p>
+            <p class="price">{{ 'From {price}'|trans({price: product.from_price|money}) }}</p>
         {% endif %}
     </div>
 </a>

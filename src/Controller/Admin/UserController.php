@@ -6,6 +6,7 @@ namespace App\Controller\Admin;
 
 use App\Http\Responder;
 use App\Http\Session;
+use App\I18n\Translator;
 use App\Repository\AdminUserRepository;
 use App\Security\AdminAuthenticator;
 use App\Security\AdminRole;
@@ -30,6 +31,7 @@ final class UserController
         private readonly AdminUserRepository $users,
         private readonly AdminAuthenticator $auth,
         private readonly AuditLog $audit,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -80,23 +82,23 @@ final class UserController
         $password = (string) ($body['password'] ?? '');
 
         if (preg_match(self::USERNAME_PATTERN, $username) !== 1) {
-            throw new RuntimeException('Usernames are 3–60 characters: letters, digits and . _ @ -');
+            throw new RuntimeException($this->translator->trans('Usernames are 3–60 characters: letters, digits and . _ @ -'));
         }
         $this->checkNewPassword($password, (string) ($body['password_confirm'] ?? ''));
         if ($this->users->findByUsername($username) !== null) {
-            throw new RuntimeException("The username \"{$username}\" is already taken.");
+            throw new RuntimeException($this->translator->trans('The username "{username}" is already taken.', ['username' => $username]));
         }
 
         try {
             $id = $this->users->create($username, $email, password_hash($password, PASSWORD_DEFAULT), $role->value);
         } catch (PDOException) {
-            throw new RuntimeException("The username \"{$username}\" is already taken.");
+            throw new RuntimeException($this->translator->trans('The username "{username}" is already taken.', ['username' => $username]));
         }
 
         $this->audit->record($request, $me, 'user.create', 'admin_user', $id, "Created {$role->value} {$username}", [
             'username' => $username, 'email' => $email, 'role' => $role->value,
         ]);
-        $this->session->flash('success', "User {$username} created.");
+        $this->session->flash('success', $this->translator->trans('User {username} created.', ['username' => $username]));
     }
 
     /**
@@ -112,7 +114,7 @@ final class UserController
 
         if ($role->value !== $oldRole) {
             if ((int) $user['id'] === (int) $me['id']) {
-                throw new RuntimeException("You can't change your own role.");
+                throw new RuntimeException($this->translator->trans("You can't change your own role."));
             }
             $this->guardLastOwner($user);
         }
@@ -129,7 +131,7 @@ final class UserController
         if ($changes !== []) {
             $this->audit->record($request, $me, 'user.update', 'admin_user', (int) $user['id'], "Updated {$user['username']}: " . implode(', ', array_keys($changes)), $changes);
         }
-        $this->session->flash('success', "User {$user['username']} saved.");
+        $this->session->flash('success', $this->translator->trans('User {username} saved.', ['username' => $user['username']]));
     }
 
     /**
@@ -140,7 +142,7 @@ final class UserController
     {
         if (!$active) {
             if ((int) $user['id'] === (int) $me['id']) {
-                throw new RuntimeException("You can't deactivate yourself.");
+                throw new RuntimeException($this->translator->trans("You can't deactivate yourself."));
             }
             $this->guardLastOwner($user);
         }
@@ -148,7 +150,10 @@ final class UserController
         $this->users->setActive((int) $user['id'], $active);
         $verb = $active ? 'activate' : 'deactivate';
         $this->audit->record($request, $me, 'user.' . $verb, 'admin_user', (int) $user['id'], ucfirst($verb) . "d {$user['username']}");
-        $this->session->flash('success', "User {$user['username']} " . ($active ? 'activated.' : 'deactivated — they are logged out on their next request.'));
+        $this->session->flash('success', $this->translator->trans(
+            $active ? 'User {username} activated.' : 'User {username} deactivated — they are logged out on their next request.',
+            ['username' => $user['username']]
+        ));
     }
 
     /**
@@ -159,14 +164,14 @@ final class UserController
     private function resetPassword(ServerRequestInterface $request, array $me, array $user, array $body): void
     {
         if ((int) $user['id'] === (int) $me['id']) {
-            throw new RuntimeException('Change your own password in My account (it asks for your current password).');
+            throw new RuntimeException($this->translator->trans('Change your own password in My account (it asks for your current password).'));
         }
         $password = (string) ($body['password'] ?? '');
         $this->checkNewPassword($password, (string) ($body['password_confirm'] ?? ''));
 
         $this->auth->changePassword((int) $user['id'], $password);
         $this->audit->record($request, $me, 'user.reset_password', 'admin_user', (int) $user['id'], "Reset the password of {$user['username']}");
-        $this->session->flash('success', "Password of {$user['username']} changed — their open sessions end on their next request.");
+        $this->session->flash('success', $this->translator->trans('Password of {username} changed — their open sessions end on their next request.', ['username' => $user['username']]));
     }
 
     /**
@@ -177,18 +182,18 @@ final class UserController
     private function guardLastOwner(array $user): void
     {
         if ($user['role'] === AdminRole::Owner->value && (bool) $user['active'] && $this->users->countActiveOwners() <= 1) {
-            throw new RuntimeException("{$user['username']} is the only active owner. Make someone else an owner first.");
+            throw new RuntimeException($this->translator->trans('{username} is the only active owner. Make someone else an owner first.', ['username' => $user['username']]));
         }
     }
 
     private function checkNewPassword(string $password, string $confirm): void
     {
-        $problem = AdminAuthenticator::passwordProblem($password);
+        $problem = AdminAuthenticator::passwordProblem($password, $this->translator);
         if ($problem !== null) {
             throw new RuntimeException($problem);
         }
         if (!hash_equals($password, $confirm)) {
-            throw new RuntimeException("The two passwords don't match.");
+            throw new RuntimeException($this->translator->trans("The two passwords don't match."));
         }
     }
 
@@ -200,7 +205,7 @@ final class UserController
     {
         $user = $this->users->find((int) ($body['id'] ?? 0));
         if ($user === null) {
-            throw new RuntimeException('That user no longer exists.');
+            throw new RuntimeException($this->translator->trans('That user no longer exists.'));
         }
         unset($user['password_hash']);
 
@@ -215,7 +220,7 @@ final class UserController
             return null;
         }
         if (mb_strlen($email) > 190 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-            throw new RuntimeException('Enter a valid email address (or leave it empty).');
+            throw new RuntimeException($this->translator->trans('Enter a valid email address (or leave it empty).'));
         }
 
         return $email;
@@ -224,7 +229,7 @@ final class UserController
     /** @param array<string, mixed> $body */
     private function role(array $body): AdminRole
     {
-        return AdminRole::tryFrom((string) ($body['role'] ?? '')) ?? throw new RuntimeException('Choose a role.');
+        return AdminRole::tryFrom((string) ($body['role'] ?? '')) ?? throw new RuntimeException($this->translator->trans('Choose a role.'));
     }
 
     /**

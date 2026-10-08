@@ -9,6 +9,17 @@
 (function () {
     const NS = 'http://www.w3.org/2000/svg';
 
+    /** Translated text (i18n.js, loaded by the layout); the English text if it is missing. */
+    function __(key, params) {
+        if (window.StoreI18n) return window.StoreI18n.t(key, params);
+        return key.replace(/\{(\w+)\}/g, (m, name) => (params && name in params ? String(params[name]) : m));
+    }
+
+    /** Number in the page's language ("1,234" / "1 234"). */
+    function fmt(n) {
+        return window.StoreI18n ? window.StoreI18n.number(n) : Number(n).toLocaleString();
+    }
+
     function el(tag, attrs) {
         const e = document.createElementNS(NS, tag);
         for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
@@ -56,14 +67,14 @@
         const svg = el('svg', {
             viewBox: `0 0 ${width} ${height}`,
             role: 'img',
-            'aria-label': 'Revenue from paid orders per day',
+            'aria-label': __('Revenue from paid orders per day'),
         });
 
         [0, niceMax / 3, (niceMax / 3) * 2, niceMax].forEach((t) => {
             const y = yAt(t);
             svg.appendChild(el('line', { x1: padding.left, x2: width - padding.right, y1: y, y2: y, class: 'chart-gridline' }));
             const label = el('text', { x: padding.left - 8, y: y + 4, class: 'chart-axis-label', 'text-anchor': 'end' });
-            label.textContent = Math.round(t).toLocaleString();
+            label.textContent = fmt(Math.round(t));
             svg.appendChild(label);
         });
 
@@ -99,8 +110,8 @@
             tooltip.appendChild(date);
 
             [
-                ['Revenue', p.revenue_label, 'var(--chart-teal)'],
-                ['Paid orders', p.orders.toLocaleString(), 'transparent'],
+                [__('Revenue'), p.revenue_label, 'var(--chart-teal)'],
+                [__('Paid orders'), fmt(p.orders), 'transparent'],
             ].forEach(([name, value, color]) => {
                 const row = document.createElement('div');
                 row.className = 'chart-tooltip-row';
@@ -137,7 +148,7 @@
                 height: plotHeight,
                 class: 'chart-hit',
                 tabindex: '0',
-                'aria-label': `${p.day}: ${p.revenue_label} from ${p.orders} paid orders`,
+                'aria-label': __('{day}: {revenue} from {orders} paid orders', { day: p.day, revenue: p.revenue_label, orders: fmt(p.orders) }),
             });
             hit.addEventListener('pointerenter', () => showTooltip(i));
             hit.addEventListener('pointermove', () => showTooltip(i));

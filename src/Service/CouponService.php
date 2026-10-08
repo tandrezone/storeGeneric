@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\I18n\LocaleFormat;
+use App\I18n\Translator;
 use App\Repository\CouponRepository;
 use App\Repository\OrderRepository;
 use App\Support\Money;
@@ -26,6 +28,7 @@ final class CouponService
         private readonly CouponRepository $coupons,
         private readonly OrderRepository $orders,
         private readonly StoreSettings $store,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -46,7 +49,7 @@ final class CouponService
         $code = self::normalize($code);
         $coupon = $code === '' ? null : $this->coupons->findByCode($code);
         if ($coupon === null) {
-            throw new RuntimeException("The discount code \"{$code}\" doesn't exist.");
+            throw new RuntimeException($this->translator->trans('The discount code "{code}" doesn\'t exist.', ['code' => $code]));
         }
         $this->check($coupon, $subtotal, $email);
 
@@ -64,7 +67,7 @@ final class CouponService
     {
         $code = self::normalize($code);
         $coupon = $this->coupons->lockByCode($code)
-            ?? throw new RuntimeException("The discount code \"{$code}\" doesn't exist.");
+            ?? throw new RuntimeException($this->translator->trans('The discount code "{code}" doesn\'t exist.', ['code' => $code]));
         $this->check($coupon, $subtotal, $email);
         $this->coupons->incrementUsed((int) $coupon['id']);
 
@@ -94,10 +97,15 @@ final class CouponService
     /** @param array<string, mixed> $coupon "10% off", "€5.00 off", "Free shipping" */
     public function describe(array $coupon): string
     {
+        $locale = $this->translator->intlLocale();
+        $value = (float) $coupon['value'];
+
         return match ((string) $coupon['type']) {
-            'percent'       => rtrim(rtrim(number_format((float) $coupon['value'], 2, '.', ''), '0'), '.') . '% off',
-            'fixed'         => Money::format((float) $coupon['value'], $this->store->currency()) . ' off',
-            'free_shipping' => 'Free shipping',
+            'percent'       => $this->translator->trans('{percent}% off', [
+                'percent' => LocaleFormat::number($value, $locale, strlen(rtrim(substr(number_format($value, 2, '.', ''), -2), '0'))),
+            ]),
+            'fixed'         => $this->translator->trans('{amount} off', ['amount' => Money::format($value, $this->store->currency(), $locale)]),
+            'free_shipping' => $this->translator->trans('Free shipping'),
             default         => '',
         };
     }
@@ -145,32 +153,40 @@ final class CouponService
         $minSubtotal = str_replace(',', '.', trim((string) ($input['min_subtotal'] ?? '')));
 
         if (!preg_match(self::CODE_PATTERN, $code)) {
-            $errors[] = 'The code must be 2-40 letters, digits, "-" or "_".';
+            $errors[] = $this->translator->trans('The code must be 2-40 letters, digits, "-" or "_".');
         } elseif ($this->coupons->codeTaken($code, $exceptId)) {
-            $errors[] = "There is already a discount code \"{$code}\".";
+            $errors[] = $this->translator->trans('There is already a discount code "{code}".', ['code' => $code]);
         }
         if (!in_array($type, CouponRepository::TYPES, true)) {
-            $errors[] = 'Choose a discount type.';
+            $errors[] = $this->translator->trans('Choose a discount type.');
         }
         if ($type === 'free_shipping') {
             $value = '0';
         } elseif ($value === '' || !is_numeric($value) || (float) $value <= 0) {
-            $errors[] = 'The discount value must be more than 0.';
+            $errors[] = $this->translator->trans('The discount value must be more than 0.');
         } elseif ($type === 'percent' && (float) $value > 100) {
-            $errors[] = 'A percentage discount can be at most 100.';
+            $errors[] = $this->translator->trans('A percentage discount can be at most 100.');
         }
         if ($minSubtotal !== '' && (!is_numeric($minSubtotal) || (float) $minSubtotal < 0)) {
-            $errors[] = '"Minimum subtotal" must be empty or an amount of 0 or more.';
+            $errors[] = $this->translator->trans('"Minimum subtotal" must be empty or an amount of 0 or more.');
         }
 
-        $startsAt = $this->dateTime((string) ($input['starts_at'] ?? ''), $errors, 'Start');
-        $endsAt = $this->dateTime((string) ($input['ends_at'] ?? ''), $errors, 'End');
+        $startsAt = $this->dateTime((string) ($input['starts_at'] ?? ''), $errors, $this->translator->trans('Start date isn\'t a valid date.'));
+        $endsAt = $this->dateTime((string) ($input['ends_at'] ?? ''), $errors, $this->translator->trans('End date isn\'t a valid date.'));
         if ($startsAt !== null && $endsAt !== null && $endsAt <= $startsAt) {
-            $errors[] = 'The end date must be after the start date.';
+            $errors[] = $this->translator->trans('The end date must be after the start date.');
         }
 
-        $usageLimit = $this->limit($input['usage_limit'] ?? '', $errors, 'Usage limit');
-        $perEmailLimit = $this->limit($input['per_email_limit'] ?? '', $errors, 'Uses per customer');
+        $usageLimit = $this->limit(
+            $input['usage_limit'] ?? '',
+            $errors,
+            $this->translator->trans('Usage limit must be empty (unlimited) or a whole number of 1 or more.')
+        );
+        $perEmailLimit = $this->limit(
+            $input['per_email_limit'] ?? '',
+            $errors,
+            $this->translator->trans('Uses per customer must be empty (unlimited) or a whole number of 1 or more.')
+        );
 
         return [[
             'code'            => $code,
@@ -198,25 +214,27 @@ final class CouponService
             || ($coupon['starts_at'] !== null && $now < (string) $coupon['starts_at'])
             || ($coupon['ends_at'] !== null && $now >= (string) $coupon['ends_at'])
         ) {
-            throw new RuntimeException("The discount code \"{$code}\" isn't valid right now.");
+            throw new RuntimeException($this->translator->trans('The discount code "{code}" isn\'t valid right now.', ['code' => $code]));
         }
         if ($coupon['usage_limit'] !== null && (int) $coupon['used_count'] >= (int) $coupon['usage_limit']) {
-            throw new RuntimeException("The discount code \"{$code}\" has been used up.");
+            throw new RuntimeException($this->translator->trans('The discount code "{code}" has been used up.', ['code' => $code]));
         }
         if ($coupon['min_subtotal'] !== null && $subtotal < (float) $coupon['min_subtotal']) {
-            throw new RuntimeException("The discount code \"{$code}\" needs a subtotal of at least "
-                . Money::format((float) $coupon['min_subtotal'], $this->store->currency()) . '.');
+            throw new RuntimeException($this->translator->trans('The discount code "{code}" needs a subtotal of at least {amount}.', [
+                'code'   => $code,
+                'amount' => Money::format((float) $coupon['min_subtotal'], $this->store->currency(), $this->translator->intlLocale()),
+            ]));
         }
         if (
             $email !== '' && $coupon['per_email_limit'] !== null
             && $this->coupons->usesByEmail($code, $email) >= (int) $coupon['per_email_limit']
         ) {
-            throw new RuntimeException("You have already used the discount code \"{$code}\".");
+            throw new RuntimeException($this->translator->trans('You have already used the discount code "{code}".', ['code' => $code]));
         }
     }
 
     /** @param list<string> $errors */
-    private function dateTime(string $value, array &$errors, string $label): ?string
+    private function dateTime(string $value, array &$errors, string $invalid): ?string
     {
         $value = trim($value);
         if ($value === '') {
@@ -229,13 +247,13 @@ final class CouponService
                 return $date->format('Y-m-d H:i:s');
             }
         }
-        $errors[] = "{$label} date isn't a valid date.";
+        $errors[] = $invalid;
 
         return null;
     }
 
     /** @param list<string> $errors */
-    private function limit(mixed $value, array &$errors, string $label): ?int
+    private function limit(mixed $value, array &$errors, string $invalid): ?int
     {
         $value = trim((string) $value);
         if ($value === '') {
@@ -243,7 +261,7 @@ final class CouponService
         }
         $limit = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 100000000]]);
         if ($limit === false) {
-            $errors[] = "{$label} must be empty (unlimited) or a whole number of 1 or more.";
+            $errors[] = $invalid;
 
             return null;
         }

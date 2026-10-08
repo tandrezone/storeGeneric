@@ -1,25 +1,25 @@
 {% extends 'layout/admin.html.twig' %}
 
-{% set title = 'Order ' ~ order.order_number %}
+{% set title = 'Order {number}'|trans({number: order.order_number}) %}
 {% set active_nav = 'orders' %}
 
 {% block content %}
-<p><a href="{{ path('admin.orders') }}" class="btn-secondary">&larr; Back to orders</a></p>
+<p><a href="{{ path('admin.orders') }}" class="btn-secondary">&larr; {{ 'Back to orders'|trans }}</a></p>
 
 <h1>
     {{ order.order_number }}
-    <span class="status-badge" data-status="{{ order.status }}">{{ order.status }}</span>
-    <span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status }}</span>
+    <span class="status-badge" data-status="{{ order.status }}">{{ order.status|capitalize|trans }}</span>
+    <span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status|capitalize|trans }}</span>
 </h1>
 <p style="color: var(--color-muted);">
-    Placed {{ order.created_at }}
-    {% if order.stock_reserved %}· stock reserved{% else %}· stock not held{% endif %}
+    {{ 'Placed {date}'|trans({date: order.created_at}) }}
+    {% if order.stock_reserved %}· {{ 'stock reserved'|trans }}{% else %}· {{ 'stock not held'|trans }}{% endif %}
 </p>
 
 <div class="grid-2">
     <div>
         <div class="panel">
-            <h2>Items</h2>
+            <h2>{{ 'Items'|trans }}</h2>
             <ul class="order-items-list">
                 {% for item in order.items %}
                     <li>
@@ -29,44 +29,44 @@
                 {% endfor %}
             </ul>
             <p style="display: flex; justify-content: space-between; margin-top: 16px;">
-                <span>Subtotal</span><span>{{ order.subtotal|money }}</span>
+                <span>{{ 'Subtotal'|trans }}</span><span>{{ order.subtotal|money }}</span>
             </p>
             <p style="display: flex; justify-content: space-between;">
-                <span>Shipping ({{ order.shipping_label ?: order.shipping_method }})</span><span>{{ order.shipping_cost|money }}</span>
+                <span>{{ 'Shipping ({method})'|trans({method: order.shipping_label ?: order.shipping_method}) }}</span><span>{{ order.shipping_cost|money }}</span>
             </p>
             {% if order.discount_amount|default(0) > 0 %}
                 <p style="display: flex; justify-content: space-between;">
-                    <span>Discount{% if order.coupon_code %} ({% if admin_can('manager') %}<a href="{{ path('admin.discounts') }}">{{ order.coupon_code }}</a>{% else %}{{ order.coupon_code }}{% endif %}){% endif %}</span><span>−{{ order.discount_amount|money }}</span>
+                    <span>{{ 'Discount'|trans }}{% if order.coupon_code %} ({% if admin_can('manager') %}<a href="{{ path('admin.discounts') }}">{{ order.coupon_code }}</a>{% else %}{{ order.coupon_code }}{% endif %}){% endif %}</span><span>−{{ order.discount_amount|money }}</span>
                 </p>
             {% endif %}
             {% if order.tax_amount|default(0) > 0 and not order.prices_include_tax %}
                 <p style="display: flex; justify-content: space-between;">
-                    <span>VAT ({{ order.tax_rate * 1 }}%, added)</span><span>{{ order.tax_amount|money }}</span>
+                    <span>{{ 'VAT ({rate}%, added)'|trans({rate: (order.tax_rate * 1)|local_number(order.tax_rate * 1 == (order.tax_rate * 1)|round ? 0 : 2)}) }}</span><span>{{ order.tax_amount|money }}</span>
                 </p>
             {% endif %}
             <p style="display: flex; justify-content: space-between;" class="order-total">
-                <span>Total</span><span>{{ order.total|money }}</span>
+                <span>{{ 'Total'|trans }}</span><span>{{ order.total|money }}</span>
             </p>
             {% if order.tax_amount|default(0) > 0 and order.prices_include_tax %}
                 <p style="display: flex; justify-content: space-between;" class="field-hint">
-                    <span>Includes VAT ({{ order.tax_rate * 1 }}%)</span><span>{{ order.tax_amount|money }}</span>
+                    <span>{{ 'Includes VAT ({rate}%)'|trans({rate: (order.tax_rate * 1)|local_number(order.tax_rate * 1 == (order.tax_rate * 1)|round ? 0 : 2)}) }}</span><span>{{ order.tax_amount|money }}</span>
                 </p>
             {% endif %}
         </div>
 
         <div class="panel">
-            <h2>Payment events</h2>
+            <h2>{{ 'Payment events'|trans }}</h2>
             {% if payment_events is empty %}
-                <p class="field-hint">No payment events yet.</p>
+                <p class="field-hint">{{ 'No payment events yet.'|trans }}</p>
             {% else %}
                 <table class="cart-table" style="font-size: 0.85rem;">
-                    <thead><tr><th>When</th><th>Provider</th><th>Status</th><th>Amount</th><th>Reference</th></tr></thead>
+                    <thead><tr><th>{{ 'When'|trans }}</th><th>{{ 'Provider'|trans }}</th><th>{{ 'Status'|trans }}</th><th>{{ 'Amount'|trans }}</th><th>{{ 'Reference'|trans }}</th></tr></thead>
                     <tbody>
                         {% for event in payment_events %}
                             <tr>
                                 <td>{{ event.created_at }}</td>
                                 <td>{{ event.provider }}</td>
-                                <td><span class="status-badge" data-status="{{ event.status }}">{{ event.status }}</span></td>
+                                <td><span class="status-badge" data-status="{{ event.status }}">{{ event.status|capitalize|trans }}</span></td>
                                 <td>{{ event.amount }} {{ event.currency }}</td>
                                 <td style="word-break: break-all;">{{ event.track_id ?? '—' }}</td>
                             </tr>
@@ -79,19 +79,19 @@
 
     <div>
         <div class="panel">
-            <h2>Customer</h2>
+            <h2>{{ 'Customer'|trans }}</h2>
             <div class="address-block">
-                <span class="label">Contact</span><br>
+                <span class="label">{{ 'Contact'|trans }}</span><br>
                 {{ order.email }}<br>
                 {{ order.phone ?? '—' }}
                 <br>
                 {% if order.customer_id|default(null) %}
-                    {% if admin_can('manager') %}<a href="{{ path('admin.customer', {id: order.customer_id}) }}">Customer account #{{ order.customer_id }}</a>{% else %}Customer account #{{ order.customer_id }}{% endif %}
+                    {% if admin_can('manager') %}<a href="{{ path('admin.customer', {id: order.customer_id}) }}">{{ 'Customer account #{id}'|trans({id: order.customer_id}) }}</a>{% else %}{{ 'Customer account #{id}'|trans({id: order.customer_id}) }}{% endif %}
                 {% else %}
-                    <span class="field-hint">Guest checkout</span>
+                    <span class="field-hint">{{ 'Guest checkout'|trans }}</span>
                 {% endif %}
                 <br><br>
-                <span class="label">Shipping address</span><br>
+                <span class="label">{{ 'Shipping address'|trans }}</span><br>
                 {{ order.ship_name }}<br>
                 {{ order.ship_address1 }}<br>
                 {% if order.ship_address2 %}{{ order.ship_address2 }}<br>{% endif %}
@@ -101,81 +101,81 @@
         </div>
 
         <div class="panel">
-            <h2>Payment</h2>
+            <h2>{{ 'Payment'|trans }}</h2>
             <p>
-                Method: <strong>{{ payment_label }}</strong><br>
-                Status: <span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status }}</span>
+                {{ 'Method:'|trans }} <strong>{{ payment_label }}</strong><br>
+                {{ 'Status:'|trans }} <span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status|capitalize|trans }}</span>
             </p>
             {% if can.mark_paid %}
-                <form method="post" action="{{ path('admin.order.submit', {id: order.id}) }}" data-confirm="Mark this order as paid?{{ order.stock_reserved ? '' : ' Its stock will be reserved again.' }}">
+                <form method="post" action="{{ path('admin.order.submit', {id: order.id}) }}" data-confirm="{{ order.stock_reserved ? 'Mark this order as paid?'|trans : 'Mark this order as paid? Its stock will be reserved again.'|trans }}">
                     {{ csrf_field() }}
                     <input type="hidden" name="action" value="mark_paid">
-                    <button type="submit" class="btn-secondary">Mark as paid</button>
-                    <p class="field-hint">For bank transfers and cash on delivery, once the money has arrived.</p>
+                    <button type="submit" class="btn-secondary">{{ 'Mark as paid'|trans }}</button>
+                    <p class="field-hint">{{ 'For bank transfers and cash on delivery, once the money has arrived.'|trans }}</p>
                 </form>
             {% endif %}
             {% if can.refund %}
-                <form method="post" action="{{ path('admin.order.submit', {id: order.id}) }}" data-confirm="Mark this order as refunded? Refund the money at the payment provider (or by bank) yourself — this only records it." style="margin-top: 12px;">
+                <form method="post" action="{{ path('admin.order.submit', {id: order.id}) }}" data-confirm="{{ 'Mark this order as refunded? Refund the money at the payment provider (or by bank) yourself — this only records it.'|trans }}" style="margin-top: 12px;">
                     {{ csrf_field() }}
                     <input type="hidden" name="action" value="refund">
                     <label style="display: block; margin-bottom: 8px;">
                         <input type="checkbox" name="restock" value="1" {{ order.stock_reserved ? 'checked' : 'disabled' }}>
-                        Put the items back in stock
+                        {{ 'Put the items back in stock'|trans }}
                     </label>
-                    <button type="submit" class="btn-secondary">Mark as refunded</button>
-                    <p class="field-hint">The customer gets a refund email.</p>
+                    <button type="submit" class="btn-secondary">{{ 'Mark as refunded'|trans }}</button>
+                    <p class="field-hint">{{ 'The customer gets a refund email.'|trans }}</p>
                 </form>
             {% endif %}
         </div>
 
         <div class="panel">
-            <h2>Shipping &amp; tracking</h2>
+            <h2>{{ 'Shipping & tracking'|trans }}</h2>
             {% if order.shipped_at %}
-                <p>Shipped {{ order.shipped_at }}</p>
+                <p>{{ 'Shipped {date}'|trans({date: order.shipped_at}) }}</p>
             {% endif %}
             {% if can.ship or can.edit_tracking %}
                 <form method="post" action="{{ path('admin.order.submit', {id: order.id}) }}"
-                      {% if can.ship %}data-confirm="Mark as shipped and email the customer?"{% endif %}>
+                      {% if can.ship %}data-confirm="{{ 'Mark as shipped and email the customer?'|trans }}"{% endif %}>
                     {{ csrf_field() }}
                     <input type="hidden" name="action" value="{{ can.ship ? 'ship' : 'tracking' }}">
-                    <label>Carrier
-                        <input type="text" name="carrier" maxlength="100" value="{{ order.carrier }}" placeholder="e.g. DHL, UPS, CTT">
+                    <label>{{ 'Carrier'|trans }}
+                        <input type="text" name="carrier" maxlength="100" value="{{ order.carrier }}" placeholder="{{ 'e.g. DHL, UPS, CTT'|trans }}">
                     </label>
-                    <label>Tracking number
+                    <label>{{ 'Tracking number'|trans }}
                         <input type="text" name="tracking_number" maxlength="100" value="{{ order.tracking_number }}">
                     </label>
-                    <button type="submit" class="btn-primary">{{ can.ship ? 'Mark as shipped' : 'Save tracking' }}</button>
-                    {% if can.ship %}<p class="field-hint">Sends the customer the "order shipped" email with these details.</p>{% endif %}
+                    <button type="submit" class="btn-primary">{{ can.ship ? 'Mark as shipped'|trans : 'Save tracking'|trans }}</button>
+                    {% if can.ship %}<p class="field-hint">{{ 'Sends the customer the "order shipped" email with these details.'|trans }}</p>{% endif %}
                 </form>
             {% else %}
                 <p class="field-hint">
-                    {% if order.carrier or order.tracking_number %}{{ order.carrier }} {{ order.tracking_number }}{% else %}Not shipped.{% endif %}
+                    {% if order.carrier or order.tracking_number %}{{ order.carrier }} {{ order.tracking_number }}{% else %}{{ 'Not shipped.'|trans }}{% endif %}
                 </p>
             {% endif %}
         </div>
 
         <div class="panel">
-            <h2>Update status</h2>
+            <h2>{{ 'Update status'|trans }}</h2>
             {% if next_statuses is not empty %}
                 <form method="post" action="{{ path('admin.order.submit', {id: order.id}) }}">
                     {{ csrf_field() }}
                     <input type="hidden" name="action" value="set_status">
                     <select name="status" class="status-select" style="width: 100%; margin-bottom: 12px;">
                         {% for status in next_statuses %}
-                            <option value="{{ status }}">{{ status|capitalize }}</option>
+                            <option value="{{ status }}">{{ status|capitalize|trans }}</option>
                         {% endfor %}
                     </select>
-                    <button type="submit" class="btn-primary">Save status</button>
+                    <button type="submit" class="btn-primary">{{ 'Save status'|trans }}</button>
                 </form>
             {% else %}
-                <p class="field-hint">No further status changes from {{ order.status }}.</p>
+                <p class="field-hint">{{ 'No further status changes from {status}.'|trans({status: order.status|capitalize|trans}) }}</p>
             {% endif %}
 
             {% if can.cancel %}
-                <form method="post" action="{{ path('admin.order.submit', {id: order.id}) }}" data-confirm="Cancel this order? Its stock is put back and the customer is emailed." style="margin-top: 12px;">
+                <form method="post" action="{{ path('admin.order.submit', {id: order.id}) }}" data-confirm="{{ 'Cancel this order? Its stock is put back and the customer is emailed.'|trans }}" style="margin-top: 12px;">
                     {{ csrf_field() }}
                     <input type="hidden" name="action" value="cancel">
-                    <button type="submit" class="btn-secondary">Cancel order</button>
+                    <button type="submit" class="btn-secondary">{{ 'Cancel order'|trans }}</button>
                 </form>
             {% endif %}
         </div>

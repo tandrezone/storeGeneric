@@ -1,18 +1,18 @@
 {% autoescape false %}
-Hi {{ name }},
+{{ 'Hi {name},'|trans({name: name}) }}
 
 {% if welcome %}
-Welcome to {{ store_name }} — your account is ready. Please confirm that this is your email address:
+{{ 'Welcome to {store} — your account is ready. Please confirm that this is your email address:'|trans({store: store_name}) }}
 {% else %}
-Please confirm that you want to use this email address for your {{ store_name }} account:
+{{ 'Please confirm that you want to use this email address for your {store} account:'|trans({store: store_name}) }}
 {% endif %}
 
 {{ verify_url }}
 
-Once it's confirmed, orders you placed as a guest with this address appear in your account too.
-The link works once and expires in 7 days.
+{{ 'Once it\'s confirmed, orders you placed as a guest with this address appear in your account too.'|trans }}
+{{ 'The link works once and expires in 7 days.'|trans }}
 
-Didn't create an account? You can ignore this email.
+{{ 'Didn\'t create an account? You can ignore this email.'|trans }}
 
 {{ store_name }} — {{ store_email }}
 {% endautoescape %}

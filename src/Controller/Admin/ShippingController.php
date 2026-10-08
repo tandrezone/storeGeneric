@@ -6,6 +6,7 @@ namespace App\Controller\Admin;
 
 use App\Http\Responder;
 use App\Http\Session;
+use App\I18n\Translator;
 use App\Repository\ShippingMethodRepository;
 use App\Service\ShippingService;
 use Psr\Http\Message\ResponseInterface;
@@ -19,6 +20,7 @@ final class ShippingController
         private readonly Session $session,
         private readonly ShippingMethodRepository $methods,
         private readonly ShippingService $shipping,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -40,19 +42,19 @@ final class ShippingController
             }
             if ($action === 'create') {
                 $this->methods->create($data);
-                $this->session->flash('success', "Shipping method \"{$data['name']}\" added.");
+                $this->session->flash('success', $this->translator->trans('Shipping method "{name}" added.', ['name' => $data['name']]));
             } else {
                 $this->methods->update($id, $data);
-                $this->session->flash('success', 'Shipping method updated.');
+                $this->session->flash('success', $this->translator->trans('Shipping method updated.'));
             }
         } elseif ($action === 'toggle' && ($method = $this->methods->find($id)) !== null) {
             $this->methods->setActive($id, !$method['is_active']);
-            $this->session->flash('success', $method['is_active'] ? "\"{$method['name']}\" disabled." : "\"{$method['name']}\" enabled.");
+            $this->session->flash('success', $this->translator->trans($method['is_active'] ? '"{name}" disabled.' : '"{name}" enabled.', ['name' => $method['name']]));
         } elseif ($action === 'move' && in_array($body['direction'] ?? '', ['up', 'down'], true)) {
             $this->methods->move($id, (string) $body['direction']);
         } elseif ($action === 'delete' && $id > 0) {
             $this->methods->delete($id);
-            $this->session->flash('success', 'Shipping method deleted. Past orders keep their shipping details.');
+            $this->session->flash('success', $this->translator->trans('Shipping method deleted. Past orders keep their shipping details.'));
         }
 
         return $this->responder->redirectToRoute('admin.shipping');

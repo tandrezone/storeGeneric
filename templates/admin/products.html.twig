@@ -1,6 +1,6 @@
 {% extends 'layout/admin.html.twig' %}
 
-{% set title = 'Admin — Products' %}
+{% set title = 'Admin — Products'|trans %}
 {% set active_nav = 'products' %}
 
 {#
@@ -9,21 +9,21 @@
 #}
 {% macro wysiwyg(html) %}
     <div class="wysiwyg" data-wysiwyg>
-        <div class="wysiwyg-toolbar" role="toolbar" aria-label="Formatting">
-            <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
-            <button type="button" data-cmd="italic" title="Italic"><i>I</i></button>
-            <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
-            <button type="button" data-cmd="insertUnorderedList" title="Bullet list">&bull; List</button>
-            <button type="button" data-cmd="insertOrderedList" title="Numbered list">1. List</button>
-            <button type="button" data-cmd="createLink" title="Insert link">&#128279;</button>
-            <button type="button" data-cmd="removeFormat" title="Clear formatting">&times;</button>
+        <div class="wysiwyg-toolbar" role="toolbar" aria-label="{{ 'Formatting'|trans }}">
+            <button type="button" data-cmd="bold" title="{{ 'Bold'|trans }}"><b>B</b></button>
+            <button type="button" data-cmd="italic" title="{{ 'Italic'|trans }}"><i>I</i></button>
+            <button type="button" data-cmd="underline" title="{{ 'Underline'|trans }}"><u>U</u></button>
+            <button type="button" data-cmd="insertUnorderedList" title="{{ 'Bullet list'|trans }}">&bull; {{ 'List'|trans }}</button>
+            <button type="button" data-cmd="insertOrderedList" title="{{ 'Numbered list'|trans }}">1. {{ 'List'|trans }}</button>
+            <button type="button" data-cmd="createLink" title="{{ 'Insert link'|trans }}">&#128279;</button>
+            <button type="button" data-cmd="removeFormat" title="{{ 'Clear formatting'|trans }}">&times;</button>
         </div>
         <div class="wysiwyg-editor" contenteditable="true">{{ html|raw }}</div>
         <textarea name="long_description" hidden>{{ html }}</textarea>
     </div>
 {% endmacro %}
 
-{# Sort link that keeps the other filters (and goes back to page 1). #}
+{# Sort link that keeps the other filters (and goes back to page 1). `label` is already translated. #}
 {% macro sort_link(column, label, sort, dir, list_query) %}
     {% set next_dir = sort == column and dir == 'asc' ? 'desc' : 'asc' %}
     <a href="{{ path('admin.products', {}, list_query|merge({sort: column, dir: next_dir, page: null})) }}" class="sort-link">
@@ -35,19 +35,19 @@
 {% import _self as ui %}
 {# Every form posts back with the list's filters/sort/page so the redirect returns here. #}
 {% set submit_url = path('admin.products.submit', {}, list_query) %}
-<h1>Products</h1>
+<h1>{{ 'Products'|trans }}</h1>
 
 {% if edit_input is null %}
     {% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
 {% endif %}
 
 <details class="panel" id="add-product-panel" {{ create_input is not null ? 'open' }}>
-    <summary class="panel-summary">Add product</summary>
+    <summary class="panel-summary">{{ 'Add product'|trans }}</summary>
     <form method="post" action="{{ submit_url }}">
         {{ csrf_field() }}
         <input type="hidden" name="action" value="create">
 
-        <label>Category
+        <label>{{ 'Category'|trans }}
             <select name="category_id" required>
                 {% for category in categories %}
                     <option value="{{ category.id }}" {{ create_input.category_id|default('') == category.id ? 'selected' }}>{{ category.name }}</option>
@@ -55,81 +55,81 @@
             </select>
         </label>
 
-        <label>Name <input type="text" name="name" value="{{ create_input.name|default('') }}" maxlength="{{ limits.name }}" required></label>
-        <label>Short description <input type="text" name="short_description" value="{{ create_input.short_description|default('') }}" maxlength="{{ limits.short_description }}" required></label>
-        <label>Long description</label>
+        <label>{{ 'Name'|trans }} <input type="text" name="name" value="{{ create_input.name|default('') }}" maxlength="{{ limits.name }}" required></label>
+        <label>{{ 'Short description'|trans }} <input type="text" name="short_description" value="{{ create_input.short_description|default('') }}" maxlength="{{ limits.short_description }}" required></label>
+        <label>{{ 'Long description'|trans }}</label>
         {{ ui.wysiwyg(create_input.long_description|default('')) }}
 
-        <h3>First variant</h3>
+        <h3>{{ 'First variant'|trans }}</h3>
         <div class="form-row">
-            <label>SKU <input type="text" name="sku" value="{{ create_input.sku|default('') }}" maxlength="{{ limits.variant_field }}" required></label>
-            <label>Label <input type="text" name="label" value="{{ create_input.label|default('') }}" maxlength="{{ limits.variant_field }}" placeholder="6"></label>
+            <label>{{ 'SKU'|trans }} <input type="text" name="sku" value="{{ create_input.sku|default('') }}" maxlength="{{ limits.variant_field }}" required></label>
+            <label>{{ 'Label'|trans }} <input type="text" name="label" value="{{ create_input.label|default('') }}" maxlength="{{ limits.variant_field }}" placeholder="6"></label>
         </div>
         <div class="form-row">
-            <label>Unit <input type="text" name="unit" value="{{ create_input.unit|default('') }}" maxlength="{{ limits.variant_field }}" placeholder="pack"></label>
-            <label>Price <input type="number" name="price" value="{{ create_input.price|default('') }}" step="0.01" min="0.01" max="99999999.99" required></label>
+            <label>{{ 'Unit'|trans }} <input type="text" name="unit" value="{{ create_input.unit|default('') }}" maxlength="{{ limits.variant_field }}" placeholder="{{ 'pack'|trans }}"></label>
+            <label>{{ 'Price'|trans }} <input type="number" name="price" value="{{ create_input.price|default('') }}" step="0.01" min="0.01" max="99999999.99" required></label>
         </div>
-        <label>Stock <input type="number" name="stock" value="{{ create_input.stock|default(0) }}" min="0" required></label>
+        <label>{{ 'Stock'|trans }} <input type="number" name="stock" value="{{ create_input.stock|default(0) }}" min="0" required></label>
 
-        <p class="field-hint">New products start with status <strong>created</strong> — switch them to <strong>approved</strong> to show them on the storefront.</p>
+        <p class="field-hint">{{ 'New products start with status <strong>{created}</strong> — switch them to <strong>{approved}</strong> to show them on the storefront.'|trans({created: 'Created'|trans|lower|e, approved: 'Approved'|trans|lower|e})|raw }}</p>
 
-        <button type="submit" class="btn-primary">Create product</button>
+        <button type="submit" class="btn-primary">{{ 'Create product'|trans }}</button>
     </form>
 </details>
 
-<h2>Existing products</h2>
+<h2>{{ 'Existing products'|trans }}</h2>
 
 {% if admin_can('manager') %}
     {# Export honours the status / low-stock filters below; one row per variant. #}
     <p class="csv-actions">
-        <a href="{{ path('admin.products.export', {}, {status: list_query.status ?? null, stock: list_query.stock ?? null}) }}" class="btn-secondary">⬇ Export CSV</a>
-        <a href="{{ path('admin.products.import') }}" class="btn-secondary">⬆ Import CSV</a>
+        <a href="{{ path('admin.products.export', {}, {status: list_query.status ?? null, stock: list_query.stock ?? null}) }}" class="btn-secondary">⬇ {{ 'Export CSV'|trans }}</a>
+        <a href="{{ path('admin.products.import') }}" class="btn-secondary">⬆ {{ 'Import CSV'|trans }}</a>
     </p>
 {% endif %}
 
 <div class="filters">
-    <a href="{{ path('admin.products', {}, list_query|merge({status: null, page: null})) }}" class="filter-pill {{ status_filter is null ? 'active' }}">All</a>
+    <a href="{{ path('admin.products', {}, list_query|merge({status: null, page: null})) }}" class="filter-pill {{ status_filter is null ? 'active' }}">{{ 'All'|trans }}</a>
     {% for status in statuses %}
-        <a href="{{ path('admin.products', {}, list_query|merge({status: status, page: null})) }}" class="filter-pill {{ status_filter == status ? 'active' }}">{{ status|capitalize }}</a>
+        <a href="{{ path('admin.products', {}, list_query|merge({status: status, page: null})) }}" class="filter-pill {{ status_filter == status ? 'active' }}">{{ status|capitalize|trans }}</a>
     {% endfor %}
     <a href="{{ path('admin.products', {}, list_query|merge({stock: low_stock_only ? null : 'low', page: null})) }}"
        class="filter-pill filter-pill-low-stock {{ low_stock_only ? 'active' }}"
-       title="Products with an active variant at or below {{ low_stock_threshold }} in stock (Admin → Settings)">⚠ Low stock (≤ {{ low_stock_threshold }})</a>
+       title="{{ 'Products with an active variant at or below {threshold} in stock (Admin → Settings)'|trans({threshold: low_stock_threshold}) }}">⚠ {{ 'Low stock (≤ {threshold})'|trans({threshold: low_stock_threshold}) }}</a>
 </div>
 
 {# The status select is required for "Set status" only; the other buttons skip browser validation (the server checks). #}
 <form id="bulk-form" method="post" action="{{ submit_url }}" class="bulk-actions">
     {{ csrf_field() }}
-    <span class="bulk-count" data-bulk-count>0 selected</span>
+    <span class="bulk-count" data-bulk-count>{{ '{count} selected'|trans({count: 0}) }}</span>
     {% if admin_can('manager') %}
-        <button type="submit" name="action" value="bulk_delete" class="btn-danger" title="Delete selected" formnovalidate>🗑 Delete selected</button>
+        <button type="submit" name="action" value="bulk_delete" class="btn-danger" title="{{ 'Delete selected'|trans }}" formnovalidate>🗑 {{ 'Delete selected'|trans }}</button>
     {% endif %}
     <select name="status" class="status-select" required>
-        <option value="" disabled selected>— choose status —</option>
-        {% for status in statuses %}<option value="{{ status }}">{{ status }}</option>{% endfor %}
+        <option value="" disabled selected>— {{ 'choose status'|trans }} —</option>
+        {% for status in statuses %}<option value="{{ status }}">{{ status|capitalize|trans }}</option>{% endfor %}
     </select>
-    <button type="submit" name="action" value="bulk_set_status" class="btn-secondary">Set status</button>
+    <button type="submit" name="action" value="bulk_set_status" class="btn-secondary">{{ 'Set status'|trans }}</button>
     <span class="bulk-price">
-        <select name="price_mode" class="status-select" title="Price change for every variant of the selected products">
+        <select name="price_mode" class="status-select" title="{{ 'Price change for every variant of the selected products'|trans }}">
             {% for mode, label in price_modes %}<option value="{{ mode }}">{{ label }}</option>{% endfor %}
         </select>
-        <input type="number" name="price_value" step="0.01" min="0" max="99999999.99" placeholder="0.00" class="bulk-price-value" aria-label="Price or change">
-        <button type="submit" name="action" value="bulk_price" class="btn-secondary" formnovalidate>Apply price</button>
+        <input type="number" name="price_value" step="0.01" min="0" max="99999999.99" placeholder="0.00" class="bulk-price-value" aria-label="{{ 'Price or change'|trans }}">
+        <button type="submit" name="action" value="bulk_price" class="btn-secondary" formnovalidate>{{ 'Apply price'|trans }}</button>
     </span>
 </form>
 
 <table class="cart-table admin-table">
     <thead>
         <tr>
-            <th><input type="checkbox" id="select-all-products" title="Select all"></th>
+            <th><input type="checkbox" id="select-all-products" title="{{ 'Select all'|trans }}"></th>
             <th></th>
             <th>ID</th>
             <th></th>
-            <th>{{ ui.sort_link('name', 'Name', sort, dir, list_query) }}</th>
-            <th>{{ ui.sort_link('category', 'Category', sort, dir, list_query) }}</th>
-            <th>{{ ui.sort_link('variants', 'Variants', sort, dir, list_query) }}</th>
-            <th>{{ ui.sort_link('status', 'Status', sort, dir, list_query) }}</th>
-            <th>Actions</th>
+            <th>{{ ui.sort_link('name', 'Name'|trans, sort, dir, list_query) }}</th>
+            <th>{{ ui.sort_link('category', 'Category'|trans, sort, dir, list_query) }}</th>
+            <th>{{ ui.sort_link('variants', 'Variants'|trans, sort, dir, list_query) }}</th>
+            <th>{{ ui.sort_link('status', 'Status'|trans, sort, dir, list_query) }}</th>
+            <th>{{ 'Actions'|trans }}</th>
         </tr>
     </thead>
     <tbody>
@@ -140,7 +140,7 @@
             <tr class="product-row {{ open ? 'is-open' }}" data-product-id="{{ p.id }}">
                 <td><input type="checkbox" form="bulk-form" name="ids[]" value="{{ p.id }}" class="product-select"></td>
                 <td>
-                    <button type="button" class="row-toggle" data-target="edit-{{ p.id }}" aria-expanded="{{ open ? 'true' : 'false' }}" title="Expand to edit">
+                    <button type="button" class="row-toggle" data-target="edit-{{ p.id }}" aria-expanded="{{ open ? 'true' : 'false' }}" title="{{ 'Expand to edit'|trans }}">
                         <span class="chevron">›</span>
                     </button>
                 </td>
@@ -155,34 +155,34 @@
                 <td>
                     {{ p.name }}
                     {% if p.low_stock_count > 0 %}
-                        <span class="low-stock-badge" title="{{ p.low_stock_count }} active variant(s) at or below {{ low_stock_threshold }} in stock">Low stock</span>
+                        <span class="low-stock-badge" title="{{ '{count} active variant at or below {threshold} in stock'|trans_plural(p.low_stock_count, {threshold: low_stock_threshold}) }}">{{ 'Low stock'|trans }}</span>
                     {% endif %}
                 </td>
                 <td>{{ p.category_name }}</td>
-                <td><button type="button" class="variant-count-btn row-toggle" data-target="edit-{{ p.id }}" title="View variants">{{ p.variant_count }}</button></td>
+                <td><button type="button" class="variant-count-btn row-toggle" data-target="edit-{{ p.id }}" title="{{ 'View variants'|trans }}">{{ p.variant_count }}</button></td>
                 <td>
                     <form method="post" action="{{ submit_url }}" class="inline-form">
                         {{ csrf_field() }}
                         <input type="hidden" name="action" value="set_status">
                         <input type="hidden" name="id" value="{{ p.id }}">
-                        <select name="status" class="status-select" data-status="{{ p.import_status }}" data-autosubmit title="Change status">
+                        <select name="status" class="status-select" data-status="{{ p.import_status }}" data-autosubmit title="{{ 'Change status'|trans }}">
                             {% for status in statuses %}
-                                <option value="{{ status }}" {{ p.import_status == status ? 'selected' }}>{{ status }}</option>
+                                <option value="{{ status }}" {{ p.import_status == status ? 'selected' }}>{{ status|capitalize|trans }}</option>
                             {% endfor %}
                         </select>
-                        <noscript><button type="submit" class="btn-secondary">Set</button></noscript>
+                        <noscript><button type="submit" class="btn-secondary">{{ 'Set'|trans }}</button></noscript>
                     </form>
                 </td>
                 <td>
                     <div class="table-actions">
-                        <button type="button" class="icon-btn magic-btn" data-target="magic-{{ p.id }}" title="Magic edit with AI">✨</button>
+                        <button type="button" class="icon-btn magic-btn" data-target="magic-{{ p.id }}" title="{{ 'Magic edit with AI'|trans }}">✨</button>
                         {% if admin_can('manager') %}
                             <form method="post" action="{{ submit_url }}" class="inline-form"
-                                  data-confirm="Delete &quot;{{ p.name }}&quot;? This cannot be undone.">
+                                  data-confirm="{{ 'Delete "{name}"? This cannot be undone.'|trans({name: p.name}) }}">
                                 {{ csrf_field() }}
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="id" value="{{ p.id }}">
-                                <button type="submit" class="icon-btn icon-btn-danger" title="Delete product">🗑</button>
+                                <button type="submit" class="icon-btn icon-btn-danger" title="{{ 'Delete product'|trans }}">🗑</button>
                             </form>
                         {% endif %}
                     </div>
@@ -193,11 +193,11 @@
                 <td colspan="9">
                     <div class="edit-block">
                         <div class="images-panel">
-                            <h3>Images</h3>
+                            <h3>{{ 'Images'|trans }}</h3>
                             {% if p.images is empty %}
-                                <p class="field-hint">No images yet — upload one below.</p>
+                                <p class="field-hint">{{ 'No images yet — upload one below.'|trans }}</p>
                             {% else %}
-                                <p class="field-hint">The first image is the main one. Drag to reorder, or use the arrows.</p>
+                                <p class="field-hint">{{ 'The first image is the main one. Drag to reorder, or use the arrows.'|trans }}</p>
                                 {# Drag and drop (admin.js) fills and submits this form with the new order. #}
                                 <form method="post" action="{{ submit_url }}" id="image-order-{{ p.id }}" hidden>
                                     {{ csrf_field() }}
@@ -208,7 +208,7 @@
                                     {% for image in p.images %}
                                         <div class="image-thumb {{ loop.first ? 'is-main' }}" draggable="true" data-path="{{ image }}">
                                             <img src="/{{ image }}" alt="" draggable="false">
-                                            {% if loop.first %}<span class="main-badge">main</span>{% endif %}
+                                            {% if loop.first %}<span class="main-badge">{{ 'main'|trans }}</span>{% endif %}
                                             <div class="image-thumb-actions">
                                                 {% if not loop.first %}
                                                     <form method="post" action="{{ submit_url }}" class="inline-form">
@@ -217,14 +217,14 @@
                                                         <input type="hidden" name="id" value="{{ p.id }}">
                                                         <input type="hidden" name="path" value="{{ image }}">
                                                         <input type="hidden" name="offset" value="-1">
-                                                        <button type="submit" class="icon-btn" title="Move earlier">&#8592;</button>
+                                                        <button type="submit" class="icon-btn" title="{{ 'Move earlier'|trans }}">&#8592;</button>
                                                     </form>
                                                     <form method="post" action="{{ submit_url }}" class="inline-form">
                                                         {{ csrf_field() }}
                                                         <input type="hidden" name="action" value="set_main_image">
                                                         <input type="hidden" name="id" value="{{ p.id }}">
                                                         <input type="hidden" name="path" value="{{ image }}">
-                                                        <button type="submit" class="icon-btn" title="Set as main image">&#9733;</button>
+                                                        <button type="submit" class="icon-btn" title="{{ 'Set as main image'|trans }}">&#9733;</button>
                                                     </form>
                                                 {% endif %}
                                                 {% if not loop.last %}
@@ -234,15 +234,15 @@
                                                         <input type="hidden" name="id" value="{{ p.id }}">
                                                         <input type="hidden" name="path" value="{{ image }}">
                                                         <input type="hidden" name="offset" value="1">
-                                                        <button type="submit" class="icon-btn" title="Move later">&#8594;</button>
+                                                        <button type="submit" class="icon-btn" title="{{ 'Move later'|trans }}">&#8594;</button>
                                                     </form>
                                                 {% endif %}
-                                                <form method="post" action="{{ submit_url }}" class="inline-form" data-confirm="Remove this image?">
+                                                <form method="post" action="{{ submit_url }}" class="inline-form" data-confirm="{{ 'Remove this image?'|trans }}">
                                                     {{ csrf_field() }}
                                                     <input type="hidden" name="action" value="delete_image">
                                                     <input type="hidden" name="id" value="{{ p.id }}">
                                                     <input type="hidden" name="path" value="{{ image }}">
-                                                    <button type="submit" class="icon-btn icon-btn-danger" title="Remove image">&#128465;</button>
+                                                    <button type="submit" class="icon-btn icon-btn-danger" title="{{ 'Remove image'|trans }}">&#128465;</button>
                                                 </form>
                                             </div>
                                         </div>
@@ -254,10 +254,10 @@
                                 {{ csrf_field() }}
                                 <input type="hidden" name="action" value="upload_images">
                                 <input type="hidden" name="id" value="{{ p.id }}">
-                                <label>Add images
+                                <label>{{ 'Add images'|trans }}
                                     <input type="file" name="images[]" accept="image/png,image/jpeg,image/webp,image/gif" multiple required>
                                 </label>
-                                <button type="submit" class="btn-secondary">Upload</button>
+                                <button type="submit" class="btn-secondary">{{ 'Upload'|trans }}</button>
                             </form>
                         </div>
 
@@ -269,12 +269,12 @@
 
                                 {% if ei %}
                                     {% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
-                                    <p class="field-hint">Your changes have not been saved yet — fix the above and click "Save changes".</p>
+                                    <p class="field-hint">{{ 'Your changes have not been saved yet — fix the above and click "Save changes".'|trans }}</p>
                                 {% endif %}
 
                                 <div class="form-row">
-                                    <label>Name <input type="text" name="name" value="{{ ei ? ei.name|default('') : p.name }}" maxlength="{{ limits.name }}" required></label>
-                                    <label>Category
+                                    <label>{{ 'Name'|trans }} <input type="text" name="name" value="{{ ei ? ei.name|default('') : p.name }}" maxlength="{{ limits.name }}" required></label>
+                                    <label>{{ 'Category'|trans }}
                                         {% set selected_category = ei ? ei.category_id : p.category_id %}
                                         <select name="category_id" required>
                                             {% for category in categories %}
@@ -284,17 +284,17 @@
                                     </label>
                                 </div>
 
-                                <label>Short description <input type="text" name="short_description" value="{{ ei ? ei.short_description|default('') : p.short_description }}" maxlength="{{ limits.short_description }}" required></label>
-                                <label>Long description</label>
+                                <label>{{ 'Short description'|trans }} <input type="text" name="short_description" value="{{ ei ? ei.short_description|default('') : p.short_description }}" maxlength="{{ limits.short_description }}" required></label>
+                                <label>{{ 'Long description'|trans }}</label>
                                 {{ ui.wysiwyg(ei ? ei.long_description : p.long_description_html) }}
 
-                                <button type="submit" class="btn-primary">Save changes</button>
+                                <button type="submit" class="btn-primary">{{ 'Save changes'|trans }}</button>
                             </form>
 
                             <div class="variants-panel">
-                                <h3>Variants</h3>
+                                <h3>{{ 'Variants'|trans }}</h3>
                                 {% if variants[p.id] is empty %}
-                                    <p class="field-hint">No variants yet — add one below.</p>
+                                    <p class="field-hint">{{ 'No variants yet — add one below.'|trans }}</p>
                                 {% endif %}
                                 {# Forms can't wrap <tr>, so each row's inputs point at their own form via form="…". #}
                                 {% for v in variants[p.id] %}
@@ -305,7 +305,7 @@
                                         <input type="hidden" name="variant_id" value="{{ v.id }}">
                                     </form>
                                     <form method="post" action="{{ submit_url }}" id="variant-delete-{{ v.id }}" hidden
-                                          data-confirm="Delete variant &quot;{{ v.sku }}&quot;? This cannot be undone.">
+                                          data-confirm="{{ 'Delete variant "{sku}"? This cannot be undone.'|trans({sku: v.sku}) }}">
                                         {{ csrf_field() }}
                                         <input type="hidden" name="action" value="delete_variant">
                                         <input type="hidden" name="id" value="{{ p.id }}">
@@ -313,12 +313,12 @@
                                     </form>
                                 {% endfor %}
                                 <table class="variants-table">
-                                    <thead><tr><th>SKU</th><th>Label</th><th>Unit</th><th>Price</th><th>Stock</th><th>Active</th><th></th></tr></thead>
+                                    <thead><tr><th>{{ 'SKU'|trans }}</th><th>{{ 'Label'|trans }}</th><th>{{ 'Unit'|trans }}</th><th>{{ 'Price'|trans }}</th><th>{{ 'Stock'|trans }}</th><th>{{ 'Active'|trans }}</th><th></th></tr></thead>
                                     <tbody>
                                         {% for v in variants[p.id] %}
                                             {% set f = 'variant-form-' ~ v.id %}
                                             {% set low = v.is_active and v.stock <= low_stock_threshold %}
-                                            <tr class="{{ low ? 'is-low-stock' }}" {% if low %}title="Low stock (≤ {{ low_stock_threshold }})"{% endif %}>
+                                            <tr class="{{ low ? 'is-low-stock' }}" {% if low %}title="{{ 'Low stock (≤ {threshold})'|trans({threshold: low_stock_threshold}) }}"{% endif %}>
                                                 <td><input type="text" form="{{ f }}" name="sku" value="{{ v.sku }}" maxlength="{{ limits.variant_field }}" required></td>
                                                 <td><input type="text" form="{{ f }}" name="label" value="{{ v.label }}" maxlength="{{ limits.variant_field }}"></td>
                                                 <td><input type="text" form="{{ f }}" name="unit" value="{{ v.unit }}" maxlength="{{ limits.variant_field }}"></td>
@@ -326,8 +326,8 @@
                                                 <td><input type="number" form="{{ f }}" name="stock" value="{{ v.stock }}" min="0" required></td>
                                                 <td><input type="checkbox" form="{{ f }}" name="is_active" value="1" {{ v.is_active ? 'checked' }}></td>
                                                 <td class="variant-actions">
-                                                    <button type="submit" form="{{ f }}" class="btn-secondary btn-small">Save</button>
-                                                    <button type="submit" form="variant-delete-{{ v.id }}" class="icon-btn icon-btn-danger" title="Delete variant">🗑</button>
+                                                    <button type="submit" form="{{ f }}" class="btn-secondary btn-small">{{ 'Save'|trans }}</button>
+                                                    <button type="submit" form="variant-delete-{{ v.id }}" class="icon-btn icon-btn-danger" title="{{ 'Delete variant'|trans }}">🗑</button>
                                                 </td>
                                             </tr>
                                         {% endfor %}
@@ -335,13 +335,13 @@
                                     {% set nf = 'variant-new-' ~ p.id %}
                                     <tfoot>
                                         <tr class="variant-new-row">
-                                            <td><input type="text" form="{{ nf }}" name="sku" placeholder="New SKU" maxlength="{{ limits.variant_field }}" required></td>
+                                            <td><input type="text" form="{{ nf }}" name="sku" placeholder="{{ 'New SKU'|trans }}" maxlength="{{ limits.variant_field }}" required></td>
                                             <td><input type="text" form="{{ nf }}" name="label" placeholder="12" maxlength="{{ limits.variant_field }}"></td>
-                                            <td><input type="text" form="{{ nf }}" name="unit" placeholder="pack" maxlength="{{ limits.variant_field }}"></td>
+                                            <td><input type="text" form="{{ nf }}" name="unit" placeholder="{{ 'pack'|trans }}" maxlength="{{ limits.variant_field }}"></td>
                                             <td><input type="number" form="{{ nf }}" name="price" step="0.01" min="0" max="99999999.99" placeholder="0.00" required></td>
                                             <td><input type="number" form="{{ nf }}" name="stock" value="0" min="0" required></td>
                                             <td><input type="checkbox" form="{{ nf }}" name="is_active" value="1" checked></td>
-                                            <td><button type="submit" form="{{ nf }}" class="btn-primary btn-small">+ Add</button></td>
+                                            <td><button type="submit" form="{{ nf }}" class="btn-primary btn-small">+ {{ 'Add'|trans }}</button></td>
                                         </tr>
                                     </tfoot>
                                 </table>
@@ -359,22 +359,31 @@
             <tr class="magic-row" id="magic-{{ p.id }}" hidden>
                 <td colspan="9">
                     <div class="magic-block" data-product-id="{{ p.id }}" data-endpoint="{{ path('admin.api.magic_edit') }}" data-csrf="{{ csrf_token() }}">
-                        <h3>✨ Magic edit</h3>
+                        <h3>✨ {{ 'Magic edit'|trans }}</h3>
                         <p class="field-hint">
-                            Describe the change in plain language. The AI returns suggested field values —
-                            review them, then apply what you want.
+                            {{ 'Describe the change in plain language. The AI returns suggested field values — review them, then apply what you want.'|trans }}
                         </p>
-                        <label>Instruction
-                            <input type="text" class="magic-prompt" placeholder="e.g. make the description more concise and mention it's biodegradable">
+                        <label>{{ 'Instruction'|trans }}
+                            <input type="text" class="magic-prompt" placeholder="{{ 'e.g. make the description more concise and mention it\'s biodegradable'|trans }}">
                         </label>
-                        <button type="button" class="btn-secondary magic-run">Generate suggestion</button>
+                        <button type="button" class="btn-secondary magic-run">{{ 'Generate suggestion'|trans }}</button>
                         <pre class="magic-output" hidden></pre>
                         <div class="magic-fields" hidden></div>
                     </div>
                 </td>
             </tr>
         {% else %}
-            <tr><td colspan="9" style="color: var(--color-muted);">No products{{ status_filter ? ' with status ' ~ status_filter }}{{ low_stock_only ? ' with low stock' }} yet.</td></tr>
+            <tr><td colspan="9" style="color: var(--color-muted);">
+                {%- if status_filter and low_stock_only -%}
+                    {{ 'No products with status {status} and low stock yet.'|trans({status: status_filter|capitalize|trans}) }}
+                {%- elseif status_filter -%}
+                    {{ 'No products with status {status} yet.'|trans({status: status_filter|capitalize|trans}) }}
+                {%- elseif low_stock_only -%}
+                    {{ 'No products with low stock yet.'|trans }}
+                {%- else -%}
+                    {{ 'No products yet.'|trans }}
+                {%- endif -%}
+            </td></tr>
         {% endfor %}
     </tbody>
 </table>
@@ -382,10 +391,10 @@
 {% if total_pages > 1 %}
     <div class="pagination">
         <a href="{{ path('admin.products', {}, list_query|merge({page: max(1, page - 1)})) }}"
-           class="btn-secondary {{ page <= 1 ? 'is-disabled' }}">‹ Prev</a>
-        <span class="bulk-count">Page {{ page }} of {{ total_pages }}</span>
+           class="btn-secondary {{ page <= 1 ? 'is-disabled' }}">‹ {{ 'Prev'|trans }}</a>
+        <span class="bulk-count">{{ 'Page {page} of {pages}'|trans({page: page, pages: total_pages}) }}</span>
         <a href="{{ path('admin.products', {}, list_query|merge({page: min(total_pages, page + 1)})) }}"
-           class="btn-secondary {{ page >= total_pages ? 'is-disabled' }}">Next ›</a>
+           class="btn-secondary {{ page >= total_pages ? 'is-disabled' }}">{{ 'Next'|trans }} ›</a>
     </div>
 {% endif %}
 

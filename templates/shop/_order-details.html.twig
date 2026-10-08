@@ -1,20 +1,33 @@
 {# Order status, items and tracking — shared by the confirmation and track-order pages. #}
 <div class="panel order-details">
     <p>
-        Order number: <strong>{{ order.order_number }}</strong><br>
-        Placed: {{ order.created_at|date('j M Y') }}<br>
-        Status: <span class="status-badge" data-status="{{ order.status }}">{{ order.status }}</span>
-        &nbsp;Payment: <span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status }}</span>
+        {{ 'Order number'|trans }}: <strong>{{ order.order_number }}</strong><br>
+        {{ 'Placed'|trans }}: {{ order.created_at|local_date('medium') }}<br>
+        {{ 'Status'|trans }}: <span class="status-badge" data-status="{{ order.status }}">{{ order.status|capitalize|trans }}</span>
+        &nbsp;{{ 'Payment'|trans }}: <span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status|capitalize|trans }}</span>
         {% if payment_label %}({{ payment_label }}){% endif %}
     </p>
 
     {% if order.status in ['shipped', 'completed'] and (order.tracking_number or order.carrier) %}
+        {# Params are escaped here and the sentence is printed raw so the carrier can stay bold. #}
+        {% set shipped_date = order.shipped_at ? order.shipped_at|local_date('medium')|e : '' %}
+        {% set shipped_carrier = order.carrier ? '<strong>' ~ order.carrier|e ~ '</strong>' : '' %}
         <p>
-            Shipped{% if order.shipped_at %} on {{ order.shipped_at|date('j M Y') }}{% endif %}
-            {% if order.carrier %} with <strong>{{ order.carrier }}</strong>{% endif %}.
-            {% if order.tracking_number %}<br>Tracking number: <strong>{{ order.tracking_number }}</strong>{% endif %}
+            {% if shipped_date and shipped_carrier %}
+                {{ 'Shipped on {date} with {carrier}.'|trans({date: shipped_date, carrier: shipped_carrier})|raw }}
+            {% elseif shipped_date %}
+                {{ 'Shipped on {date}.'|trans({date: shipped_date})|raw }}
+            {% elseif shipped_carrier %}
+                {{ 'Shipped with {carrier}.'|trans({carrier: shipped_carrier})|raw }}
+            {% else %}
+                {{ 'Shipped'|trans }}.
+            {% endif %}
+            {% if order.tracking_number %}<br>{{ 'Tracking number'|trans }}: <strong>{{ order.tracking_number }}</strong>{% endif %}
         </p>
     {% endif %}
+
+    {# "23" / "6,5": only the decimals the rate needs, in the visitor's number format. #}
+    {% set tax_rate_text = order.tax_rate|default(0)|local_number((order.tax_rate|default(0) * 100) % 10 ? 2 : ((order.tax_rate|default(0) * 10) % 10 ? 1 : 0)) %}
 
     <ul class="order-items-list">
         {% for item in order.items %}
@@ -24,16 +37,16 @@
             </li>
         {% endfor %}
     </ul>
-    <p class="order-subtotal"><span>Subtotal</span> <span>{{ order.subtotal|money }}</span></p>
-    <p class="order-shipping"><span>Shipping ({{ order.shipping_label ?: order.shipping_method }})</span> <span>{{ order.shipping_cost|money }}</span></p>
+    <p class="order-subtotal"><span>{{ 'Subtotal'|trans }}</span> <span>{{ order.subtotal|money }}</span></p>
+    <p class="order-shipping"><span>{{ 'Shipping ({method})'|trans({method: order.shipping_label ?: order.shipping_method}) }}</span> <span>{{ order.shipping_cost|money }}</span></p>
     {% if order.discount_amount|default(0) > 0 %}
-        <p class="order-discount"><span>Discount{% if order.coupon_code %} ({{ order.coupon_code }}){% endif %}</span> <span>−{{ order.discount_amount|money }}</span></p>
+        <p class="order-discount"><span>{% if order.coupon_code %}{{ 'Discount ({code})'|trans({code: order.coupon_code}) }}{% else %}{{ 'Discount'|trans }}{% endif %}</span> <span>−{{ order.discount_amount|money }}</span></p>
     {% endif %}
     {% if order.tax_amount|default(0) > 0 and not order.prices_include_tax %}
-        <p class="order-tax"><span>VAT ({{ order.tax_rate * 1 }}%)</span> <span>{{ order.tax_amount|money }}</span></p>
+        <p class="order-tax"><span>{{ 'VAT ({rate}%)'|trans({rate: tax_rate_text}) }}</span> <span>{{ order.tax_amount|money }}</span></p>
     {% endif %}
-    <p class="order-total"><span>Total</span> <span>{{ order.total|money }}</span></p>
+    <p class="order-total"><span>{{ 'Total'|trans }}</span> <span>{{ order.total|money }}</span></p>
     {% if order.tax_amount|default(0) > 0 and order.prices_include_tax %}
-        <p class="order-tax-included"><span>Includes VAT ({{ order.tax_rate * 1 }}%)</span> <span>{{ order.tax_amount|money }}</span></p>
+        <p class="order-tax-included"><span>{{ 'Includes VAT ({rate}%)'|trans({rate: tax_rate_text}) }}</span> <span>{{ order.tax_amount|money }}</span></p>
     {% endif %}
 </div>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Service;
 
 use App\Http\Router;
+use App\I18n\Translator;
 use App\Repository\CustomerAddressRepository;
 use App\Repository\CustomerAuthAttemptRepository;
 use App\Repository\CustomerRepository;
@@ -54,6 +55,7 @@ final class CustomerAccounts
         private readonly CustomerNotifier $notifier,
         private readonly OrderLinks $links,
         private readonly Router $router,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -73,20 +75,20 @@ final class CustomerAccounts
 
         $kind = CustomerAuthAttemptRepository::REGISTER;
         if ($this->attempts->countRecentForIp($kind, $ip, self::REGISTER_WINDOW_MINUTES) >= self::REGISTER_MAX_PER_IP) {
-            throw new RuntimeException('Too many new accounts from your network. Please try again later.');
+            throw new RuntimeException($this->translator->trans('Too many new accounts from your network. Please try again later.'));
         }
         $this->attempts->record($kind, $ip, $email);
 
         if ($this->customers->findByEmail($email) !== null) {
-            throw new RuntimeException('An account with this email already exists. Sign in, or reset your password if you forgot it.');
+            throw new RuntimeException($this->translator->trans('An account with this email already exists. Sign in, or reset your password if you forgot it.'));
         }
         try {
-            $id = $this->customers->create($email, $name, password_hash($password, PASSWORD_DEFAULT));
+            $id = $this->customers->create($email, $name, password_hash($password, PASSWORD_DEFAULT), null, $this->translator->locale());
         } catch (PDOException) {
-            throw new RuntimeException('An account with this email already exists. Sign in, or reset your password if you forgot it.');
+            throw new RuntimeException($this->translator->trans('An account with this email already exists. Sign in, or reset your password if you forgot it.'));
         }
 
-        $customer = $this->customers->find($id) ?? throw new RuntimeException('Could not create the account.');
+        $customer = $this->customers->find($id) ?? throw new RuntimeException($this->translator->trans('Could not create the account.'));
         $this->sendVerification($customer, true);
 
         return $customer;
@@ -176,12 +178,12 @@ final class CustomerAccounts
 
         $row = $this->validToken($token, CustomerTokenRepository::RESET);
         if ($row === null || !$this->tokens->consume((int) $row['id'])) {
-            throw new RuntimeException('This reset link is invalid or has expired. Please request a new one.');
+            throw new RuntimeException($this->translator->trans('This reset link is invalid or has expired. Please request a new one.'));
         }
         $customerId = (int) $row['customer_id'];
         $customer = $this->customers->find($customerId);
         if ($customer === null || !(bool) $customer['active'] || $customer['deleted_at'] !== null) {
-            throw new RuntimeException('This reset link is invalid or has expired. Please request a new one.');
+            throw new RuntimeException($this->translator->trans('This reset link is invalid or has expired. Please request a new one.'));
         }
 
         $this->customers->setPasswordHash($customerId, password_hash($password, PASSWORD_DEFAULT));
@@ -200,6 +202,12 @@ final class CustomerAccounts
         $this->customers->updateProfile($customerId, $this->text($input, 'name', true), $this->text($input, 'phone') ?: null);
     }
 
+    /** The account's language (a code from Translator::normalize()), used for emails and when signing in. */
+    public function setLanguage(int $customerId, string $locale): void
+    {
+        $this->customers->setLocale($customerId, $locale);
+    }
+
     /**
      * New email address (needs the current password). It must be verified
      * again; a link is sent to the new address.
@@ -209,20 +217,20 @@ final class CustomerAccounts
     public function changeEmail(int $customerId, array $input): bool
     {
         $email = $this->email($input);
-        $customer = $this->customers->find($customerId) ?? throw new RuntimeException('Account not found.');
+        $customer = $this->customers->find($customerId) ?? throw new RuntimeException($this->translator->trans('Account not found.'));
         if ($email === $customer['email']) {
             return false;
         }
         if (!$this->auth->verifyPassword($customerId, (string) ($input['current_password'] ?? ''))) {
-            throw new RuntimeException('Your current password is not correct.');
+            throw new RuntimeException($this->translator->trans('Your current password is not correct.'));
         }
         if ($this->customers->findByEmail($email) !== null) {
-            throw new RuntimeException('Another account already uses that email.');
+            throw new RuntimeException($this->translator->trans('Another account already uses that email.'));
         }
         try {
             $this->customers->changeEmail($customerId, $email);
         } catch (PDOException) {
-            throw new RuntimeException('Another account already uses that email.');
+            throw new RuntimeException($this->translator->trans('Another account already uses that email.'));
         }
         $this->tokens->invalidateAll($customerId, CustomerTokenRepository::VERIFY);
         $this->sendVerification(['email' => $email] + $customer);
@@ -234,7 +242,7 @@ final class CustomerAccounts
     public function changePassword(int $customerId, array $input): void
     {
         if (!$this->auth->verifyPassword($customerId, (string) ($input['current_password'] ?? ''))) {
-            throw new RuntimeException('Your current password is not correct.');
+            throw new RuntimeException($this->translator->trans('Your current password is not correct.'));
         }
         $password = (string) ($input['password'] ?? '');
         $this->checkNewPassword($password, (string) ($input['password_confirm'] ?? ''));
@@ -246,7 +254,7 @@ final class CustomerAccounts
     public function deleteAccount(int $customerId, string $password): void
     {
         if (!$this->auth->verifyPassword($customerId, $password)) {
-            throw new RuntimeException('Your current password is not correct.');
+            throw new RuntimeException($this->translator->trans('Your current password is not correct.'));
         }
         $this->customers->anonymise($customerId);
     }
@@ -270,12 +278,14 @@ final class CustomerAccounts
     /** Throws when the new password is too short / long or the confirmation differs. */
     public function checkNewPassword(string $password, string $confirm): void
     {
-        $problem = CustomerAuthenticator::passwordProblem($password);
-        if ($problem !== null) {
-            throw new RuntimeException($problem);
+        if (mb_strlen($password) < CustomerAuthenticator::MIN_PASSWORD_LENGTH) {
+            throw new RuntimeException($this->translator->trans('The password must be at least {min} characters long.', ['min' => CustomerAuthenticator::MIN_PASSWORD_LENGTH]));
+        }
+        if (CustomerAuthenticator::passwordProblem($password) !== null) {
+            throw new RuntimeException($this->translator->trans('The password can be at most {max} bytes long.', ['max' => CustomerAuthenticator::MAX_PASSWORD_BYTES]));
         }
         if (!hash_equals($password, $confirm)) {
-            throw new RuntimeException('The passwords don\'t match.');
+            throw new RuntimeException($this->translator->trans('The passwords don\'t match.'));
         }
     }
 
@@ -310,7 +320,7 @@ final class CustomerAccounts
     {
         $email = CustomerRepository::normalizeEmail((string) ($input['email'] ?? ''));
         if (!filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email) > self::MAX_LENGTHS['email']) {
-            throw new RuntimeException('Please enter a valid email address.');
+            throw new RuntimeException($this->translator->trans('Please enter a valid email address.'));
         }
 
         return $email;
@@ -320,13 +330,13 @@ final class CustomerAccounts
     private function text(array $input, string $field, bool $required = false): string
     {
         $value = trim((string) ($input[$field] ?? ''));
-        $label = self::LABELS[$field] ?? $field;
+        $label = $this->translator->trans(self::LABELS[$field] ?? $field);
         if ($required && $value === '') {
-            throw new RuntimeException("{$label} is required.");
+            throw new RuntimeException($this->translator->trans('{field} is required.', ['field' => $label]));
         }
         $max = self::MAX_LENGTHS[$field] ?? 190;
         if (mb_strlen($value) > $max) {
-            throw new RuntimeException("{$label} can be at most {$max} characters.");
+            throw new RuntimeException($this->translator->trans('{field} can be at most {max} characters.', ['field' => $label, 'max' => $max]));
         }
 
         return $value;

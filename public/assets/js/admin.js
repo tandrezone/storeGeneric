@@ -2,6 +2,17 @@
  * Admin table interactions: expandable edit rows and the magic-edit panel.
  */
 (function () {
+    /** Translated text (i18n.js, loaded by the admin layout); the English text if it is missing. */
+    function __(key, params) {
+        if (window.StoreI18n) return window.StoreI18n.t(key, params);
+        return key.replace(/\{(\w+)\}/g, (m, name) => (params && name in params ? String(params[name]) : m));
+    }
+
+    function __n(key, count, params) {
+        if (window.StoreI18n) return window.StoreI18n.tn(key, count, params);
+        return __(key, Object.assign({ count: count }, params || {}));
+    }
+
     function toggleRow(id, button) {
         const row = document.getElementById(id);
         if (!row) return;
@@ -26,7 +37,7 @@
         const boxes = Array.from(productChecks());
         const checkedCount = boxes.filter((cb) => cb.checked).length;
 
-        if (bulkCount) bulkCount.textContent = checkedCount + ' selected';
+        if (bulkCount) bulkCount.textContent = __('{count} selected', { count: checkedCount });
         if (selectAll) {
             selectAll.checked = boxes.length > 0 && checkedCount === boxes.length;
             selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
@@ -49,11 +60,11 @@
             const checked = document.querySelectorAll('.product-select:checked').length;
             if (checked === 0) {
                 e.preventDefault();
-                alert('Select at least one product first.');
+                alert(__('Select at least one product first.'));
                 return;
             }
             if (e.submitter && e.submitter.value === 'bulk_delete'
-                && !confirm('Delete ' + checked + ' selected product(s)? This cannot be undone.')) {
+                && !confirm(__n('Delete {count} selected product? This cannot be undone.', checked))) {
                 e.preventDefault();
             }
             if (e.submitter && e.submitter.value === 'bulk_price') {
@@ -61,12 +72,12 @@
                 const value = bulkForm.querySelector('[name="price_value"]');
                 if (!value || value.value.trim() === '' || Number(value.value) < 0) {
                     e.preventDefault();
-                    alert('Enter a price or an amount of 0 or more.');
+                    alert(__('Enter a price or an amount of 0 or more.'));
                     if (value) value.focus();
                     return;
                 }
-                const label = mode ? mode.options[mode.selectedIndex].text : 'Change price';
-                if (!confirm(label + ' ' + value.value + ' for every variant of ' + checked + ' product(s)?')) {
+                const label = mode ? mode.options[mode.selectedIndex].text : __('Change price');
+                if (!confirm(__n('{action} {value} for every variant of {count} product?', checked, { action: label, value: value.value }))) {
                     e.preventDefault();
                 }
             }
@@ -153,7 +164,7 @@
                 const cmd = btn.dataset.cmd;
 
                 if (cmd === 'createLink') {
-                    const url = window.prompt('Link URL (https://…):');
+                    const url = window.prompt(__('Link URL (https://…):'));
                     if (!url) return;
                     document.execCommand(cmd, false, url);
                 } else {
@@ -165,7 +176,7 @@
         });
     });
 
-    const MAGIC_LABELS = { name: 'Name', short_description: 'Short description', long_description: 'Long description' };
+    const MAGIC_LABELS = { name: __('Name'), short_description: __('Short description'), long_description: __('Long description') };
 
     // Writes a suggested value into the product's edit form (long_description
     // arrives already sanitized server-side) and opens that form for review.
@@ -205,7 +216,7 @@
         box.hidden = keys.length === 0;
         if (keys.length === 0) return;
 
-        const markApplied = (btn) => { btn.textContent = 'Applied ✓'; btn.disabled = true; };
+        const markApplied = (btn) => { btn.textContent = __('Applied ✓'); btn.disabled = true; };
         const buttons = [];
 
         keys.forEach((key) => {
@@ -223,14 +234,14 @@
             const apply = document.createElement('button');
             apply.type = 'button';
             apply.className = 'btn-secondary btn-small';
-            apply.textContent = 'Apply';
+            apply.textContent = __('Apply');
             apply.addEventListener('click', () => {
                 const result = applyMagicField(productId, key, fields[key]);
                 if (!result) return;
                 markApplied(apply);
                 if (result.truncated) {
-                    apply.textContent = 'Applied — shortened to ' + result.truncated + ' characters';
-                    apply.title = 'The suggestion was longer than this field allows; review the end of the text.';
+                    apply.textContent = __('Applied — shortened to {count} characters', { count: result.truncated });
+                    apply.title = __('The suggestion was longer than this field allows; review the end of the text.');
                 }
             });
             buttons.push(apply);
@@ -242,7 +253,7 @@
         const applyAll = document.createElement('button');
         applyAll.type = 'button';
         applyAll.className = 'btn-primary';
-        applyAll.textContent = 'Apply all';
+        applyAll.textContent = __('Apply all');
         applyAll.addEventListener('click', () => {
             buttons.forEach((b) => { if (!b.disabled) b.click(); });
             markApplied(applyAll);
@@ -250,7 +261,7 @@
 
         const hint = document.createElement('p');
         hint.className = 'field-hint';
-        hint.textContent = 'Applying fills the product edit form above — review it, then click "Save changes".';
+        hint.textContent = __('Applying fills the product edit form above — review it, then click "Save changes".');
 
         box.append(applyAll, hint);
     }
@@ -264,13 +275,13 @@
 
             if (!instruction) {
                 output.hidden = false;
-                output.textContent = 'Enter an instruction first.';
+                output.textContent = __('Enter an instruction first.');
                 return;
             }
 
             btn.disabled = true;
             output.hidden = false;
-            output.textContent = 'Thinking…';
+            output.textContent = __('Thinking…');
 
             try {
                 const meta = document.querySelector('meta[name="csrf-token"]');
@@ -285,10 +296,10 @@
                     }),
                 });
                 const data = await response.json();
-                output.textContent = data.success ? data.suggestion : 'Error: ' + data.error;
+                output.textContent = data.success ? data.suggestion : __('Error: {message}', { message: data.error });
                 if (data.success) renderMagicFields(block, data.fields || {});
             } catch (err) {
-                output.textContent = 'Request failed: ' + err.message;
+                output.textContent = __('Request failed: {message}', { message: err.message });
             } finally {
                 btn.disabled = false;
             }

@@ -1,52 +1,43 @@
 {% extends 'layout/shop.html.twig' %}
 
-{% set title = 'Support' %}
+{% set title = 'Support'|trans %}
 
 {% block content %}
+{% set unpaid = '<em>' ~ 'Unpaid'|trans|lower|e ~ '</em>' %}
 <section class="content-page">
-    <h1>Support</h1>
-    <p class="page-subtitle">Have a question about an order? Start here.</p>
+    <h1>{{ 'Support'|trans }}</h1>
+    <p class="page-subtitle">{{ 'Have a question about an order? Start here.'|trans }}</p>
 
-    <h2>Contact us</h2>
+    <h2>{{ 'Contact us'|trans }}</h2>
     <p>
-        Email <a href="mailto:{{ store.email }}">{{ store.email }}</a>
-        and include your order number and the email address used at checkout — that's
-        the fastest way for us to look up an order. We aim to reply within 1–2
-        business days.
+        {{ 'Email {email} and include your order number and the email address used at checkout — that\'s the fastest way for us to look up an order. We aim to reply within 1–2 business days.'|trans({
+            email: '<a href="mailto:' ~ store.email|e ~ '">' ~ store.email|e ~ '</a>',
+        })|raw }}
     </p>
 
-    <h2>Where's my order?</h2>
+    <h2>{{ 'Where\'s my order?'|trans }}</h2>
     <p>
-        Check the confirmation page you were sent to after payment, or the order
-        confirmation email, using your order number and checkout email. If payment
-        status still shows <em>unpaid</em> shortly after you paid, give it a few
-        minutes for the confirmation to arrive before contacting us. Bank transfers
-        are marked paid once the money reaches our account.
+        {{ 'Check the confirmation page you were sent to after payment, or the order confirmation email, using your order number and checkout email. If payment status still shows {unpaid} shortly after you paid, give it a few minutes for the confirmation to arrive before contacting us. Bank transfers are marked paid once the money reaches our account.'|trans({unpaid: unpaid})|raw }}
     </p>
 
-    <h2>My payment didn't go through</h2>
+    <h2>{{ 'My payment didn\'t go through'|trans }}</h2>
     <p>
-        If the payment page expired or something went wrong before you finished
-        paying, no charge was made and no order will show as paid — you can simply
-        check out again. If you were charged but your order still shows
-        <em>unpaid</em> or <em>failed</em> after 30 minutes, contact us with your
-        order number and, if you have it, the payment/track ID from the payment
-        page.
+        {{ 'If the payment page expired or something went wrong before you finished paying, no charge was made and no order will show as paid — you can simply check out again. If you were charged but your order still shows {unpaid} or {failed} after 30 minutes, contact us with your order number and, if you have it, the payment/track ID from the payment page.'|trans({
+            unpaid: unpaid,
+            failed: '<em>' ~ 'Failed'|trans|lower|e ~ '</em>',
+        })|raw }}
     </p>
 
-    <h2>I need to change or cancel an order</h2>
+    <h2>{{ 'I need to change or cancel an order'|trans }}</h2>
     <p>
-        Contact us as soon as possible after checkout. Once an order has shipped we
-        can't redirect or cancel it, so the sooner you reach out, the more options
-        we have.
+        {{ 'Contact us as soon as possible after checkout. Once an order has shipped we can\'t redirect or cancel it, so the sooner you reach out, the more options we have.'|trans }}
     </p>
 
-    <h2>Something arrived wrong or damaged</h2>
+    <h2>{{ 'Something arrived wrong or damaged'|trans }}</h2>
     <p>
-        Email us with your order number and a description (and photos, if relevant)
-        of the issue. We'll sort out a replacement or refund on a case-by-case basis.
+        {{ 'Email us with your order number and a description (and photos, if relevant) of the issue. We\'ll sort out a replacement or refund on a case-by-case basis.'|trans }}
     </p>
 
-    <p class="updated-note">Last updated August 2026.</p>
+    <p class="updated-note">{{ 'Last updated August 2026.'|trans }}</p>
 </section>
 {% endblock %}

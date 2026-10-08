@@ -8,7 +8,7 @@
 -- ============================================================
 
 ALTER TABLE orders
-    ADD COLUMN IF NOT EXISTS coupon_code VARCHAR(40) DEFAULT NULL AFTER shipping_cost,
-    ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER coupon_code,
-    ADD COLUMN IF NOT EXISTS coupon_counted TINYINT(1) NOT NULL DEFAULT 0 AFTER stock_reserved,
+    ADD COLUMN IF NOT EXISTS coupon_code VARCHAR(40) DEFAULT NULL COMMENT 'discount code used (copy)' AFTER shipping_cost,
+    ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'taken off the subtotal (free-shipping codes: shipping saved)' AFTER coupon_code,
+    ADD COLUMN IF NOT EXISTS coupon_counted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 while the order counts towards coupons.used_count' AFTER stock_reserved,
     ADD INDEX IF NOT EXISTS idx_orders_coupon (coupon_code);

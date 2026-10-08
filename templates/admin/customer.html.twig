@@ -1,85 +1,85 @@
 {% extends 'layout/admin.html.twig' %}
 
-{% set title = 'Customer ' ~ customer.email %}
+{% set title = 'Customer {email}'|trans({email: customer.email}) %}
 {% set active_nav = 'customers' %}
 
 {% block content %}
-<p><a href="{{ path('admin.customers') }}" class="btn-secondary">&larr; Back to customers</a></p>
+<p><a href="{{ path('admin.customers') }}" class="btn-secondary">&larr; {{ 'Back to customers'|trans }}</a></p>
 
 <h1>
     {{ customer.name }}
     {% if customer.deleted_at %}
-        <span class="status-badge" data-status="cancelled">deleted</span>
+        <span class="status-badge" data-status="cancelled">{{ 'Deleted'|trans }}</span>
     {% else %}
-        <span class="status-badge" data-status="{{ customer.active ? 'paid' : 'cancelled' }}">{{ customer.active ? 'active' : 'inactive' }}</span>
+        <span class="status-badge" data-status="{{ customer.active ? 'paid' : 'cancelled' }}">{{ customer.active ? 'Active'|trans : 'Inactive'|trans }}</span>
     {% endif %}
 </h1>
 
 <div class="grid-2">
     <div class="panel">
-        <h2>Account</h2>
+        <h2>{{ 'Account'|trans }}</h2>
         <p>
             {{ customer.email }}
-            {% if customer.email_verified_at %}<span class="status-badge" data-status="paid">confirmed</span>{% elseif not customer.deleted_at %}<span class="status-badge" data-status="pending">not confirmed</span>{% endif %}
+            {% if customer.email_verified_at %}<span class="status-badge" data-status="paid">{{ 'confirmed'|trans }}</span>{% elseif not customer.deleted_at %}<span class="status-badge" data-status="pending">{{ 'not confirmed'|trans }}</span>{% endif %}
             {% if customer.phone %}<br>{{ customer.phone }}{% endif %}
         </p>
         <p class="field-hint">
-            Registered {{ customer.created_at }}<br>
-            Last sign-in: {{ customer.last_login_at ?: 'never' }}
-            {% if customer.deleted_at %}<br>Deleted by the customer on {{ customer.deleted_at }} (personal data removed, orders kept){% endif %}
+            {{ 'Registered {date}'|trans({date: customer.created_at}) }}<br>
+            {{ 'Last sign-in: {date}'|trans({date: customer.last_login_at ?: 'never'|trans}) }}
+            {% if customer.deleted_at %}<br>{{ 'Deleted by the customer on {date} (personal data removed, orders kept)'|trans({date: customer.deleted_at}) }}{% endif %}
         </p>
-        <p><strong>{{ stats.order_count }}</strong> order{{ stats.order_count == 1 ? '' : 's' }} · <strong>{{ stats.total_spent|money }}</strong> spent (paid, not refunded)</p>
+        <p>{{ '<strong>{count}</strong> order'|trans_plural(stats.order_count)|raw }} · {{ '<strong>{amount}</strong> spent (paid, not refunded)'|trans({amount: stats.total_spent|money|e})|raw }}</p>
 
         {% if not customer.deleted_at %}
             <form method="post" action="{{ path('admin.customer.submit', {id: customer.id}) }}"
-                  {% if customer.active %}data-confirm="Deactivate {{ customer.email }}? They are signed out and can't sign in until reactivated."{% endif %}>
+                  {% if customer.active %}data-confirm="{{ 'Deactivate {email}? They are signed out and can\'t sign in until reactivated.'|trans({email: customer.email}) }}"{% endif %}>
                 {{ csrf_field() }}
                 <input type="hidden" name="action" value="set_active">
                 <input type="hidden" name="active" value="{{ customer.active ? '' : '1' }}">
-                <button type="submit" class="{{ customer.active ? 'btn-danger' : 'btn-secondary' }}">{{ customer.active ? 'Deactivate account' : 'Activate account' }}</button>
+                <button type="submit" class="{{ customer.active ? 'btn-danger' : 'btn-secondary' }}">{{ customer.active ? 'Deactivate account'|trans : 'Activate account'|trans }}</button>
             </form>
         {% endif %}
     </div>
 
     <div class="panel">
-        <h2>Saved addresses</h2>
+        <h2>{{ 'Saved addresses'|trans }}</h2>
         {% for address in addresses %}
             <p>
-                {% if address.label %}<strong>{{ address.label }}</strong> {% endif %}{% if address.is_default %}<span class="status-badge" data-status="paid">default</span>{% endif %}<br>
+                {% if address.label %}<strong>{{ address.label }}</strong> {% endif %}{% if address.is_default %}<span class="status-badge" data-status="paid">{{ 'default'|trans }}</span>{% endif %}<br>
                 {{ address.name }}<br>
                 {{ address.address1 }}{% if address.address2 %}, {{ address.address2 }}{% endif %}<br>
                 {{ address.postal_code }} {{ address.city }}{% if address.state %}, {{ address.state }}{% endif %}, {{ address.country }}
                 {% if address.phone %}<br>{{ address.phone }}{% endif %}
             </p>
         {% else %}
-            <p class="field-hint">No saved addresses.</p>
+            <p class="field-hint">{{ 'No saved addresses.'|trans }}</p>
         {% endfor %}
     </div>
 </div>
 
-<h2>Orders</h2>
+<h2>{{ 'Orders'|trans }}</h2>
 <table class="cart-table">
     <thead>
-        <tr><th>Order #</th><th>Ship to</th><th>Status</th><th>Payment</th><th>Method</th><th>Total</th><th>Placed</th><th></th></tr>
+        <tr><th>{{ 'Order #'|trans }}</th><th>{{ 'Ship to'|trans }}</th><th>{{ 'Status'|trans }}</th><th>{{ 'Payment'|trans }}</th><th>{{ 'Method'|trans }}</th><th>{{ 'Total'|trans }}</th><th>{{ 'Placed'|trans }}</th><th></th></tr>
     </thead>
     <tbody>
         {% for order in orders %}
             <tr>
                 <td>{{ order.order_number }}</td>
                 <td>{{ order.ship_name }}<br><span class="field-hint">{{ order.email }}</span></td>
-                <td><span class="status-badge" data-status="{{ order.status }}">{{ order.status }}</span></td>
-                <td><span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status }}</span></td>
+                <td><span class="status-badge" data-status="{{ order.status }}">{{ order.status|capitalize|trans }}</span></td>
+                <td><span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status|capitalize|trans }}</span></td>
                 <td class="field-hint">{{ payment_labels[order.payment_method] ?? order.payment_method }}</td>
                 <td>{{ order.total|money }}</td>
                 <td class="field-hint">{{ order.created_at }}</td>
-                <td><a href="{{ path('admin.order', {id: order.id}) }}" class="btn-secondary">Open</a></td>
+                <td><a href="{{ path('admin.order', {id: order.id}) }}" class="btn-secondary">{{ 'Open'|trans }}</a></td>
             </tr>
         {% else %}
-            <tr><td colspan="8" class="field-hint">No orders.</td></tr>
+            <tr><td colspan="8" class="field-hint">{{ 'No orders.'|trans }}</td></tr>
         {% endfor %}
     </tbody>
 </table>
 {% if stats.order_count > orders|length %}
-    <p class="field-hint">Showing the latest {{ orders|length }} of {{ stats.order_count }} orders — search <a href="{{ path('admin.orders', {}, {q: customer.email}) }}">Orders</a> for the rest.</p>
+    <p class="field-hint">{{ 'Showing the latest {shown} of {total} orders — search <a href="{url}">Orders</a> for the rest.'|trans({shown: orders|length, total: stats.order_count, url: path('admin.orders', {}, {q: customer.email})|e})|raw }}</p>
 {% endif %}
 {% endblock %}

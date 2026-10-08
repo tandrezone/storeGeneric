@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Theme;
 
+use App\I18n\Translator;
 use App\Support\Paths;
 use RuntimeException;
 use ZipArchive;
@@ -23,6 +24,7 @@ final class ThemeManager
     public function __construct(
         private readonly Paths $paths,
         private readonly Theme $theme,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -90,35 +92,35 @@ final class ThemeManager
     public function install(string $zipPath, bool $replace = false): array
     {
         if (!class_exists(ZipArchive::class)) {
-            throw new RuntimeException('The PHP zip extension is not installed on this server.');
+            throw new RuntimeException($this->translator->trans('The PHP zip extension is not installed on this server.'));
         }
         if (!is_file($zipPath) || filesize($zipPath) > self::MAX_ZIP_BYTES) {
-            throw new RuntimeException('Upload failed — choose a .zip file (max ' . (self::MAX_ZIP_BYTES >> 20) . ' MB).');
+            throw new RuntimeException($this->translator->trans('Upload failed — choose a .zip file (max {mb} MB).', ['mb' => self::MAX_ZIP_BYTES >> 20]));
         }
 
         $zip = new ZipArchive();
         if ($zip->open($zipPath) !== true) {
-            throw new RuntimeException('That file is not a valid .zip archive.');
+            throw new RuntimeException($this->translator->trans('That file is not a valid .zip archive.'));
         }
 
         try {
             if ($zip->numFiles > self::MAX_FILES) {
-                throw new RuntimeException('The theme has too many files (max ' . self::MAX_FILES . ').');
+                throw new RuntimeException($this->translator->trans('The theme has too many files (max {max}).', ['max' => self::MAX_FILES]));
             }
 
             // Accept theme.json at the zip root, or inside one top-level folder.
             $prefix = $this->findRoot($zip);
             $meta = json_decode((string) $zip->getFromName($prefix . 'theme.json'), true);
             if (!is_array($meta) || trim((string) ($meta['name'] ?? '')) === '') {
-                throw new RuntimeException('theme.json is missing or has no "name". Download the blank theme to see the expected structure.');
+                throw new RuntimeException($this->translator->trans('theme.json is missing or has no "name". Download the blank theme to see the expected structure.'));
             }
 
             $slug = $this->slugFor($meta, $prefix);
             if (in_array($slug, self::BUILT_IN, true)) {
-                throw new RuntimeException("\"{$slug}\" is a built-in theme and can't be replaced. Give your theme a different \"slug\" in theme.json.");
+                throw new RuntimeException($this->translator->trans('"{slug}" is a built-in theme and can\'t be replaced. Give your theme a different "slug" in theme.json.', ['slug' => $slug]));
             }
             if (is_dir($this->paths->themes() . '/' . $slug) && !$replace) {
-                throw new RuntimeException("A theme called \"{$slug}\" is already installed. Tick \"Replace\" to update it.");
+                throw new RuntimeException($this->translator->trans('A theme called "{slug}" is already installed. Tick "Replace" to update it.', ['slug' => $slug]));
             }
 
             $entries = [];
@@ -137,7 +139,7 @@ final class ThemeManager
                 }
                 $relative = substr($name, strlen($prefix));
                 if (!$this->isSafePath($relative)) {
-                    throw new RuntimeException("Unsafe file path in zip: {$name}");
+                    throw new RuntimeException($this->translator->trans('Unsafe file path in zip: {name}', ['name' => $name]));
                 }
                 if (str_starts_with(basename($relative), '.') || str_starts_with($relative, '__MACOSX/')) {
                     continue; // OS junk / dotfiles (.htaccess etc. are never installed)
@@ -162,35 +164,35 @@ final class ThemeManager
                     continue;
                 }
                 if ($isTemplate && (int) $stat['size'] > self::MAX_TEMPLATE_BYTES) {
-                    throw new RuntimeException("Template {$relative} is too large (max " . (self::MAX_TEMPLATE_BYTES >> 10) . ' KB).');
+                    throw new RuntimeException($this->translator->trans('Template {file} is too large (max {kb} KB).', ['file' => $relative, 'kb' => self::MAX_TEMPLATE_BYTES >> 10]));
                 }
 
                 $total += (int) $stat['size'];
                 if ($total > self::MAX_UNPACKED_BYTES) {
-                    throw new RuntimeException('The theme is too large once unpacked (max ' . (self::MAX_UNPACKED_BYTES >> 20) . ' MB).');
+                    throw new RuntimeException($this->translator->trans('The theme is too large once unpacked (max {mb} MB).', ['mb' => self::MAX_UNPACKED_BYTES >> 20]));
                 }
                 $entries[$i] = $relative;
             }
 
             if (!in_array('assets/css/style.css', $entries, true)) {
-                throw new RuntimeException('The theme needs assets/css/style.css. Download the blank theme to see the expected structure.');
+                throw new RuntimeException($this->translator->trans('The theme needs assets/css/style.css. Download the blank theme to see the expected structure.'));
             }
 
             // Unpack into a staging folder first so a failure never leaves a half-installed theme.
             $staging = $this->paths->themes() . '/.upload-' . bin2hex(random_bytes(6));
             if (!@mkdir($staging, 0775) && !is_dir($staging)) {
-                throw new RuntimeException('Could not write to public/themes — check that the web server can write there.');
+                throw new RuntimeException($this->translator->trans('Could not write to public/themes — check that the web server can write there.'));
             }
 
             try {
                 foreach ($entries as $index => $relative) {
                     $target = $staging . '/' . $relative;
                     if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0775, true)) {
-                        throw new RuntimeException('Could not create folders for ' . $relative);
+                        throw new RuntimeException($this->translator->trans('Could not create folders for {file}', ['file' => $relative]));
                     }
                     $stream = $zip->getStream($zip->getNameIndex($index));
                     if ($stream === false || file_put_contents($target, $stream) === false) {
-                        throw new RuntimeException('Could not extract ' . $relative);
+                        throw new RuntimeException($this->translator->trans('Could not extract {file}', ['file' => $relative]));
                     }
                     fclose($stream);
                 }
@@ -199,7 +201,7 @@ final class ThemeManager
                 if (is_dir($staging . '/layout')) {
                     $templateErrors = $this->theme->validateTemplates($staging . '/layout');
                     if ($templateErrors) {
-                        throw new RuntimeException('The theme has template errors — ' . implode(' | ', array_slice($templateErrors, 0, 3)));
+                        throw new RuntimeException($this->translator->trans('The theme has template errors — {errors}', ['errors' => implode(' | ', array_slice($templateErrors, 0, 3))]));
                     }
                 }
 
@@ -208,7 +210,7 @@ final class ThemeManager
                     $this->removeDir($final);
                 }
                 if (!rename($staging, $final)) {
-                    throw new RuntimeException('Could not move the theme into place.');
+                    throw new RuntimeException($this->translator->trans('Could not move the theme into place.'));
                 }
             } catch (\Throwable $e) {
                 if (is_dir($staging)) {
@@ -226,10 +228,10 @@ final class ThemeManager
     public function delete(string $slug): void
     {
         if (in_array($slug, self::BUILT_IN, true)) {
-            throw new RuntimeException('Built-in themes can\'t be deleted.');
+            throw new RuntimeException($this->translator->trans('Built-in themes can\'t be deleted.'));
         }
         if (!$this->exists($slug)) {
-            throw new RuntimeException('That theme is not installed.');
+            throw new RuntimeException($this->translator->trans('That theme is not installed.'));
         }
         $this->removeDir($this->paths->themes() . '/' . $slug);
     }
@@ -299,7 +301,7 @@ final class ThemeManager
             }
         }
         if (count($candidates) !== 1) {
-            throw new RuntimeException('Couldn\'t find theme.json. Put it at the top of the zip (or in a single folder).');
+            throw new RuntimeException($this->translator->trans('Couldn\'t find theme.json. Put it at the top of the zip (or in a single folder).'));
         }
 
         return $candidates[0];
@@ -311,7 +313,7 @@ final class ThemeManager
         $raw = (string) ($meta['slug'] ?? ($prefix !== '' ? rtrim($prefix, '/') : $meta['name']));
         $slug = trim((string) preg_replace('/[^a-z0-9_-]+/', '-', strtolower($raw)), '-');
         if (!preg_match(self::SLUG, $slug)) {
-            throw new RuntimeException('Invalid theme slug "' . $raw . '": use 2-40 lowercase letters, digits, - or _.');
+            throw new RuntimeException($this->translator->trans('Invalid theme slug "{slug}": use 2-40 lowercase letters, digits, - or _.', ['slug' => $raw]));
         }
 
         return $slug;
@@ -433,6 +435,9 @@ upload), and admin pages never run theme scripts.
 | `theme` | Active theme slug |
 | `year` | Current year |
 | `current_path` | Path of the current page, e.g. `/cart` |
+| `lang` | Active language code, e.g. `en` or `pt` |
+| `languages` | Languages for a switcher: list of `{code, name, html_lang, url, active}` |
+| `alternates` | The current page in every language, for `<link rel="alternate" hreflang>` tags in the header |
 
 Functions: `asset('css/style.css')` (URL of a file in your theme, or the default theme's
 copy), `logo()` (logo image and/or store name, as set in Settings), and
@@ -441,6 +446,23 @@ copy), `logo()` (logo image and/or store name, as set in Settings), and
 Routes you can link to: `home`, `cart`, `checkout`, `page.about`, `page.info`,
 `page.support`, `page.terms`. A product link is `path('product.show', {id: 42})`;
 query strings go in a third argument: `path('home', {}, {category: 'tools'})`.
+
+## Translations
+
+The shop is multilingual (English by default, Portuguese too). Write the text in your
+templates in English and pass it through the translator:
+
+- `{{ 'Free shipping on every order'|trans }}` or `{{ t('Free shipping on every order') }}`
+- placeholders: `{{ 'Welcome to {store}'|trans({store: store.name}) }}`
+- plurals: `{{ '{count} item'|trans_plural(n) }}`
+- dates in the visitor's language: `{{ some_date|local_date('medium') }}`
+
+Keys are the English source strings; translations live in `translations/<locale>.php`
+(e.g. `translations/pt.php`). Text without a translation is shown in English.
+
+A language switcher loops over `languages` and links to each `url` (mark `active`);
+those links need `data-no-ajax` so the whole page reloads in the new language. Put
+`alternates` in the header as `<link rel="alternate" hreflang="…" href="…">` tags.
 
 ## Sandbox
 

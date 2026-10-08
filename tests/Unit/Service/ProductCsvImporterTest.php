@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Service;
 
+use App\I18n\Translator;
 use App\Infrastructure\Database;
 use App\Repository\CategoryRepository;
 use App\Repository\ProductCsvRepository;
@@ -28,6 +29,7 @@ final class ProductCsvImporterTest extends TestCase
             new ProductRepository($db),
             new VariantRepository($db),
             new CategoryRepository($db),
+            new Translator(dirname(__DIR__, 3) . '/translations'),
         );
     }
 

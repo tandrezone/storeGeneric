@@ -9,10 +9,10 @@
 -- ============================================================
 
 ALTER TABLE orders
-    ADD COLUMN IF NOT EXISTS locale VARCHAR(10) DEFAULT NULL AFTER customer_id;
+    ADD COLUMN IF NOT EXISTS locale VARCHAR(10) DEFAULT NULL COMMENT 'language the order was placed in (its emails use it)' AFTER customer_id;
 
 ALTER TABLE customers
-    ADD COLUMN IF NOT EXISTS locale VARCHAR(10) DEFAULT NULL AFTER phone;
+    ADD COLUMN IF NOT EXISTS locale VARCHAR(10) DEFAULT NULL COMMENT 'preferred language (translations/<locale>.php)' AFTER phone;
 
 ALTER TABLE admin_users
-    ADD COLUMN IF NOT EXISTS locale VARCHAR(10) NOT NULL DEFAULT 'en' AFTER role;
+    ADD COLUMN IF NOT EXISTS locale VARCHAR(10) NOT NULL DEFAULT 'en' COMMENT 'admin panel language' AFTER role;

@@ -1,40 +1,58 @@
 {% extends 'layout/admin.html.twig' %}
 
-{% set title = 'Admin — My account' %}
+{% set title = 'Admin — {page}'|trans({page: 'My account'|trans}) %}
 {% set active_nav = 'account' %}
 
 {% block content %}
-<h1>My account</h1>
+<h1>{{ 'My account'|trans }}</h1>
 
 {% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
 
 <div class="panel">
     <p>
-        Logged in as <strong>{{ me.username }}</strong>
-        <span class="status-badge" data-status="{{ me.role }}">{{ me.role }}</span>
+        {{ 'Logged in as {name}'|trans({name: '<strong>' ~ me.username|e ~ '</strong>'})|raw }}
+        <span class="status-badge" data-status="{{ me.role }}">{{ me.role|capitalize|trans }}</span>
     </p>
     {% if me.email %}<p class="field-hint">{{ me.email }}</p>{% endif %}
-    <p class="field-hint">Last login: {{ me.last_login_at ?: '—' }}. Your email and role are managed by an owner in Users.</p>
+    <p class="field-hint">{{ 'Last login: {date}. Your email and role are managed by an owner in Users.'|trans({date: me.last_login_at ?: '—'}) }}</p>
 </div>
 
 <div class="panel">
-    <h2>Change password</h2>
+    <h2>{{ 'Language'|trans }}</h2>
+    <form method="post" action="{{ path('admin.account.submit') }}" data-no-ajax>
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="save_language">
+        <label>{{ 'Admin language'|trans }}
+            <select name="locale">
+                {% for language in languages() %}
+                    <option value="{{ language.code }}" {{ language.code == my_locale ? 'selected' }}>{{ language.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <p class="field-hint">{{ 'The language of the admin panel for your account. The shop\'s default language is set in Settings.'|trans }}</p>
+        <button type="submit" class="btn-primary">{{ 'Save language'|trans }}</button>
+    </form>
+</div>
+
+<div class="panel">
+    <h2>{{ 'Change password'|trans }}</h2>
     <form method="post" action="{{ path('admin.account.submit') }}" autocomplete="off">
         {{ csrf_field() }}
+        <input type="hidden" name="action" value="change_password">
         <input type="hidden" name="username" value="{{ me.username }}" autocomplete="username">
-        <label>Current password
+        <label>{{ 'Current password'|trans }}
             <input type="password" name="current_password" required autocomplete="current-password">
         </label>
         <div class="form-row">
-            <label>New password
+            <label>{{ 'New password'|trans }}
                 <input type="password" name="new_password" required minlength="{{ min_password }}" autocomplete="new-password">
             </label>
-            <label>Repeat new password
+            <label>{{ 'Repeat new password'|trans }}
                 <input type="password" name="new_password_confirm" required minlength="{{ min_password }}" autocomplete="new-password">
             </label>
         </div>
-        <p class="field-hint">At least {{ min_password }} characters. Your other sessions are logged out.</p>
-        <button type="submit" class="btn-primary">Change password</button>
+        <p class="field-hint">{{ 'At least {min} characters. Your other sessions are logged out.'|trans({min: min_password}) }}</p>
+        <button type="submit" class="btn-primary">{{ 'Change password'|trans }}</button>
     </form>
 </div>
 {% endblock %}

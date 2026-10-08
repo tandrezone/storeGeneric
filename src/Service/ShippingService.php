@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\I18n\Translator;
 use App\Repository\ShippingMethodRepository;
 
 /**
@@ -12,8 +13,10 @@ use App\Repository\ShippingMethodRepository;
  */
 final class ShippingService
 {
-    public function __construct(private readonly ShippingMethodRepository $methods)
-    {
+    public function __construct(
+        private readonly ShippingMethodRepository $methods,
+        private readonly Translator $translator,
+    ) {
     }
 
     /** @return list<array<string, mixed>> enabled methods in checkout order */
@@ -86,15 +89,15 @@ final class ShippingService
         $freeOver = str_replace(',', '.', trim((string) ($input['free_over'] ?? '')));
 
         if ($name === '') {
-            $errors[] = 'Name is required.';
+            $errors[] = $this->translator->trans('Name is required.');
         } elseif (mb_strlen($name) > 120) {
-            $errors[] = 'Name must be 120 characters or fewer.';
+            $errors[] = $this->translator->trans('Name must be {max} characters or fewer.', ['max' => 120]);
         }
         if (!is_numeric($cost) || (float) $cost < 0) {
-            $errors[] = 'Cost must be 0 or more.';
+            $errors[] = $this->translator->trans('Cost must be 0 or more.');
         }
         if ($freeOver !== '' && (!is_numeric($freeOver) || (float) $freeOver < 0)) {
-            $errors[] = '"Free over" must be empty or a positive amount.';
+            $errors[] = $this->translator->trans('"Free over" must be empty or a positive amount.');
         }
 
         $countries = implode(', ', array_unique(array_filter(

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\I18n\Translator;
 use App\Support\Paths;
 use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
@@ -22,8 +23,10 @@ final class ImageUploader
         'image/gif'  => 'gif',
     ];
 
-    public function __construct(private readonly Paths $paths)
-    {
+    public function __construct(
+        private readonly Paths $paths,
+        private readonly Translator $translator,
+    ) {
     }
 
     /**
@@ -37,12 +40,12 @@ final class ImageUploader
             throw new RuntimeException($this->uploadErrorMessage($file->getError()));
         }
         if ((int) $file->getSize() > $maxBytes) {
-            throw new RuntimeException('Image is larger than ' . round($maxBytes / 1024 / 1024, 1) . 'MB.');
+            throw new RuntimeException($this->translator->trans('Image is larger than {size}MB.', ['size' => round($maxBytes / 1024 / 1024, 1)]));
         }
 
         $dir = $this->paths->public($publicDir);
         if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
-            throw new RuntimeException('Could not create public/' . $publicDir . ' — check folder permissions.');
+            throw new RuntimeException($this->translator->trans('Could not create {dir} — check folder permissions.', ['dir' => 'public/' . $publicDir]));
         }
 
         // Move first, then inspect the real file — never trust the client's type.
@@ -52,7 +55,7 @@ final class ImageUploader
         $ext = is_array($info) ? (self::ALLOWED_MIME[$info['mime']] ?? null) : null;
         if ($ext === null) {
             @unlink($tmp);
-            throw new RuntimeException('Only JPEG, PNG, WebP, and GIF images are allowed.');
+            throw new RuntimeException($this->translator->trans('Only JPEG, PNG, WebP, and GIF images are allowed.'));
         }
 
         $filename = $prefix . '-' . bin2hex(random_bytes(6)) . '.' . $ext;
@@ -75,10 +78,10 @@ final class ImageUploader
 
     private function uploadErrorMessage(int $code): string
     {
-        return match ($code) {
+        return $this->translator->trans(match ($code) {
             UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'That image is too large.',
             UPLOAD_ERR_NO_FILE => 'No file was uploaded.',
             default => 'Upload failed.',
-        };
+        });
     }
 }

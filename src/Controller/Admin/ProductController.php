@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller\Admin;
 
 use App\Http\Responder;
+use App\I18n\Translator;
 use App\Http\Session;
 use App\Infrastructure\Database;
 use App\Repository\CategoryRepository;
@@ -53,7 +54,14 @@ final class ProductController
         private readonly HtmlSanitizer $sanitizer,
         private readonly StoreSettings $store,
         private readonly LoggerInterface $logger,
+        private readonly Translator $translator,
     ) {
+    }
+
+    /** @param array<string, mixed> $params */
+    private function t(string $message, array $params = []): string
+    {
+        return $this->translator->trans($message, $params);
     }
 
     public function index(ServerRequestInterface $request): ResponseInterface
@@ -73,7 +81,7 @@ final class ProductController
                 $status = (string) ($body['status'] ?? '');
                 if ($id > 0 && in_array($status, ProductRepository::STATUSES, true)) {
                     $this->products->setStatus([$id], $status);
-                    $this->session->flash('success', 'Status updated.');
+                    $this->session->flash('success', $this->t('Status updated.'));
                 }
                 break;
 
@@ -89,10 +97,10 @@ final class ProductController
                 $ids = $this->selectedIds($body);
                 $status = (string) ($body['status'] ?? '');
                 if ($ids === [] || !in_array($status, ProductRepository::STATUSES, true)) {
-                    $this->session->flash('error', 'No products selected or invalid status.');
+                    $this->session->flash('error', $this->t('No products selected or invalid status.'));
                 } else {
                     $count = $this->products->setStatus($ids, $status);
-                    $this->session->flash('success', "Updated status for {$count} product(s).");
+                    $this->session->flash('success', $this->translator->transPlural('Updated status for {count} product.', $count));
                 }
                 break;
 
@@ -141,7 +149,7 @@ final class ProductController
             case 'delete_image':
                 if ($id > 0) {
                     $this->images->remove($id, (string) ($body['path'] ?? ''));
-                    $this->session->flash('success', 'Image removed.');
+                    $this->session->flash('success', $this->t('Image removed.'));
                     $editId = $id;
                 }
                 break;
@@ -149,7 +157,7 @@ final class ProductController
             case 'set_main_image':
                 if ($id > 0) {
                     $this->images->setMain($id, (string) ($body['path'] ?? ''));
-                    $this->session->flash('success', 'Main image updated.');
+                    $this->session->flash('success', $this->t('Main image updated.'));
                     $editId = $id;
                 }
                 break;
@@ -157,7 +165,7 @@ final class ProductController
             case 'move_image':
                 if ($id > 0) {
                     $this->images->move($id, (string) ($body['path'] ?? ''), (int) ($body['offset'] ?? 0) < 0 ? -1 : 1);
-                    $this->session->flash('success', 'Image order updated.');
+                    $this->session->flash('success', $this->t('Image order updated.'));
                     $editId = $id;
                 }
                 break;
@@ -166,7 +174,7 @@ final class ProductController
                 if ($id > 0) {
                     $order = array_values(array_filter((array) ($body['order'] ?? []), 'is_string'));
                     $this->images->reorder($id, $order);
-                    $this->session->flash('success', 'Image order updated.');
+                    $this->session->flash('success', $this->t('Image order updated.'));
                     $editId = $id;
                 }
                 break;
@@ -201,13 +209,13 @@ final class ProductController
             $this->logger->warning('Product update failed', ['product_id' => $id, 'exception' => $e]);
 
             return [match ($this->driverCode($e)) {
-                self::ER_NO_REFERENCED_ROW => 'That category no longer exists — choose another one.',
-                self::ER_DATA_TOO_LONG     => 'One of the fields is too long.',
-                default                    => 'Could not save the product because of a database error. Please try again.',
+                self::ER_NO_REFERENCED_ROW => $this->t('That category no longer exists — choose another one.'),
+                self::ER_DATA_TOO_LONG     => $this->t('One of the fields is too long.'),
+                default                    => $this->t('Could not save the product because of a database error. Please try again.'),
             }];
         }
 
-        $this->session->flash('success', 'Product updated.');
+        $this->session->flash('success', $this->t('Product updated.'));
 
         return [];
     }
@@ -226,7 +234,7 @@ final class ProductController
 
         $errors = $this->validateProduct($data, true);
         if ($variant['price'] <= 0) {
-            $errors[] = 'The first variant needs a price above 0.';
+            $errors[] = $this->t('The first variant needs a price above 0.');
         }
         $variantError = $this->validateVariant($variant);
         if ($variantError !== null) {
@@ -244,14 +252,14 @@ final class ProductController
         } catch (PDOException $e) {
             $this->logger->warning('Product creation failed', ['exception' => $e]);
 
-            return $this->page($request, ['Could not create the product: ' . $this->variantError($e, $variant['sku'])], $body, 422);
+            return $this->page($request, [$this->t('Could not create the product: {reason}', ['reason' => $this->variantError($e, $variant['sku'])])], $body, 422);
         } catch (Throwable $e) {
             $this->logger->warning('Product creation failed', ['exception' => $e]);
 
-            return $this->page($request, ['Could not create the product. Please try again.'], $body, 422);
+            return $this->page($request, [$this->t('Could not create the product. Please try again.')], $body, 422);
         }
 
-        $this->session->flash('success', "Product \"{$data['name']}\" created.");
+        $this->session->flash('success', $this->t('Product "{name}" created.', ['name' => $data['name']]));
 
         return $this->responder->redirectToRoute('admin.products', [], $this->listQuery($request->getQueryParams()));
     }
@@ -278,23 +286,23 @@ final class ProductController
     {
         $errors = [];
         if ($data['name'] === '') {
-            $errors[] = 'Name is required.';
+            $errors[] = $this->t('Name is required.');
         } elseif (mb_strlen($data['name']) > self::MAX_NAME) {
-            $errors[] = 'Name can be at most ' . self::MAX_NAME . ' characters.';
+            $errors[] = $this->t('Name can be at most {max} characters.', ['max' => self::MAX_NAME]);
         }
         if ($data['category_id'] <= 0 || !in_array($data['category_id'], array_map('intval', array_column($this->categories->findAll(), 'id')), true)) {
-            $errors[] = 'Please choose a category.';
+            $errors[] = $this->t('Please choose a category.');
         }
         if ($data['short_description'] === '') {
-            $errors[] = 'Short description is required.';
+            $errors[] = $this->t('Short description is required.');
         } elseif (mb_strlen($data['short_description']) > self::MAX_SHORT_DESCRIPTION) {
-            $errors[] = 'Short description can be at most ' . self::MAX_SHORT_DESCRIPTION . ' characters.';
+            $errors[] = $this->t('Short description can be at most {max} characters.', ['max' => self::MAX_SHORT_DESCRIPTION]);
         }
         if ($requireLongDescription && trim(strip_tags($data['long_description'])) === '') {
-            $errors[] = 'Long description is required.';
+            $errors[] = $this->t('Long description is required.');
         }
         if (strlen($data['long_description']) > self::MAX_LONG_DESCRIPTION_BYTES) {
-            $errors[] = 'Long description is too long.';
+            $errors[] = $this->t('Long description is too long.');
         }
 
         return $errors;
@@ -313,10 +321,10 @@ final class ProductController
 
         try {
             $this->variants->create(['product_id' => $productId] + $data);
-            $this->session->flash('success', "Variant {$data['sku']} added.");
+            $this->session->flash('success', $this->t('Variant {sku} added.', ['sku' => $data['sku']]));
         } catch (PDOException $e) {
             $this->logger->warning('Variant creation failed', ['exception' => $e]);
-            $this->session->flash('error', 'Could not add the variant: ' . $this->variantError($e, $data['sku']));
+            $this->session->flash('error', $this->t('Could not add the variant: {reason}', ['reason' => $this->variantError($e, $data['sku'])]));
         }
     }
 
@@ -324,7 +332,7 @@ final class ProductController
     private function updateVariant(int $productId, int $variantId, array $body): void
     {
         $data = $this->variantInput($body);
-        $error = $variantId > 0 ? $this->validateVariant($data) : 'Variant not found.';
+        $error = $variantId > 0 ? $this->validateVariant($data) : $this->t('Variant not found.');
         if ($error !== null) {
             $this->session->flash('error', $error);
 
@@ -333,11 +341,11 @@ final class ProductController
 
         try {
             $this->variants->update($variantId, $productId, $data)
-                ? $this->session->flash('success', "Variant {$data['sku']} updated.")
-                : $this->session->flash('error', 'Variant not found — it may have been deleted. Reload the page.');
+                ? $this->session->flash('success', $this->t('Variant {sku} updated.', ['sku' => $data['sku']]))
+                : $this->session->flash('error', $this->t('Variant not found — it may have been deleted. Reload the page.'));
         } catch (PDOException $e) {
             $this->logger->warning('Variant update failed', ['exception' => $e]);
-            $this->session->flash('error', 'Could not update the variant: ' . $this->variantError($e, $data['sku']));
+            $this->session->flash('error', $this->t('Could not update the variant: {reason}', ['reason' => $this->variantError($e, $data['sku'])]));
         }
     }
 
@@ -346,16 +354,16 @@ final class ProductController
         try {
             $deleted = $variantId > 0 && $this->variants->delete($variantId, $productId);
             $deleted
-                ? $this->session->flash('success', 'Variant deleted.')
-                : $this->session->flash('error', 'Variant not found.');
+                ? $this->session->flash('success', $this->t('Variant deleted.'))
+                : $this->session->flash('error', $this->t('Variant not found.'));
         } catch (PDOException $e) {
             if ($this->driverCode($e) === self::ER_ROW_IS_REFERENCED) {
-                $this->session->flash('error', 'Could not delete: this variant is referenced by existing orders. Untick "Active" to hide it instead.');
+                $this->session->flash('error', $this->t('Could not delete: this variant is referenced by existing orders. Untick "Active" to hide it instead.'));
 
                 return;
             }
             $this->logger->warning('Variant deletion failed', ['exception' => $e]);
-            $this->session->flash('error', 'Could not delete the variant because of a database error. Please try again.');
+            $this->session->flash('error', $this->t('Could not delete the variant because of a database error. Please try again.'));
         }
     }
 
@@ -379,12 +387,12 @@ final class ProductController
     private function validateVariant(array $data): ?string
     {
         return match (true) {
-            $data['sku'] === ''                                                => 'Variant SKU is required.',
-            mb_strlen($data['sku']) > self::MAX_VARIANT_FIELD                  => 'SKU can be at most ' . self::MAX_VARIANT_FIELD . ' characters.',
+            $data['sku'] === ''                                                => $this->t('Variant SKU is required.'),
+            mb_strlen($data['sku']) > self::MAX_VARIANT_FIELD                  => $this->t('SKU can be at most {max} characters.', ['max' => self::MAX_VARIANT_FIELD]),
             mb_strlen((string) $data['label']) > self::MAX_VARIANT_FIELD,
-            mb_strlen((string) $data['unit']) > self::MAX_VARIANT_FIELD        => 'Label and unit can be at most ' . self::MAX_VARIANT_FIELD . ' characters.',
-            $data['price'] > VariantRepository::MAX_PRICE                      => 'That price is too high.',
-            $data['stock'] > 4294967295                                        => 'That stock level is too high.',
+            mb_strlen((string) $data['unit']) > self::MAX_VARIANT_FIELD        => $this->t('Label and unit can be at most {max} characters.', ['max' => self::MAX_VARIANT_FIELD]),
+            $data['price'] > VariantRepository::MAX_PRICE                      => $this->t('That price is too high.'),
+            $data['stock'] > 4294967295                                        => $this->t('That stock level is too high.'),
             default                                                            => null,
         };
     }
@@ -393,11 +401,11 @@ final class ProductController
     private function variantError(PDOException $e, string $sku): string
     {
         return match ($this->driverCode($e)) {
-            self::ER_DUP_ENTRY         => "SKU \"{$sku}\" is already used by another variant.",
-            self::ER_ROW_IS_REFERENCED => 'it is referenced by existing orders.',
-            self::ER_NO_REFERENCED_ROW => 'the product or category no longer exists.',
-            self::ER_DATA_TOO_LONG     => 'one of the fields is too long.',
-            default                    => 'a database error occurred. Please try again.',
+            self::ER_DUP_ENTRY         => $this->t('SKU "{sku}" is already used by another variant.', ['sku' => $sku]),
+            self::ER_ROW_IS_REFERENCED => $this->t('it is referenced by existing orders.'),
+            self::ER_NO_REFERENCED_ROW => $this->t('the product or category no longer exists.'),
+            self::ER_DATA_TOO_LONG     => $this->t('one of the fields is too long.'),
+            default                    => $this->t('a database error occurred. Please try again.'),
         };
     }
 
@@ -419,11 +427,11 @@ final class ProductController
         $value = filter_var(str_replace(',', '.', trim((string) ($body['price_value'] ?? ''))), FILTER_VALIDATE_FLOAT);
 
         $error = match (true) {
-            $ids === []                                                        => 'No products selected.',
-            !in_array($mode, VariantRepository::PRICE_MODES, true)              => 'Choose how to change the price.',
-            $value === false || !is_finite($value) || $value < 0               => 'Enter a price change of 0 or more.',
-            $mode === 'decrease_percent' && $value > 100                       => 'A price can be lowered by at most 100%.',
-            $value > VariantRepository::MAX_PRICE                              => 'That amount is too high.',
+            $ids === []                                                        => $this->t('No products selected.'),
+            !in_array($mode, VariantRepository::PRICE_MODES, true)              => $this->t('Choose how to change the price.'),
+            $value === false || !is_finite($value) || $value < 0               => $this->t('Enter a price change of 0 or more.'),
+            $mode === 'decrease_percent' && $value > 100                       => $this->t('A price can be lowered by at most 100%.'),
+            $value > VariantRepository::MAX_PRICE                              => $this->t('That amount is too high.'),
             default                                                            => null,
         };
         if ($error !== null) {
@@ -434,7 +442,7 @@ final class ProductController
 
         $isPercent = str_ends_with($mode, '_percent');
         $count = $this->variants->adjustPricesForProducts($ids, $mode, $isPercent ? (float) $value : round((float) $value, 2));
-        $this->session->flash('success', "Updated the price of {$count} variant(s) in " . count($ids) . ' product(s).');
+        $this->session->flash('success', $this->translator->transPlural('Updated the price of {count} variant in {products}.', $count, ['products' => $this->translator->transPlural('{count} product', count($ids))]));
     }
 
     /** @param list<int> $ids */
@@ -442,7 +450,7 @@ final class ProductController
     {
         $ids = array_values(array_filter($ids, static fn (int $id) => $id > 0));
         if ($ids === []) {
-            $this->session->flash('error', 'No products selected.');
+            $this->session->flash('error', $this->t('No products selected.'));
 
             return;
         }
@@ -460,15 +468,15 @@ final class ProductController
 
         if (count($ids) === 1) {
             $failed === 0
-                ? $this->session->flash('success', 'Product deleted.')
-                : $this->session->flash('error', 'Could not delete: it is referenced by existing orders.');
+                ? $this->session->flash('success', $this->t('Product deleted.'))
+                : $this->session->flash('error', $this->t('Could not delete: it is referenced by existing orders.'));
 
             return;
         }
 
-        $message = "Deleted {$deleted} product(s).";
+        $message = $this->translator->transPlural('Deleted {count} product.', $deleted);
         if ($failed > 0) {
-            $message .= " {$failed} could not be deleted (referenced by existing orders).";
+            $message .= ' ' . $this->translator->transPlural('{count} could not be deleted (referenced by existing orders).', $failed);
         }
         $this->session->flash($deleted > 0 ? 'success' : 'error', $message);
     }
@@ -490,7 +498,7 @@ final class ProductController
             }
         }
 
-        $message = $uploaded > 0 ? "Uploaded {$uploaded} image(s)." : 'No images were uploaded.';
+        $message = $uploaded > 0 ? $this->translator->transPlural('Uploaded {count} image.', $uploaded) : $this->t('No images were uploaded.');
         if ($errors !== []) {
             $message .= ' ' . implode(' ', $errors);
         }
@@ -603,11 +611,11 @@ final class ProductController
             'page'                => $page,
             'total_pages'         => $totalPages,
             'price_modes'         => [
-                'set'              => 'Set price to',
-                'increase_percent' => 'Increase by %',
-                'decrease_percent' => 'Decrease by %',
-                'increase_amount'  => 'Increase by amount',
-                'decrease_amount'  => 'Decrease by amount',
+                'set'              => $this->t('Set price to'),
+                'increase_percent' => $this->t('Increase by %'),
+                'decrease_percent' => $this->t('Decrease by %'),
+                'increase_amount'  => $this->t('Increase by amount'),
+                'decrease_amount'  => $this->t('Decrease by amount'),
             ],
             'limits'              => [
                 'name'              => self::MAX_NAME,

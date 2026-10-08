@@ -1,58 +1,58 @@
 {% extends 'layout/admin.html.twig' %}
 
-{% set title = 'Admin — Orders' %}
+{% set title = 'Admin — Orders'|trans %}
 {% set active_nav = 'orders' %}
 
 {# Current filters, for links that change only one of them. #}
 {% set list_query = {status: status_filter, q: filters.q ?: null, from: filters.from ?: null, to: filters.to ?: null} %}
 
 {% block content %}
-<h1>Orders</h1>
+<h1>{{ 'Orders'|trans }}</h1>
 
 <div class="filters">
-    <a href="{{ path('admin.orders', {}, list_query|merge({status: null})) }}" class="filter-pill {{ status_filter is null ? 'active' }}">All</a>
+    <a href="{{ path('admin.orders', {}, list_query|merge({status: null})) }}" class="filter-pill {{ status_filter is null ? 'active' }}">{{ 'All'|trans }}</a>
     {% for status in statuses %}
-        <a href="{{ path('admin.orders', {}, list_query|merge({status: status})) }}" class="filter-pill {{ status_filter == status ? 'active' }}">{{ status|capitalize }}</a>
+        <a href="{{ path('admin.orders', {}, list_query|merge({status: status})) }}" class="filter-pill {{ status_filter == status ? 'active' }}">{{ status|capitalize|trans }}</a>
     {% endfor %}
 </div>
 
 <form method="get" action="{{ path('admin.orders') }}" class="panel" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
     {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
-    <label style="flex: 1 1 220px;">Search
-        <input type="search" name="q" value="{{ filters.q }}" placeholder="Order number, email or name">
+    <label style="flex: 1 1 220px;">{{ 'Search'|trans }}
+        <input type="search" name="q" value="{{ filters.q }}" placeholder="{{ 'Order number, email or name'|trans }}">
     </label>
-    <label>From
+    <label>{{ 'From'|trans }}
         <input type="date" name="from" value="{{ filters.from }}">
     </label>
-    <label>To
+    <label>{{ 'To'|trans }}
         <input type="date" name="to" value="{{ filters.to }}">
     </label>
-    <button type="submit" class="btn-primary">Filter</button>
+    <button type="submit" class="btn-primary">{{ 'Filter'|trans }}</button>
     {% if filters.q or filters.from or filters.to %}
-        <a href="{{ path('admin.orders', {}, {status: status_filter}) }}" class="btn-secondary">Clear</a>
+        <a href="{{ path('admin.orders', {}, {status: status_filter}) }}" class="btn-secondary">{{ 'Clear'|trans }}</a>
     {% endif %}
 </form>
 
-<p class="field-hint">{{ total }} order{{ total == 1 ? '' : 's' }}</p>
+<p class="field-hint">{{ '{count} order'|trans_plural(total) }}</p>
 
 {% if admin_can('manager') %}
     {# Exports every order matching the filters above (not just this page). #}
     <p class="csv-actions">
-        <a href="{{ path('admin.orders.export', {}, list_query) }}" class="btn-secondary">⬇ Export orders CSV</a>
-        <a href="{{ path('admin.orders.export', {}, list_query|merge({items: 1})) }}" class="btn-secondary">⬇ Export order items CSV</a>
+        <a href="{{ path('admin.orders.export', {}, list_query) }}" class="btn-secondary">⬇ {{ 'Export orders CSV'|trans }}</a>
+        <a href="{{ path('admin.orders.export', {}, list_query|merge({items: 1})) }}" class="btn-secondary">⬇ {{ 'Export order items CSV'|trans }}</a>
     </p>
 {% endif %}
 
 <table class="cart-table">
     <thead>
         <tr>
-            <th>Order #</th>
-            <th>Customer</th>
-            <th>Status</th>
-            <th>Payment</th>
-            <th>Method</th>
-            <th>Total</th>
-            <th>Placed</th>
+            <th>{{ 'Order #'|trans }}</th>
+            <th>{{ 'Customer'|trans }}</th>
+            <th>{{ 'Status'|trans }}</th>
+            <th>{{ 'Payment'|trans }}</th>
+            <th>{{ 'Method'|trans }}</th>
+            <th>{{ 'Total'|trans }}</th>
+            <th>{{ 'Placed'|trans }}</th>
             <th></th>
         </tr>
     </thead>
@@ -64,15 +64,15 @@
                     {{ order.ship_name }}<br>
                     <span style="color: var(--color-muted); font-size: 0.85rem;">{{ order.email }}</span>
                 </td>
-                <td><span class="status-badge" data-status="{{ order.status }}">{{ order.status }}</span></td>
-                <td><span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status }}</span></td>
+                <td><span class="status-badge" data-status="{{ order.status }}">{{ order.status|capitalize|trans }}</span></td>
+                <td><span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status|capitalize|trans }}</span></td>
                 <td style="font-size: 0.85rem;">{{ payment_labels[order.payment_method] ?? order.payment_method }}</td>
                 <td>{{ order.total|money }}</td>
                 <td style="color: var(--color-muted); font-size: 0.85rem;">{{ order.created_at }}</td>
-                <td><a href="{{ path('admin.order', {id: order.id}) }}" class="btn-secondary">Open</a></td>
+                <td><a href="{{ path('admin.order', {id: order.id}) }}" class="btn-secondary">{{ 'Open'|trans }}</a></td>
             </tr>
         {% else %}
-            <tr><td colspan="8" style="color: var(--color-muted);">No orders found.</td></tr>
+            <tr><td colspan="8" style="color: var(--color-muted);">{{ 'No orders found.'|trans }}</td></tr>
         {% endfor %}
     </tbody>
 </table>
@@ -80,10 +80,10 @@
 {% if total_pages > 1 %}
     <div class="pagination">
         <a href="{{ path('admin.orders', {}, list_query|merge({page: max(1, page - 1)})) }}"
-           class="btn-secondary {{ page <= 1 ? 'is-disabled' }}">‹ Prev</a>
-        <span class="bulk-count">Page {{ page }} of {{ total_pages }}</span>
+           class="btn-secondary {{ page <= 1 ? 'is-disabled' }}">‹ {{ 'Prev'|trans }}</a>
+        <span class="bulk-count">{{ 'Page {page} of {pages}'|trans({page: page, pages: total_pages}) }}</span>
         <a href="{{ path('admin.orders', {}, list_query|merge({page: min(total_pages, page + 1)})) }}"
-           class="btn-secondary {{ page >= total_pages ? 'is-disabled' }}">Next ›</a>
+           class="btn-secondary {{ page >= total_pages ? 'is-disabled' }}">{{ 'Next'|trans }} ›</a>
     </div>
 {% endif %}
 {% endblock %}

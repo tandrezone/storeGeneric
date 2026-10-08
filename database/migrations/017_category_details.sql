@@ -5,4 +5,4 @@
 
 ALTER TABLE categories
     ADD COLUMN IF NOT EXISTS description TEXT DEFAULT NULL AFTER slug,
-    ADD COLUMN IF NOT EXISTS image_path VARCHAR(255) DEFAULT NULL AFTER description;
+    ADD COLUMN IF NOT EXISTS image_path VARCHAR(255) DEFAULT NULL COMMENT 'relative to /public' AFTER description;

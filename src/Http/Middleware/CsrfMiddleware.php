@@ -7,6 +7,8 @@ namespace App\Http\Middleware;
 use App\Http\Exception\HttpException;
 use App\Http\RouteMatch;
 use App\Http\Session;
+use App\I18n\LocaleFormat;
+use App\I18n\Translator;
 use App\Security\Csrf;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -29,6 +31,7 @@ final class CsrfMiddleware implements MiddlewareInterface
         private readonly Csrf $csrf,
         private readonly Session $session,
         private readonly ResponseFactoryInterface $responses,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -46,6 +49,7 @@ final class CsrfMiddleware implements MiddlewareInterface
                 if ($this->bodyWasDiscarded($request)) {
                     return $this->tooLarge($request);
                 }
+                // Static text: ErrorHandlerMiddleware translates it.
                 throw HttpException::badRequest('Your session expired or the form was already used. Please go back, reload the page and try again.');
             }
         }
@@ -69,7 +73,10 @@ final class CsrfMiddleware implements MiddlewareInterface
     /** Back to the form (same site only) with a message, or a plain 413 page. */
     private function tooLarge(ServerRequestInterface $request): ResponseInterface
     {
-        $message = 'The upload is too large (limit ' . $this->formatBytes($this->postMaxBytes()) . '). Choose a smaller file, or fewer files at once.';
+        $message = $this->translator->trans(
+            'The upload is too large (limit {limit}). Choose a smaller file, or fewer files at once.',
+            ['limit' => $this->formatBytes($this->postMaxBytes())]
+        );
 
         $referer = parse_url($request->getHeaderLine('Referer')) ?: [];
         $sameHost = isset($referer['host']) && strcasecmp($referer['host'], $request->getUri()->getHost()) === 0;
@@ -99,11 +106,13 @@ final class CsrfMiddleware implements MiddlewareInterface
 
     private function formatBytes(int $bytes): string
     {
+        $locale = $this->translator->intlLocale();
+
         return match (true) {
-            $bytes <= 0       => 'unlimited',
-            $bytes >= 1 << 20 => round($bytes / (1 << 20), 1) . ' MB',
-            $bytes >= 1 << 10 => round($bytes / (1 << 10)) . ' KB',
-            default           => $bytes . ' bytes',
+            $bytes <= 0       => $this->translator->trans('unlimited'),
+            $bytes >= 1 << 20 => LocaleFormat::number(round($bytes / (1 << 20), 1), $locale, fmod(round($bytes / (1 << 20), 1), 1.0) == 0.0 ? 0 : 1) . ' MB',
+            $bytes >= 1 << 10 => LocaleFormat::number(round($bytes / (1 << 10)), $locale) . ' KB',
+            default           => $this->translator->transPlural('{count} byte', $bytes),
         };
     }
 }

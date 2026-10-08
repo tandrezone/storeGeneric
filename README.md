@@ -78,7 +78,7 @@ environment take priority. Comments must be on their own line.
 | `APP_URL` | Public base URL (e.g. `https://finderskeep.online`) — used for payment return and webhook URLs, canonical links, social cards and `sitemap.xml` |
 | `APP_DEBUG` | `true` shows exception details on error pages and logs at debug level. Keep `false` in production |
 | `STORE_NAME`, `STORE_EMAIL` | Defaults for the store name and contact email (Admin → Settings overrides them) |
-| `STORE_LANGUAGE` | `<html lang>` of the storefront (default `en`; a `store_language` setting overrides it) |
+| `STORE_LANGUAGE` | Default storefront language, a catalog in `translations/` (`en` or `pt`; default `en`). Admin → Settings overrides it; visitors can switch (see [Languages](#languages-translations)) |
 | `STORE_CURRENCY` | ISO currency code for prices and payment providers (default `EUR`). Formatting and minor units follow the currency (e.g. `JPY` has no decimals); uses `ext-intl` when loaded |
 | `APP_SECRET` | Signs customer order links (`?key=…` on the confirmation / track-order pages). If empty, one is generated into `var/app-secret` |
 | `MAIL_TRANSPORT` | `smtp`, `mail` (PHP `mail()`) or `log` (default: writes emails to `var/log/mail-*.log`) |
@@ -167,7 +167,8 @@ and `tearDown()`.
 
 - **Unit** — `Money`, `Slug`, `HtmlSanitizer`, `ShippingService`, `TaxCalculator` / coupon
   discounts, `Csv` (escaping, BOM, parsing), the CSV import parser, `SqlSplitter`, `Router::url()`
-  with optional segments, the theme-upload file filter, `ClientIp`, customer password / return-path rules.
+  with optional segments, the theme-upload file filter, `ClientIp`, customer password / return-path rules,
+  the `Translator` (fallbacks, placeholders, plurals) and the catalogs (same keys and placeholders in every language).
 - **Integration** — against a real MariaDB/MySQL database: checkout places the order, reserves stock
   and refuses to oversell; `PaymentRecorder` ignores duplicate events and refuses wrong amounts or
   currencies; cancelling restocks exactly once; CSV import/export; backup + restore round trip;
@@ -248,10 +249,12 @@ src/
   Payment/                       PaymentMethod, registry, recorder, Method/* implementations
   Security/                      CSRF, admin and customer authentication, HTML sanitizer, SSRF-safe URL check
   Infrastructure/                database, HTTP client, OxaPay and Gemini clients
+  I18n/                          Translator (catalogs in translations/) and locale date/number formats
   Theme/                         sandboxed theme renderer + theme installer
   View/                          Twig setup and template functions (path, asset, money, …)
   Support/                       Config (.env) and Paths
-templates/                       app views: layout/, shop/, admin/, error/
+templates/                       app views: layout/, shop/, admin/, error/, email/
+translations/                    language catalogs (en.php, pt.php) + js-keys.php
 tests/                           run.php (composer test), Unit/, Integration/
 var/                             cache/, log/, tmp/, backups/ (not in git)
 ```
@@ -433,7 +436,7 @@ App views (`templates/`) include theme parts with `theme_part('header', {page_ti
 theme templates use `asset('css/style.css')` for asset URLs, `logo()` for the store logo and
 `path('route.name')` for links.
 
-Besides `page_title`, the storefront header receives `lang`, `meta_description`, `canonical`,
+Besides `page_title`, the storefront header receives `lang`, `languages`, `alternates`, `meta_description`, `canonical`,
 `robots`, `og_type`, `og_image`, `product_price`, `search_query` and `customer_name` (the signed-in
 customer, for the "Account" / "Sign in" link; any may be empty — see the
 comment at the top of `default/layout/header.html.twig`). Keep its skip link, search form and
@@ -454,6 +457,48 @@ comment at the top of `default/layout/header.html.twig`). Keep its skip link, se
   with explicit sizes.
 - **Accessibility** — skip link, labelled controls, and `ajax-nav.js` moves focus to the new page's
   heading and announces its title after each AJAX navigation; cart changes are announced too.
+
+### Languages (translations)
+
+The store speaks **English** (default) and **Portuguese (pt-PT)**; no extra Composer packages.
+
+- **Catalogs** — `translations/<code>.php` returns `['English text' => 'translation']`. Keys are the
+  English source strings, so a missing translation shows English (then the key itself).
+  Placeholders are `{name}`; plural messages are `['one' => '{count} artigo', 'other' => '{count} artigos']`.
+  `@name`, `@html_lang` and `@intl` describe the language (switcher label, `<html lang>`/hreflang,
+  ICU locale for dates/numbers/money). `translations/js-keys.php` lists the keys scripts need.
+- **Templates** (app views and theme parts): `{{ 'Your cart'|trans }}`,
+  `{{ 'Hello, {name}'|trans({name: customer.name}) }}`, `{{ '{count} item'|trans_plural(n) }}`,
+  `t('…')` / `t_plural('…', n)`, `date|local_date('medium', true)`, `number|local_number(2)`.
+  `|money` follows the language ("€12.50" / "12,50 €"; ext-intl when loaded, a fallback table
+  otherwise). Enum values are shown as `order.status|capitalize|trans`.
+- **PHP** — inject `App\I18n\Translator`: `$translator->trans('Product saved.')`,
+  `trans('… {min} characters', ['min' => 10])`, `transPlural('{count} item', $n)`,
+  `withLocale($locale, fn () => …)`. Flash messages and validation errors are translated where they
+  are created; `ErrorHandlerMiddleware` translates error-page messages.
+- **JavaScript** — the layouts load `assets/js/i18n.js` with the page's strings in `data-i18n`
+  (no inline script, so it works under the admin CSP); scripts call `StoreI18n.t('…', {…})`,
+  `StoreI18n.tn('{count} item', n)` and `StoreI18n.number(n)`.
+- **Which language** (`LocaleMiddleware`) — storefront: `?lang=pt` (remembered in the session, a
+  `store_lang` cookie and, when signed in, `customers.locale`), then the session, cookie, the
+  customer's language, then the store default (**Admin → Settings → Store language**, else
+  `STORE_LANGUAGE`). The default theme has an EN/PT switcher in the header and footer and
+  `hreflang` alternates (`?lang=…`) in `<head>`. **Admin**: each admin user picks their language in
+  **My account** (`admin_users.locale`, English by default).
+- **Emails** use the order's language (`orders.locale`, saved at checkout); account emails use the
+  visitor's current language; new-order alerts the store default. Migration `027_locales.sql`
+  adds the three `locale` columns.
+
+**Add a language**: copy `translations/en.php` to `translations/<code>.php` (e.g. `es.php`), set
+`@name`, `@html_lang` (`es-ES`) and `@intl` (`es_ES`) and translate every value (keep the keys and
+`{placeholders}`). It then appears in the switcher, Settings and My account. `php tests/run.php
+--filter=Catalog` checks it has the same keys and placeholders as `en.php`. Languages whose plural
+forms aren't "one when n = 1" need a rule in `Translator::PLURAL_RULES`.
+
+**Translate a theme**: wrap its text in `|trans` and add the English strings to every catalog
+(uploaded themes can only use texts that exist in the catalogs; anything else simply shows in
+English). Theme parts receive `lang`, `languages` (`[{code, name, html_lang, url, active}]`, links
+need `data-no-ajax`) and the header `alternates` (`[{hreflang, url}]`).
 
 ---
 
@@ -610,6 +655,7 @@ with the providers don't need to change.
 - [ ] **Add the cron job** for `bin/console orders:expire` (releases stock held by abandoned online payments)
 - [ ] **Schedule backups** — `bin/console db:backup --gzip --with-uploads --keep=14` from cron (see [Backups](#backups)), copy them off the server, and test a restore once
 - [ ] **Run `024_customers.sql`, `025_orders_customer.sql` and `026_customer_tokens.sql`** on existing databases (customer accounts; set `APP_URL` so emailed verify / reset links point at the store)
+- [ ] **Run `027_locales.sql`** on existing databases (order / customer / admin languages), then pick the store language in **Admin → Settings**
 
 ---
 

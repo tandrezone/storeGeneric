@@ -1,111 +1,117 @@
 {% extends 'layout/admin.html.twig' %}
 
-{% set title = 'Admin — Settings' %}
+{% set title = 'Admin — {page}'|trans({page: 'Settings'|trans}) %}
 {% set active_nav = 'settings' %}
 
 {% block content %}
-<h1>Settings</h1>
+<h1>{{ 'Settings'|trans }}</h1>
 
 {% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
 
 <section class="panel">
-    <h2>Store</h2>
+    <h2>{{ 'Store'|trans }}</h2>
     <form method="post" action="{{ path('admin.settings.submit') }}" enctype="multipart/form-data" data-no-ajax>
         {{ csrf_field() }}
         <input type="hidden" name="action" value="save_store">
         <div class="form-row">
-            <label>Store name
+            <label>{{ 'Store name'|trans }}
                 <input type="text" name="store_name" value="{{ store.name }}" maxlength="80" required>
             </label>
-            <label>Support email (optional)
+            <label>{{ 'Support email (optional)'|trans }}
                 <input type="email" name="store_email" value="{{ saved_email }}" placeholder="{{ store.email }}">
             </label>
         </div>
 
-        <label>Logo</label>
+        <label>{{ 'Store language'|trans }}
+            <select name="store_language">
+                {% for language in languages() %}
+                    <option value="{{ language.code }}" {{ language.code == store_language ? 'selected' }}>{{ language.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <p class="field-hint">{{ 'The default language of the shop, and of emails for orders placed without one. Visitors can still switch between English and Portuguese.'|trans }}</p>
+
+        <label>{{ 'Logo'|trans }}</label>
         <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
             {% if store.logo_url %}
-                <img src="{{ store.logo_url }}" alt="Current logo"
+                <img src="{{ store.logo_url }}" alt="{{ 'Current logo'|trans }}"
                      style="height: 56px; width: auto; max-width: 220px; object-fit: contain; border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 6px; background: var(--color-surface);">
             {% else %}
-                <span class="field-hint">No logo — the store name is shown as text.</span>
+                <span class="field-hint">{{ 'No logo — the store name is shown as text.'|trans }}</span>
             {% endif %}
             <input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/gif" style="max-width: 320px;">
         </div>
-        <p class="field-hint">PNG, JPG, WebP or GIF, up to 2 MB. A wide logo about 72 px tall looks best; it's shown 36 px high.</p>
+        <p class="field-hint">{{ 'PNG, JPG, WebP or GIF, up to 2 MB. A wide logo about 72 px tall looks best; it\'s shown 36 px high.'|trans }}</p>
         <label style="display: flex; align-items: center; gap: 8px;">
             <input type="checkbox" name="logo_show_name" value="1" style="width: auto;" {{ show_name_with_logo ? 'checked' }}>
-            Show the store name next to the logo
+            {{ 'Show the store name next to the logo'|trans }}
         </label>
 
-        <button type="submit" class="btn-primary">Save store settings</button>
+        <button type="submit" class="btn-primary">{{ 'Save store settings'|trans }}</button>
     </form>
     {% if store.logo_url %}
-        <form method="post" action="{{ path('admin.settings.submit') }}" data-no-ajax style="margin-top: 10px;" data-confirm="Remove the logo?">
+        <form method="post" action="{{ path('admin.settings.submit') }}" data-no-ajax style="margin-top: 10px;" data-confirm="{{ 'Remove the logo?'|trans }}">
             {{ csrf_field() }}
             <input type="hidden" name="action" value="remove_logo">
-            <button type="submit" class="btn-danger">Remove logo</button>
+            <button type="submit" class="btn-danger">{{ 'Remove logo'|trans }}</button>
         </form>
     {% endif %}
 </section>
 
 <section class="panel">
-    <h2>Inventory</h2>
+    <h2>{{ 'Inventory'|trans }}</h2>
     <form method="post" action="{{ path('admin.settings.submit') }}">
         {{ csrf_field() }}
         <input type="hidden" name="action" value="save_inventory">
-        <label>Low-stock threshold
+        <label>{{ 'Low-stock threshold'|trans }}
             <input type="number" name="low_stock_threshold" value="{{ low_stock_threshold }}" min="0" max="1000000" step="1" required>
         </label>
         <p class="field-hint">
-            Active variants with this many items or fewer are flagged as <strong>low stock</strong> in Admin → Products
-            (use 0 to flag only sold-out variants).
+            {{ 'Active variants with this many items or fewer are flagged as low stock in Admin → Products (use 0 to flag only sold-out variants).'|trans }}
         </p>
-        <button type="submit" class="btn-primary">Save inventory settings</button>
+        <button type="submit" class="btn-primary">{{ 'Save inventory settings'|trans }}</button>
     </form>
 </section>
 
 <section class="panel">
-    <h2>Tax</h2>
+    <h2>{{ 'Tax'|trans }}</h2>
     <form method="post" action="{{ path('admin.settings.submit') }}">
         {{ csrf_field() }}
         <input type="hidden" name="action" value="save_tax">
         <label style="display: flex; align-items: center; gap: 8px;">
             <input type="checkbox" name="tax_enabled" value="1" style="width: auto;" {{ tax.enabled ? 'checked' }}>
-            Charge VAT
+            {{ 'Charge VAT'|trans }}
         </label>
         <div class="form-row">
-            <label>Default VAT rate (%)
+            <label>{{ 'Default VAT rate (%)'|trans }}
                 <input type="number" name="tax_rate" value="{{ tax.rate }}" min="0" max="100" step="0.01" required>
             </label>
-            <label>Rates per country (optional)
+            <label>{{ 'Rates per country (optional)'|trans }}
                 <input type="text" name="tax_country_rates" value="{{ tax.country_rates }}" maxlength="2000" placeholder="PT=23, ES=21, Germany=19">
             </label>
         </div>
         <p class="field-hint">
-            Countries are matched against what the customer types in the Country field (not case-sensitive), like shipping
-            countries — list both the code and the name if customers might type either. Other countries use the default rate.
+            {{ 'Countries are matched against what the customer types in the Country field (not case-sensitive), like shipping countries — list both the code and the name if customers might type either. Other countries use the default rate.'|trans }}
         </p>
         <label style="display: flex; align-items: center; gap: 8px;">
             <input type="checkbox" name="tax_prices_include" value="1" style="width: auto;" {{ tax.prices_include ? 'checked' }}>
-            Prices include VAT
+            {{ 'Prices include VAT'|trans }}
         </label>
         <p class="field-hint">
-            Ticked: product prices already contain VAT — totals don't change and the VAT part is shown on orders.
-            Unticked: VAT is added on top of the prices at checkout.
+            {{ 'Ticked: product prices already contain VAT — totals don\'t change and the VAT part is shown on orders. Unticked: VAT is added on top of the prices at checkout.'|trans }}
         </p>
         <label style="display: flex; align-items: center; gap: 8px;">
             <input type="checkbox" name="tax_shipping" value="1" style="width: auto;" {{ tax.shipping ? 'checked' }}>
-            Charge VAT on shipping
+            {{ 'Charge VAT on shipping'|trans }}
         </label>
-        <p class="field-hint">Discount codes come off the subtotal before VAT is worked out. Orders keep the rate they were placed with.</p>
-        <button type="submit" class="btn-primary">Save tax settings</button>
+        <p class="field-hint">{{ 'Discount codes come off the subtotal before VAT is worked out. Orders keep the rate they were placed with.'|trans }}</p>
+        <button type="submit" class="btn-primary">{{ 'Save tax settings'|trans }}</button>
     </form>
 </section>
 
 <section class="panel">
-    <h2>Themes</h2>
-    <p class="field-hint" style="margin-bottom: 18px;">The theme changes how the shop (and this admin panel) looks. Your products and orders aren't affected.</p>
+    <h2>{{ 'Themes'|trans }}</h2>
+    <p class="field-hint" style="margin-bottom: 18px;">{{ 'The theme changes how the shop (and this admin panel) looks. Your products and orders aren\'t affected.'|trans }}</p>
 
     <div class="product-grid">
         {% for t in themes %}
@@ -113,13 +119,13 @@
             <div class="product-card" {% if active %}style="outline: 3px solid var(--color-accent); outline-offset: 2px;"{% endif %}>
                 <div class="product-card-image">
                     {% if t.screenshot %}
-                        <img src="{{ t.screenshot }}" alt="{{ t.name }} preview" loading="lazy">
+                        <img src="{{ t.screenshot }}" alt="{{ '{name} preview'|trans({name: t.name}) }}" loading="lazy">
                     {% else %}
-                        <div class="image-placeholder">No preview</div>
+                        <div class="image-placeholder">{{ 'No preview'|trans }}</div>
                     {% endif %}
                 </div>
                 <div class="product-card-body">
-                    <span class="category-badge">{{ t.builtin ? 'Built-in' : 'Uploaded' }}</span>
+                    <span class="category-badge">{{ t.builtin ? 'Built-in'|trans : 'Uploaded'|trans }}</span>
                     <h3>{{ t.name }}</h3>
                     {% if t.description %}<p class="short-desc">{{ t.description }}</p>{% endif %}
                     {% if not t.builtin and (t.author or t.version) %}
@@ -128,21 +134,21 @@
 
                     <div class="table-actions" style="margin-top: 12px;">
                         {% if active %}
-                            <span class="status-badge" data-status="approved">Active</span>
+                            <span class="status-badge" data-status="approved">{{ 'Active'|trans }}</span>
                         {% else %}
                             <form method="post" action="{{ path('admin.settings.submit') }}" class="inline-form" data-no-ajax>
                                 {{ csrf_field() }}
                                 <input type="hidden" name="action" value="activate_theme">
                                 <input type="hidden" name="theme" value="{{ t.slug }}">
-                                <button type="submit" class="btn-secondary">Use this theme</button>
+                                <button type="submit" class="btn-secondary">{{ 'Use this theme'|trans }}</button>
                             </form>
                             {% if not t.builtin %}
                                 <form method="post" action="{{ path('admin.settings.submit') }}" class="inline-form" data-no-ajax
-                                      data-confirm="Delete the &quot;{{ t.name }}&quot; theme?">
+                                      data-confirm="{{ 'Delete the "{name}" theme?'|trans({name: t.name}) }}">
                                     {{ csrf_field() }}
                                     <input type="hidden" name="action" value="delete_theme">
                                     <input type="hidden" name="theme" value="{{ t.slug }}">
-                                    <button type="submit" class="icon-btn icon-btn-danger" title="Delete theme">🗑</button>
+                                    <button type="submit" class="icon-btn icon-btn-danger" title="{{ 'Delete theme'|trans }}">🗑</button>
                                 </form>
                             {% endif %}
                         {% endif %}
@@ -154,30 +160,28 @@
 </section>
 
 <section class="panel">
-    <h2>Upload your own theme</h2>
+    <h2>{{ 'Upload your own theme'|trans }}</h2>
     <p>
-        Start from the blank theme: it contains the folder structure, a commented stylesheet,
-        the default Twig templates and a README explaining every file.
+        {{ 'Start from the blank theme: it contains the folder structure, a commented stylesheet, the default Twig templates and a README explaining every file.'|trans }}
     </p>
-    <p><a href="{{ path('admin.settings.blank_theme') }}" class="btn-secondary" data-no-ajax>⬇ Download blank theme (.zip)</a></p>
+    <p><a href="{{ path('admin.settings.blank_theme') }}" class="btn-secondary" data-no-ajax>⬇ {{ 'Download blank theme (.zip)'|trans }}</a></p>
 
     <form method="post" action="{{ path('admin.settings.submit') }}" enctype="multipart/form-data" data-no-ajax>
         {{ csrf_field() }}
         <input type="hidden" name="action" value="upload_theme">
-        <label>Theme .zip file
+        <label>{{ 'Theme .zip file'|trans }}
             <input type="file" name="theme_zip" accept=".zip,application/zip" required>
         </label>
         <label style="display: flex; align-items: center; gap: 8px;">
-            <input type="checkbox" name="activate" value="1" style="width: auto;" checked> Use it right away
+            <input type="checkbox" name="activate" value="1" style="width: auto;" checked> {{ 'Use it right away'|trans }}
         </label>
         <label style="display: flex; align-items: center; gap: 8px;">
-            <input type="checkbox" name="replace" value="1" style="width: auto;"> Replace a theme with the same name
+            <input type="checkbox" name="replace" value="1" style="width: auto;"> {{ 'Replace a theme with the same name'|trans }}
         </label>
         <p class="field-hint">
-            Max 20 MB. Allowed: Twig templates in layout/, CSS, images, fonts and theme.json — never PHP.
-            Templates run in a sandbox and are checked on upload.
+            {{ 'Max 20 MB. Allowed: Twig templates in layout/, CSS, images, fonts and theme.json — never PHP. Templates run in a sandbox and are checked on upload.'|trans }}
         </p>
-        <button type="submit" class="btn-primary">Upload theme</button>
+        <button type="submit" class="btn-primary">{{ 'Upload theme'|trans }}</button>
     </form>
 </section>
 {% endblock %}

@@ -7,6 +7,7 @@ namespace App\Controller\Admin;
 use App\Http\CsvDownload;
 use App\Http\Responder;
 use App\Http\Session;
+use App\I18n\Translator;
 use App\Repository\ProductRepository;
 use App\Service\CsvExport;
 use App\Service\ProductCsvImporter;
@@ -42,6 +43,7 @@ final class ProductCsvController
         private readonly StoreSettings $store,
         private readonly Paths $paths,
         private readonly LoggerInterface $logger,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -73,12 +75,12 @@ final class ProductCsvController
                 'preview' => $this->preview($request, $body),
                 'apply'   => $this->apply($request, $body),
                 'cancel'  => $this->cancel(),
-                default   => throw new RuntimeException('Unknown action.'),
+                default   => throw new RuntimeException($this->translator->trans('Unknown action.')),
             };
         } catch (PDOException $e) { // (a RuntimeException too, but not a message for the admin)
             $this->logger->warning('Product CSV import failed', ['exception' => $e]);
 
-            return $this->page($request, ['A database error occurred — nothing was changed. Please try again.'], 500);
+            return $this->page($request, [$this->translator->trans('A database error occurred — nothing was changed. Please try again.')], 500);
         } catch (RuntimeException $e) {
             return $this->page($request, [$e->getMessage()], 422);
         }
@@ -89,17 +91,17 @@ final class ProductCsvController
     {
         $file = $request->getUploadedFiles()['csv'] ?? null;
         if (!$file instanceof UploadedFileInterface || $file->getError() === UPLOAD_ERR_NO_FILE) {
-            throw new RuntimeException('Choose a CSV file to import.');
+            throw new RuntimeException($this->translator->trans('Choose a CSV file to import.'));
         }
         if ($file->getError() !== UPLOAD_ERR_OK) {
-            throw new RuntimeException('The upload failed' . (in_array($file->getError(), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true) ? ' — the file is too large.' : '.'));
+            throw new RuntimeException($this->translator->trans(in_array($file->getError(), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true) ? 'The upload failed — the file is too large.' : 'The upload failed.'));
         }
         if ((int) $file->getSize() > ProductCsvImporter::MAX_BYTES) {
-            throw new RuntimeException('The file is too large (max ' . (ProductCsvImporter::MAX_BYTES >> 20) . ' MB).');
+            throw new RuntimeException($this->translator->trans('The file is too large (max {mb} MB).', ['mb' => ProductCsvImporter::MAX_BYTES >> 20]));
         }
         $name = (string) $file->getClientFilename();
         if ($name !== '' && !preg_match('/\.(csv|txt)$/i', $name)) {
-            throw new RuntimeException('Upload a .csv file (save the spreadsheet as "CSV UTF-8").');
+            throw new RuntimeException($this->translator->trans('Upload a .csv file (save the spreadsheet as "CSV UTF-8").'));
         }
 
         $text = (string) $file->getStream();
@@ -112,7 +114,7 @@ final class ProductCsvController
         $dir = $this->dir();
         $token = bin2hex(random_bytes(16));
         if (file_put_contents($dir . '/' . $token . '.csv', $text) === false) {
-            throw new RuntimeException('Could not store the upload in var/tmp — check that the web server can write there.');
+            throw new RuntimeException($this->translator->trans('Could not store the upload in var/tmp — check that the web server can write there.'));
         }
         $this->session->set(self::SESSION_KEY, [
             'token'             => $token,
@@ -128,7 +130,7 @@ final class ProductCsvController
     {
         $pending = $this->pending();
         if ($pending === null || !hash_equals($pending['token'], (string) ($body['token'] ?? ''))) {
-            throw new RuntimeException('That import has expired or was already applied. Upload the file again.');
+            throw new RuntimeException($this->translator->trans('That import has expired or was already applied. Upload the file again.'));
         }
 
         $text = (string) file_get_contents($this->dir() . '/' . $pending['token'] . '.csv');
@@ -137,20 +139,22 @@ final class ProductCsvController
             $report = $this->importer->run($rows, (bool) $pending['create_categories'], true);
         } catch (PDOException $e) {
             $this->logger->warning('Product CSV import failed', ['exception' => $e]);
-            throw new RuntimeException('The import was rolled back because of a database error (nothing was changed). Check the file and try again.');
+            throw new RuntimeException($this->translator->trans('The import was rolled back because of a database error (nothing was changed). Check the file and try again.'));
         }
         $this->removeStoredFile();
 
         $c = $report['counts'];
-        $message = sprintf(
-            'Import applied: %d product(s) created, %d variant(s) added, %d updated, %d unchanged',
-            $c['create_product'],
-            $c['create_variant'],
-            $c['update'],
-            $c['unchanged']
-        );
-        $message .= $c['new_categories'] > 0 ? ", {$c['new_categories']} new categor" . ($c['new_categories'] === 1 ? 'y' : 'ies') : '';
-        $message .= $c['error'] > 0 ? "; {$c['error']} row(s) with errors were skipped." : '.';
+        $parts = [
+            $this->translator->transPlural('{count} product created', $c['create_product']),
+            $this->translator->transPlural('{count} variant added', $c['create_variant']),
+            $this->translator->transPlural('{count} updated', $c['update']),
+            $this->translator->transPlural('{count} unchanged', $c['unchanged']),
+        ];
+        if ($c['new_categories'] > 0) {
+            $parts[] = $this->translator->transPlural('{count} new category', $c['new_categories']);
+        }
+        $message = $this->translator->trans('Import applied: {summary}', ['summary' => implode(', ', $parts)]);
+        $message .= $c['error'] > 0 ? '; ' . $this->translator->transPlural('{count} row with errors was skipped.', $c['error']) : '.';
         $this->session->flash($c['error'] > 0 ? 'error' : 'success', $message);
         $this->logger->info('Product CSV import applied', ['counts' => $c, 'file' => $pending['filename']]);
 
@@ -208,7 +212,7 @@ final class ProductCsvController
     {
         $dir = $this->paths->var('tmp/imports');
         if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
-            throw new RuntimeException('Could not create var/tmp/imports — check that the web server can write to var/.');
+            throw new RuntimeException($this->translator->trans('Could not create var/tmp/imports — check that the web server can write to var/.'));
         }
         foreach (glob($dir . '/*.csv') ?: [] as $old) {
             if (filemtime($old) < time() - self::STALE_SECONDS) {

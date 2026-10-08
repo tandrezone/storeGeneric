@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ html_lang() }}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin — Login</title>
+<title>{{ 'Admin — {page}'|trans({page: 'Login'|trans}) }}</title>
 <link rel="icon" href="{{ asset('images/icons/favicon.ico') }}" sizes="any">
 <link rel="icon" type="image/svg+xml" href="{{ asset('images/icons/favicon.svg') }}">
 <link rel="apple-touch-icon" href="{{ asset('images/icons/apple-touch-icon.png') }}">
@@ -17,7 +17,7 @@
 <main class="container login-page">
     <div class="panel login-card">
         <span class="hero-eyebrow">{{ store.name }}</span>
-        <h1 style="margin: 10px 0 20px; font-size: 1.5rem;">Admin login</h1>
+        <h1 style="margin: 10px 0 20px; font-size: 1.5rem;">{{ 'Admin login'|trans }}</h1>
 
         {% for flash in flashes() %}
             <p class="msg {{ flash.type == 'error' ? 'error' : '' }}">{{ flash.message }}</p>
@@ -26,9 +26,9 @@
 
         <form method="post" action="{{ path('admin.login.submit') }}">
             {{ csrf_field() }}
-            <label>Username <input type="text" name="username" value="{{ username }}" required autofocus></label>
-            <label>Password <input type="password" name="password" required></label>
-            <button type="submit" class="btn-primary">Log in</button>
+            <label>{{ 'Username'|trans }} <input type="text" name="username" value="{{ username }}" required autofocus></label>
+            <label>{{ 'Password'|trans }} <input type="password" name="password" required></label>
+            <button type="submit" class="btn-primary">{{ 'Log in'|trans }}</button>
         </form>
     </div>
 </main>

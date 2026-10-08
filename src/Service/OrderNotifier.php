@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Service;
 
 use App\Http\Router;
+use App\I18n\Translator;
 use App\Infrastructure\Mailer;
 use App\Payment\PaymentRegistry;
 use App\Repository\OrderRepository;
@@ -16,6 +17,8 @@ use Throwable;
 /**
  * Order emails (templates/email/<name>.html.twig + .txt.twig). Sending
  * never throws: a failure is logged and checkout / webhooks carry on.
+ * Customer emails are written in the order's language (orders.locale, else
+ * the store default); admin alerts in the store default language.
  */
 final class OrderNotifier
 {
@@ -29,6 +32,7 @@ final class OrderNotifier
         private readonly StoreSettings $store,
         private readonly Config $config,
         private readonly LoggerInterface $logger,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -41,11 +45,13 @@ final class OrderNotifier
             return; // online orders are confirmed (and the admin alerted) once paid
         }
 
-        $instructions = $method->instructions($order);
-        $this->toCustomer($order, 'order_confirmation', 'Order ' . $order['order_number'] . ' received', [
-            'instructions_html' => $instructions,
-            'instructions_text' => $this->plainText($instructions),
-        ]);
+        $this->inOrderLocale($order, function () use ($order, $method): void {
+            $instructions = $method->instructions($order);
+            $this->toCustomer($order, 'order_confirmation', $this->subject('Order {number} received', $order), [
+                'instructions_html' => $instructions,
+                'instructions_text' => $this->plainText($instructions),
+            ]);
+        });
         $this->toAdmin($order);
     }
 
@@ -63,12 +69,12 @@ final class OrderNotifier
         }
 
         if ((float) $order['total'] > 0.0 && $this->payments->get((string) $order['payment_method'])?->isOffline()) {
-            $this->toCustomer($order, 'payment_received', 'Payment received for order ' . $order['order_number']);
+            $this->inOrderLocale($order, fn () => $this->toCustomer($order, 'payment_received', $this->subject('Payment received for order {number}', $order)));
 
             return;
         }
 
-        $this->toCustomer($order, 'order_confirmation', 'Order ' . $order['order_number'] . ' confirmed', ['instructions_html' => '', 'instructions_text' => '']);
+        $this->inOrderLocale($order, fn () => $this->toCustomer($order, 'order_confirmation', $this->subject('Order {number} confirmed', $order), ['instructions_html' => '', 'instructions_text' => '']));
         $this->toAdmin($order);
     }
 
@@ -76,7 +82,7 @@ final class OrderNotifier
     {
         $order = $this->orders->find($orderId);
         if ($order !== null) {
-            $this->toCustomer($order, 'order_shipped', 'Order ' . $order['order_number'] . ' has shipped');
+            $this->inOrderLocale($order, fn () => $this->toCustomer($order, 'order_shipped', $this->subject('Order {number} has shipped', $order)));
         }
     }
 
@@ -84,7 +90,7 @@ final class OrderNotifier
     {
         $order = $this->orders->find($orderId);
         if ($order !== null) {
-            $this->toCustomer($order, 'order_cancelled', 'Order ' . $order['order_number'] . ' cancelled', ['refunded' => false]);
+            $this->inOrderLocale($order, fn () => $this->toCustomer($order, 'order_cancelled', $this->subject('Order {number} cancelled', $order), ['refunded' => false]));
         }
     }
 
@@ -92,7 +98,7 @@ final class OrderNotifier
     {
         $order = $this->orders->find($orderId);
         if ($order !== null) {
-            $this->toCustomer($order, 'order_cancelled', 'Order ' . $order['order_number'] . ' refunded', ['refunded' => true]);
+            $this->inOrderLocale($order, fn () => $this->toCustomer($order, 'order_cancelled', $this->subject('Order {number} refunded', $order), ['refunded' => true]));
         }
     }
 
@@ -113,11 +119,27 @@ final class OrderNotifier
     private function toAdmin(array $order): void
     {
         $to = $this->config->get('ADMIN_NOTIFY_EMAIL', $this->store->email());
-        $this->send($to, 'admin_new_order', 'New order ' . $order['order_number'], [
+        $this->translator->withLocale($this->store->language(), fn () => $this->send($to, 'admin_new_order', $this->subject('New order {number}', $order), [
             'order'         => $order,
             'payment_label' => $this->payments->label((string) $order['payment_method']),
             'admin_url'     => $this->links->baseUrl() . $this->router->url('admin.order', ['id' => (int) $order['id']]),
-        ], (string) $order['email']);
+        ], (string) $order['email']));
+    }
+
+    /**
+     * Runs $send with the order's language active (store default when the order has none).
+     *
+     * @param array<string, mixed> $order
+     */
+    private function inOrderLocale(array $order, callable $send): void
+    {
+        $this->translator->withLocale(($order['locale'] ?? null) ?: $this->store->language(), $send);
+    }
+
+    /** @param array<string, mixed> $order */
+    private function subject(string $message, array $order): string
+    {
+        return $this->translator->trans($message, ['number' => (string) $order['order_number']]);
     }
 
     /** Payment instructions (HTML from PaymentMethod::instructions()) as plain text. */

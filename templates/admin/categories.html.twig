@@ -1,34 +1,34 @@
 {% extends 'layout/admin.html.twig' %}
 
-{% set title = 'Admin — Categories' %}
+{% set title = 'Admin — Categories'|trans %}
 {% set active_nav = 'categories' %}
 
 {% block content %}
-<h1>Categories</h1>
+<h1>{{ 'Categories'|trans }}</h1>
 
 {% for error in errors|default([]) %}<p class="msg error">{{ error }}</p>{% endfor %}
 
 {% set new_input = input is not null and input.id|default(0) == 0 ? input : null %}
 <div class="panel">
-    <h2>Add category</h2>
+    <h2>{{ 'Add category'|trans }}</h2>
     <form method="post" action="{{ path('admin.categories.submit') }}" enctype="multipart/form-data" class="category-edit-form">
         {{ csrf_field() }}
         <input type="hidden" name="action" value="create">
-        <label>Name <input type="text" name="name" value="{{ new_input.name|default('') }}" maxlength="{{ limits.name }}" required></label>
-        <label>Description (optional)
+        <label>{{ 'Name'|trans }} <input type="text" name="name" value="{{ new_input.name|default('') }}" maxlength="{{ limits.name }}" required></label>
+        <label>{{ 'Description (optional)'|trans }}
             <textarea name="description" maxlength="{{ limits.description }}" rows="3">{{ new_input.description|default('') }}</textarea>
         </label>
-        <label>Image (optional)
+        <label>{{ 'Image (optional)'|trans }}
             <input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif">
         </label>
-        <p class="field-hint">Shown at the top of the category on the storefront. PNG, JPG, WebP or GIF, up to 8 MB.</p>
-        <div><button type="submit" class="btn-primary">Add category</button></div>
+        <p class="field-hint">{{ 'Shown at the top of the category on the storefront. PNG, JPG, WebP or GIF, up to 8 MB.'|trans }}</p>
+        <div><button type="submit" class="btn-primary">{{ 'Add category'|trans }}</button></div>
     </form>
 </div>
 
-<h2>Existing categories</h2>
+<h2>{{ 'Existing categories'|trans }}</h2>
 <table class="cart-table admin-table">
-    <thead><tr><th></th><th>Name</th><th>Slug</th><th>Products</th><th>Actions</th></tr></thead>
+    <thead><tr><th></th><th>{{ 'Name'|trans }}</th><th>{{ 'Slug'|trans }}</th><th>{{ 'Products'|trans }}</th><th>{{ 'Actions'|trans }}</th></tr></thead>
     <tbody>
         {% for category in categories %}
             {% set ci = input is not null and input.id|default(0) == category.id ? input : null %}
@@ -48,14 +48,14 @@
                 <td>{{ category.product_count }}</td>
                 <td>
                     <div class="table-actions">
-                        <button type="button" class="btn-secondary btn-small" data-toggle="category-edit-{{ category.id }}" aria-expanded="{{ ci ? 'true' : 'false' }}">Edit</button>
+                        <button type="button" class="btn-secondary btn-small" data-toggle="category-edit-{{ category.id }}" aria-expanded="{{ ci ? 'true' : 'false' }}">{{ 'Edit'|trans }}</button>
                         {% if admin_can('manager') %}
                             <form method="post" action="{{ path('admin.categories.submit') }}" class="inline-form"
-                                  data-confirm="Delete &quot;{{ category.name }}&quot;? This cannot be undone.">
+                                  data-confirm="{{ 'Delete "{name}"? This cannot be undone.'|trans({name: category.name}) }}">
                                 {{ csrf_field() }}
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="id" value="{{ category.id }}">
-                                <button type="submit" class="icon-btn icon-btn-danger" title="Delete category">🗑</button>
+                                <button type="submit" class="icon-btn icon-btn-danger" title="{{ 'Delete category'|trans }}">🗑</button>
                             </form>
                         {% endif %}
                     </div>
@@ -67,27 +67,27 @@
                         {{ csrf_field() }}
                         <input type="hidden" name="action" value="update">
                         <input type="hidden" name="id" value="{{ category.id }}">
-                        <label>Name
+                        <label>{{ 'Name'|trans }}
                             <input type="text" name="name" value="{{ ci ? ci.name|default('') : category.name }}" maxlength="{{ limits.name }}" required>
                         </label>
-                        <label>Description
+                        <label>{{ 'Description'|trans }}
                             <textarea name="description" maxlength="{{ limits.description }}" rows="3">{{ ci ? ci.description|default('') : category.description }}</textarea>
                         </label>
                         <div class="category-image-row">
                             {% if category.image_path %}
-                                <img src="/{{ category.image_path }}" alt="Current image">
-                                <label class="inline-check"><input type="checkbox" name="remove_image" value="1"> Remove image</label>
+                                <img src="/{{ category.image_path }}" alt="{{ 'Current image'|trans }}">
+                                <label class="inline-check"><input type="checkbox" name="remove_image" value="1"> {{ 'Remove image'|trans }}</label>
                             {% endif %}
-                            <label>{{ category.image_path ? 'Replace image' : 'Image' }}
+                            <label>{{ category.image_path ? 'Replace image'|trans : 'Image'|trans }}
                                 <input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif">
                             </label>
                         </div>
-                        <div><button type="submit" class="btn-primary">Save category</button></div>
+                        <div><button type="submit" class="btn-primary">{{ 'Save category'|trans }}</button></div>
                     </form>
                 </td>
             </tr>
         {% else %}
-            <tr><td colspan="5" style="color: var(--color-muted);">No categories yet.</td></tr>
+            <tr><td colspan="5" style="color: var(--color-muted);">{{ 'No categories yet.'|trans }}</td></tr>
         {% endfor %}
     </tbody>
 </table>

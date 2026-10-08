@@ -6,6 +6,7 @@ namespace App\Controller\Admin;
 
 use App\Http\Responder;
 use App\Http\Session;
+use App\I18n\Translator;
 use App\Repository\CategoryRepository;
 use App\Service\ImageUploader;
 use PDOException;
@@ -28,6 +29,7 @@ final class CategoryController
         private readonly CategoryRepository $categories,
         private readonly ImageUploader $uploader,
         private readonly LoggerInterface $logger,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -55,18 +57,18 @@ final class CategoryController
                     if ($imagePath !== null) {
                         $this->categories->updateDetails($newId, $name, $description !== '' ? $description : null, $imagePath);
                     }
-                    $this->session->flash('success', "Category \"{$name}\" added.");
+                    $this->session->flash('success', $this->translator->trans('Category "{name}" added.', ['name' => $name]));
                     break;
 
                 case 'update':
                     $category = $id > 0 ? $this->categories->findById($id) : null;
                     if ($category === null) {
-                        throw new RuntimeException('Category not found.');
+                        throw new RuntimeException($this->translator->trans('Category not found.'));
                     }
                     $editId = $id;
                     $this->validate($name, $description);
                     $this->update($category, $name, $description, $image, !empty($body['remove_image']));
-                    $this->session->flash('success', 'Category updated.');
+                    $this->session->flash('success', $this->translator->trans('Category updated.'));
                     break;
 
                 case 'delete':
@@ -76,9 +78,9 @@ final class CategoryController
                         if ($category !== null && $category['image_path'] !== null) {
                             $this->uploader->delete((string) $category['image_path'], self::IMAGE_DIR);
                         }
-                        $this->session->flash('success', 'Category deleted.');
+                        $this->session->flash('success', $this->translator->trans('Category deleted.'));
                     } catch (PDOException) {
-                        $this->session->flash('error', 'Could not delete: it still has products assigned to it.');
+                        $this->session->flash('error', $this->translator->trans('Could not delete: it still has products assigned to it.'));
                     }
                     break;
             }
@@ -109,7 +111,7 @@ final class CategoryController
                 $this->uploader->delete($imagePath, self::IMAGE_DIR);
             }
             $this->logger->warning('Category update failed', ['exception' => $e]);
-            throw new RuntimeException('Could not save the category because of a database error. Please try again.');
+            throw new RuntimeException($this->translator->trans('Could not save the category because of a database error. Please try again.'));
         }
 
         if ($oldImage !== null && $oldImage !== $imagePath) {
@@ -120,10 +122,10 @@ final class CategoryController
     private function validate(string $name, string $description): void
     {
         if ($name === '' || mb_strlen($name) > self::MAX_NAME) {
-            throw new RuntimeException('Please provide a name (max ' . self::MAX_NAME . ' characters).');
+            throw new RuntimeException($this->translator->trans('Please provide a name (max {max} characters).', ['max' => self::MAX_NAME]));
         }
         if (mb_strlen($description) > self::MAX_DESCRIPTION) {
-            throw new RuntimeException('The description can be at most ' . self::MAX_DESCRIPTION . ' characters.');
+            throw new RuntimeException($this->translator->trans('The description can be at most {max} characters.', ['max' => self::MAX_DESCRIPTION]));
         }
     }
 

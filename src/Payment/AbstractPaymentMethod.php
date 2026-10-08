@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Payment;
 
 use App\Http\Router;
+use App\I18n\Translator;
 use App\Service\OrderLinks;
 use App\Support\Config;
 use App\Support\Money;
@@ -12,6 +13,9 @@ use App\Support\Money;
 /**
  * Shared plumbing: reads PAYMENT_<ID>_ENABLED and the method's required
  * settings from the configuration, and builds absolute callback URLs.
+ * label(), description() and instructions() are customer-facing: translate
+ * them with $this->translator (active locale — OrderNotifier switches it to
+ * the order's language for emails).
  */
 abstract class AbstractPaymentMethod implements PaymentMethod
 {
@@ -19,6 +23,7 @@ abstract class AbstractPaymentMethod implements PaymentMethod
         protected readonly Config $config,
         protected readonly Router $router,
         protected readonly OrderLinks $links,
+        protected readonly Translator $translator,
     ) {
     }
 

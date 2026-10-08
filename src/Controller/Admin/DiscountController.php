@@ -6,6 +6,7 @@ namespace App\Controller\Admin;
 
 use App\Http\Responder;
 use App\Http\Session;
+use App\I18n\Translator;
 use App\Repository\CouponRepository;
 use App\Service\CouponService;
 use Psr\Http\Message\ResponseInterface;
@@ -23,6 +24,7 @@ final class DiscountController
         private readonly Session $session,
         private readonly CouponRepository $coupons,
         private readonly CouponService $service,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -44,26 +46,26 @@ final class DiscountController
             }
             if ($action === 'create') {
                 $this->coupons->create($data);
-                $this->session->flash('success', "Discount code {$data['code']} added.");
+                $this->session->flash('success', $this->translator->trans('Discount code {code} added.', ['code' => $data['code']]));
             } else {
                 $existing = $this->coupons->find($id);
                 if ($existing !== null && $existing['code'] !== $data['code'] && $this->coupons->orderCount((string) $existing['code']) > 0) {
                     return $this->page($request, $id, $body, [
-                        "{$existing['code']} has been used on orders, so its code can't be renamed. Deactivate it and add a new one.",
+                        $this->translator->trans('{code} has been used on orders, so its code can\'t be renamed. Deactivate it and add a new one.', ['code' => $existing['code']]),
                     ], 422);
                 }
                 $this->coupons->update($id, $data);
-                $this->session->flash('success', "Discount code {$data['code']} updated.");
+                $this->session->flash('success', $this->translator->trans('Discount code {code} updated.', ['code' => $data['code']]));
             }
         } elseif ($action === 'toggle' && ($coupon = $this->coupons->find($id)) !== null) {
             $this->coupons->setActive($id, !$coupon['is_active']);
-            $this->session->flash('success', $coupon['is_active'] ? "{$coupon['code']} deactivated." : "{$coupon['code']} activated.");
+            $this->session->flash('success', $this->translator->trans($coupon['is_active'] ? '{code} deactivated.' : '{code} activated.', ['code' => $coupon['code']]));
         } elseif ($action === 'delete' && ($coupon = $this->coupons->find($id)) !== null) {
             if ($this->coupons->orderCount((string) $coupon['code']) > 0) {
-                $this->session->flash('error', "{$coupon['code']} has been used on orders and can't be deleted — deactivate it instead.");
+                $this->session->flash('error', $this->translator->trans('{code} has been used on orders and can\'t be deleted — deactivate it instead.', ['code' => $coupon['code']]));
             } else {
                 $this->coupons->delete($id);
-                $this->session->flash('success', "Discount code {$coupon['code']} deleted.");
+                $this->session->flash('success', $this->translator->trans('Discount code {code} deleted.', ['code' => $coupon['code']]));
             }
         }
 

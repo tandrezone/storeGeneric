@@ -1,10 +1,10 @@
 {% autoescape false %}
-Hi {{ order.ship_name }},
+{{ 'Hi {name},'|trans({name: order.ship_name}) }}
 
 {% if order.payment_status == 'paid' %}
-Thank you for your order! Your payment is confirmed and we're getting order {{ order.order_number }} ready.
+{{ 'Thank you for your order! Your payment is confirmed and we\'re getting order {number} ready.'|trans({number: order.order_number}) }}
 {% else %}
-Thank you for your order {{ order.order_number }}. Here's how to pay for it:
+{{ 'Thank you for your order {number}. Here\'s how to pay for it:'|trans({number: order.order_number}) }}
 {% endif %}
 {% if instructions_text %}
 
@@ -12,11 +12,11 @@ Thank you for your order {{ order.order_number }}. Here's how to pay for it:
 {% endif %}
 
 {{ include('email/_items.txt.twig') }}
-Payment method: {{ payment_label }}
+{{ 'Payment method'|trans }}: {{ payment_label }}
 
-Shipping to:
+{{ 'Shipping to'|trans }}:
 {{ include('email/_address.txt.twig') }}
-View your order: {{ order_url }}
+{{ 'View your order'|trans }}: {{ order_url }}
 
 {{ store_name }} — {{ store_email }}
 {% endautoescape %}

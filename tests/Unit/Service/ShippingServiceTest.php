@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Service;
 
+use App\I18n\Translator;
 use App\Infrastructure\Database;
 use App\Repository\ShippingMethodRepository;
 use App\Service\ShippingService;
@@ -17,7 +18,10 @@ final class ShippingServiceTest extends TestCase
     public function setUp(): void
     {
         // The repository is never queried by these methods (the connection is lazy).
-        $this->shipping = new ShippingService(new ShippingMethodRepository(new Database(Config::fromArray([]))));
+        $this->shipping = new ShippingService(
+            new ShippingMethodRepository(new Database(Config::fromArray([]))),
+            new Translator(dirname(__DIR__, 3) . '/translations'),
+        );
     }
 
     public function testFlatCost(): void

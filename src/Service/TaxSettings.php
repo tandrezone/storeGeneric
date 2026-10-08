@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\I18n\Translator;
 use App\Repository\SettingRepository;
 use RuntimeException;
 
@@ -18,8 +19,10 @@ use RuntimeException;
  */
 final class TaxSettings
 {
-    public function __construct(private readonly SettingRepository $settings)
-    {
+    public function __construct(
+        private readonly SettingRepository $settings,
+        private readonly Translator $translator,
+    ) {
     }
 
     public function enabled(): bool
@@ -87,11 +90,11 @@ final class TaxSettings
             $rate = '0';
         }
         if (!is_numeric($rate) || (float) $rate < 0 || (float) $rate > 100) {
-            throw new RuntimeException('The VAT rate must be a percentage between 0 and 100.');
+            throw new RuntimeException($this->translator->trans('The VAT rate must be a percentage between 0 and 100.'));
         }
         [$countries, $errors] = $this->parseCountryRates((string) ($input['tax_country_rates'] ?? ''));
         if ($errors !== []) {
-            throw new RuntimeException('Country rates must look like "PT=23, ES=21" (0-100). Not understood: ' . implode(', ', $errors) . '.');
+            throw new RuntimeException($this->translator->trans('Country rates must look like "PT=23, ES=21" (0-100). Not understood: {entries}.', ['entries' => implode(', ', $errors)]));
         }
 
         $this->settings->set('tax_enabled', !empty($input['tax_enabled']) ? '1' : '0');

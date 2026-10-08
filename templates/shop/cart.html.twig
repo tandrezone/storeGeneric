@@ -1,12 +1,12 @@
 {% extends 'layout/shop.html.twig' %}
 
-{% set title = 'Your Cart' %}
+{% set title = 'Your Cart'|trans %}
 
 {% block content %}
 <section class="cart-page">
-    <h1>Your Cart</h1>
+    <h1>{{ 'Your Cart'|trans }}</h1>
 
-    {% set notices = flashes()|map(f => f.message)|merge(removed is not empty ? ['No longer available and removed from your cart: ' ~ removed|join(', ') ~ '.'] : []) %}
+    {% set notices = flashes()|map(f => f.message)|merge(removed is not empty ? ['No longer available and removed from your cart: {products}.'|trans({products: removed|join(', ')})] : []) %}
     {% if notices is not empty %}
         <div class="form-errors">
             <ul>{% for notice in notices %}<li>{{ notice }}</li>{% endfor %}</ul>
@@ -14,16 +14,16 @@
     {% endif %}
 
     {% if items is empty %}
-        <p>Your cart is empty. <a href="{{ path('home') }}">Continue shopping</a>.</p>
+        <p>{{ 'Your cart is empty.'|trans }} <a href="{{ path('home') }}">{{ 'Continue shopping'|trans }}</a>.</p>
     {% else %}
-        <table class="cart-table" data-currency-symbol="{{ money_format.symbol }}" data-currency-before="{{ money_format.before ? '1' : '0' }}" data-currency-decimals="{{ money_format.decimals }}">
+        <table class="cart-table" data-currency-symbol="{{ money_format.symbol }}" data-currency-before="{{ money_format.before ? '1' : '0' }}" data-currency-decimals="{{ money_format.decimals }}" data-currency-decimal="{{ money_format.decimal }}" data-currency-group="{{ money_format.group }}">
             <thead>
                 <tr>
-                    <th>Product</th>
-                    <th>Pack</th>
-                    <th>Price</th>
-                    <th>Quantity</th>
-                    <th>Subtotal</th>
+                    <th>{{ 'Product'|trans }}</th>
+                    <th>{{ 'Pack'|trans }}</th>
+                    <th>{{ 'Price'|trans }}</th>
+                    <th>{{ 'Quantity'|trans }}</th>
+                    <th>{{ 'Subtotal'|trans }}</th>
                     <th></th>
                 </tr>
             </thead>
@@ -34,10 +34,10 @@
                         <td>{{ (item.label ~ ' ' ~ item.unit)|trim }}</td>
                         <td>{{ item.price|money }}</td>
                         <td>
-                            <input type="number" class="cart-qty-input" min="1" value="{{ item.quantity }}" data-variant-id="{{ item.variant_id }}" aria-label="Quantity of {{ item.product_name }}">
+                            <input type="number" class="cart-qty-input" min="1" value="{{ item.quantity }}" data-variant-id="{{ item.variant_id }}" aria-label="{{ 'Quantity of {name}'|trans({name: item.product_name}) }}">
                         </td>
                         <td class="line-subtotal">{{ (item.price * item.quantity)|money }}</td>
-                        <td><button type="button" class="cart-remove-btn" data-variant-id="{{ item.variant_id }}" aria-label="Remove {{ item.product_name }} from cart">Remove</button></td>
+                        <td><button type="button" class="cart-remove-btn" data-variant-id="{{ item.variant_id }}" aria-label="{{ 'Remove {name} from cart'|trans({name: item.product_name}) }}">{{ 'Remove'|trans }}</button></td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -45,8 +45,8 @@
 
         <div class="cart-summary">
             {# app.js rewrites #cart-total with the bare number, so the symbol stays outside the span. #}
-            <p class="cart-total">Total: {{ money_format.before ? money_format.symbol }}<span id="cart-total">{{ total|number_format(money_format.decimals) }}</span>{{ not money_format.before ? money_format.symbol }}</p>
-            <a href="{{ path('checkout') }}" class="btn-primary">Proceed to checkout</a>
+            <p class="cart-total">{{ 'Total'|trans }}: {{ money_format.before ? money_format.symbol }}<span id="cart-total">{{ total|number_format(money_format.decimals, money_format.decimal, money_format.group) }}</span>{{ not money_format.before ? money_format.symbol }}</p>
+            <a href="{{ path('checkout') }}" class="btn-primary">{{ 'Proceed to checkout'|trans }}</a>
         </div>
     {% endif %}
 </section>

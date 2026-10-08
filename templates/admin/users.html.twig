@@ -1,79 +1,79 @@
 {% extends 'layout/admin.html.twig' %}
 
-{% set title = 'Admin — Users' %}
+{% set title = 'Admin — {page}'|trans({page: 'Users'|trans}) %}
 {% set active_nav = 'users' %}
 
 {% block content %}
 {% set new_input = input is not null and (input.action ?? '') == 'create' ? input : {} %}
-<h1>Users</h1>
+<h1>{{ 'Users'|trans }}</h1>
 
 {% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
 
 <p class="field-hint">
-    <strong>Owner</strong> — everything, including users, settings and themes.
-    <strong>Manager</strong> — everything except users, settings and themes.
-    <strong>Staff</strong> — products, categories and orders; can't delete products or categories, no revenue figures.
+    <strong>{{ 'Owner'|trans }}</strong> — {{ 'everything, including users, settings and themes.'|trans }}
+    <strong>{{ 'Manager'|trans }}</strong> — {{ 'everything except users, settings and themes.'|trans }}
+    <strong>{{ 'Staff'|trans }}</strong> — {{ 'products, categories and orders; can\'t delete products or categories, no revenue figures.'|trans }}
 </p>
 
 <details class="panel" {{ new_input ? 'open' }}>
-    <summary class="panel-summary">Add user</summary>
+    <summary class="panel-summary">{{ 'Add user'|trans }}</summary>
     <form method="post" action="{{ path('admin.users.submit') }}" autocomplete="off">
         {{ csrf_field() }}
         <input type="hidden" name="action" value="create">
         <div class="form-row">
-            <label>Username
+            <label>{{ 'Username'|trans }}
                 <input type="text" name="username" value="{{ new_input.username ?? '' }}" required minlength="3" maxlength="60" pattern="[A-Za-z0-9._@\-]{3,60}">
             </label>
-            <label>Email (optional)
+            <label>{{ 'Email (optional)'|trans }}
                 <input type="email" name="email" value="{{ new_input.email ?? '' }}" maxlength="190">
             </label>
-            <label>Role
+            <label>{{ 'Role'|trans }}
                 <select name="role">
                     {% for role in roles %}
-                        <option value="{{ role }}" {{ (new_input.role ?? 'staff') == role ? 'selected' }}>{{ role|capitalize }}</option>
+                        <option value="{{ role }}" {{ (new_input.role ?? 'staff') == role ? 'selected' }}>{{ role|capitalize|trans }}</option>
                     {% endfor %}
                 </select>
             </label>
         </div>
         <div class="form-row">
-            <label>Password
+            <label>{{ 'Password'|trans }}
                 <input type="password" name="password" required minlength="{{ min_password }}" autocomplete="new-password">
             </label>
-            <label>Repeat password
+            <label>{{ 'Repeat password'|trans }}
                 <input type="password" name="password_confirm" required minlength="{{ min_password }}" autocomplete="new-password">
             </label>
         </div>
-        <p class="field-hint">At least {{ min_password }} characters.</p>
-        <button type="submit" class="btn-primary">Add user</button>
+        <p class="field-hint">{{ 'At least {min} characters.'|trans({min: min_password}) }}</p>
+        <button type="submit" class="btn-primary">{{ 'Add user'|trans }}</button>
     </form>
 </details>
 
 <table class="cart-table admin-table">
     <thead>
-        <tr><th>User</th><th>Role</th><th>Status</th><th>Last login</th><th>Actions</th></tr>
+        <tr><th>{{ 'User'|trans }}</th><th>{{ 'Role'|trans }}</th><th>{{ 'Status'|trans }}</th><th>{{ 'Last login'|trans }}</th><th>{{ 'Actions'|trans }}</th></tr>
     </thead>
     <tbody>
         {% for user in users %}
             {% set is_me = me and user.id == me.id %}
             <tr>
                 <td>
-                    <strong>{{ user.username }}</strong>{% if is_me %} <span class="field-hint">(you)</span>{% endif %}
+                    <strong>{{ user.username }}</strong>{% if is_me %} <span class="field-hint">{{ '(you)'|trans }}</span>{% endif %}
                     {% if user.email %}<br><span class="field-hint">{{ user.email }}</span>{% endif %}
                 </td>
-                <td><span class="status-badge" data-status="{{ user.role }}">{{ user.role }}</span></td>
-                <td><span class="status-badge" data-status="{{ user.active ? 'paid' : 'cancelled' }}">{{ user.active ? 'active' : 'inactive' }}</span></td>
-                <td class="field-hint">{{ user.last_login_at ?: 'never' }}</td>
+                <td><span class="status-badge" data-status="{{ user.role }}">{{ user.role|capitalize|trans }}</span></td>
+                <td><span class="status-badge" data-status="{{ user.active ? 'paid' : 'cancelled' }}">{{ user.active ? 'Active'|trans : 'Inactive'|trans }}</span></td>
+                <td class="field-hint">{{ user.last_login_at ?: 'never'|trans }}</td>
                 <td>
                     <div class="table-actions">
-                        <button type="button" class="btn-secondary" data-toggle="user-edit-{{ user.id }}" aria-expanded="false">Edit</button>
+                        <button type="button" class="btn-secondary" data-toggle="user-edit-{{ user.id }}" aria-expanded="false">{{ 'Edit'|trans }}</button>
                         {% if not is_me %}
                             <form method="post" action="{{ path('admin.users.submit') }}" class="inline-form"
-                                  {% if user.active %}data-confirm="Deactivate {{ user.username }}? They are logged out on their next request."{% endif %}>
+                                  {% if user.active %}data-confirm="{{ 'Deactivate {username}? They are logged out on their next request.'|trans({username: user.username}) }}"{% endif %}>
                                 {{ csrf_field() }}
                                 <input type="hidden" name="action" value="set_active">
                                 <input type="hidden" name="id" value="{{ user.id }}">
                                 <input type="hidden" name="active" value="{{ user.active ? '' : '1' }}">
-                                <button type="submit" class="{{ user.active ? 'btn-danger' : 'btn-secondary' }}">{{ user.active ? 'Deactivate' : 'Activate' }}</button>
+                                <button type="submit" class="{{ user.active ? 'btn-danger' : 'btn-secondary' }}">{{ user.active ? 'Deactivate'|trans : 'Activate'|trans }}</button>
                             </form>
                         {% endif %}
                     </div>
@@ -86,22 +86,22 @@
                         <input type="hidden" name="action" value="update">
                         <input type="hidden" name="id" value="{{ user.id }}">
                         <div class="form-row">
-                            <label>Email (optional)
+                            <label>{{ 'Email (optional)'|trans }}
                                 <input type="email" name="email" value="{{ user.email }}" maxlength="190">
                             </label>
-                            <label>Role
+                            <label>{{ 'Role'|trans }}
                                 <select name="role" {{ is_me ? 'disabled' }}>
                                     {% for role in roles %}
-                                        <option value="{{ role }}" {{ user.role == role ? 'selected' }}>{{ role|capitalize }}</option>
+                                        <option value="{{ role }}" {{ user.role == role ? 'selected' }}>{{ role|capitalize|trans }}</option>
                                     {% endfor %}
                                 </select>
                             </label>
                         </div>
                         {% if is_me %}
                             <input type="hidden" name="role" value="{{ user.role }}">
-                            <p class="field-hint">You can't change your own role.</p>
+                            <p class="field-hint">{{ 'You can\'t change your own role.'|trans }}</p>
                         {% endif %}
-                        <button type="submit" class="btn-primary">Save</button>
+                        <button type="submit" class="btn-primary">{{ 'Save'|trans }}</button>
                     </form>
                     {% if not is_me %}
                         <form method="post" action="{{ path('admin.users.submit') }}" autocomplete="off" style="margin-top: 16px;">
@@ -109,17 +109,17 @@
                             <input type="hidden" name="action" value="reset_password">
                             <input type="hidden" name="id" value="{{ user.id }}">
                             <div class="form-row">
-                                <label>New password
+                                <label>{{ 'New password'|trans }}
                                     <input type="password" name="password" required minlength="{{ min_password }}" autocomplete="new-password">
                                 </label>
-                                <label>Repeat new password
+                                <label>{{ 'Repeat new password'|trans }}
                                     <input type="password" name="password_confirm" required minlength="{{ min_password }}" autocomplete="new-password">
                                 </label>
                             </div>
-                            <button type="submit" class="btn-secondary">Reset password</button>
+                            <button type="submit" class="btn-secondary">{{ 'Reset password'|trans }}</button>
                         </form>
                     {% else %}
-                        <p class="field-hint">Change your own password in <a href="{{ path('admin.account') }}">My account</a>.</p>
+                        <p class="field-hint">{{ 'Change your own password in {link}.'|trans({link: '<a href="' ~ path('admin.account') ~ '">' ~ 'My account'|trans|e ~ '</a>'})|raw }}</p>
                     {% endif %}
                 </td>
             </tr>

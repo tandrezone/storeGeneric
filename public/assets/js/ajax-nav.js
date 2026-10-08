@@ -9,8 +9,8 @@
  *
  * Opt out per element with the `data-no-ajax` attribute (on the link/form or
  * any ancestor). Pages whose <body data-layout> differs from the current one
- * (e.g. storefront -> admin, admin -> login after a session expiry) fall back
- * to a normal full navigation.
+ * (e.g. storefront -> admin, admin -> login after a session expiry), or whose
+ * <html lang> differs (language switched), fall back to a normal full navigation.
  *
  * Accessibility: after a navigation the new page's <h1> (or <main>) gets
  * focus and its title is announced through a polite live region, so screen
@@ -27,6 +27,12 @@
 
     const LAYOUT = document.body.dataset.layout;
     if (!LAYOUT) return;
+
+    /** Translated text (i18n.js, loaded by the layout); the English text if it is missing. */
+    function __(key, params) {
+        if (window.StoreI18n) return window.StoreI18n.t(key, params);
+        return key.replace(/\{(\w+)\}/g, (m, name) => (params && name in params ? String(params[name]) : m));
+    }
 
     let getController = null;   // in-flight GET (abortable)
     let postInFlight = false;   // in-flight POST (never aborted, never doubled)
@@ -189,7 +195,9 @@
         const newMain = doc.querySelector('main');
         const curMain = document.querySelector('main');
 
-        if (!newMain || !curMain || doc.body.dataset.layout !== LAYOUT) {
+        // Another layout, or another language (header and footer would stay in the old one): full load.
+        if (!newMain || !curMain || doc.body.dataset.layout !== LAYOUT
+            || (doc.documentElement.lang || '') !== (document.documentElement.lang || '')) {
             window.location.assign(url);
             return false;
         }
@@ -254,7 +262,7 @@
             const type = res.headers.get('content-type') || '';
             if (!type.includes('text/html')) {
                 // JSON, file download, image… let the browser deal with it.
-                if (!res.ok) throw new Error('Request failed (' + res.status + ').');
+                if (!res.ok) throw new Error(__('Request failed ({status}).', { status: res.status }));
                 window.location.assign(res.url);
                 return;
             }
@@ -265,7 +273,7 @@
             if (!res.ok && !doc.querySelector('main')) {
                 // e.g. the CSRF check's plain-text 400 response.
                 const text = (doc.body && doc.body.textContent || '').trim();
-                throw new Error(text.slice(0, 300) || 'Request failed (' + res.status + ').');
+                throw new Error(text.slice(0, 300) || __('Request failed ({status}).', { status: res.status }));
             }
 
             // Follow server redirects (PRG, login bounce) in the address bar.
@@ -282,7 +290,7 @@
             }
         } catch (err) {
             if (err.name === 'AbortError') return;
-            toast(err.message || 'Network error — please try again.', 'error');
+            toast(err.message || __('Network error — please try again.'), 'error');
         } finally {
             if (isPost) postInFlight = false;
             if (getController === controller) getController = null;

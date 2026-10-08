@@ -323,6 +323,15 @@ form input:focus, form select:focus {
 .footer-nav a { color: var(--color-text); font-size: 0.95rem; font-weight: 600; transition: color 0.15s ease; }
 .footer-nav a:hover { color: var(--color-accent); }
 
+/* Language switcher (header: EN | PT, footer: English · Português) */
+.lang-switch { display: inline-flex; gap: 2px; font-size: 0.8rem; }
+.main-nav .lang-switch a { padding: 2px 5px; border-radius: 4px; font-weight: 600; }
+.lang-switch a.active,
+.footer-lang a.active { color: var(--color-text); text-decoration: underline; text-underline-offset: 3px; }
+.footer-lang { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.footer-lang a { color: var(--color-muted); }
+.footer-lang a:hover { color: var(--color-accent); }
+
 /* Static content pages: about / info / support / terms */
 .content-page { max-width: 720px; }
 .content-page .page-subtitle { color: var(--color-muted); margin: 8px 0 0; }

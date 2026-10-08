@@ -1,11 +1,11 @@
 {% extends 'layout/shop.html.twig' %}
 
-{% set title = 'Sign in' %}
+{% set title = 'Sign in'|trans %}
 {% set robots = 'noindex, nofollow' %}
 
 {% block content %}
 <section class="account-page account-auth-page">
-    <h1>Sign in</h1>
+    <h1>{{ 'Sign in'|trans }}</h1>
     {{ include('shop/account/_flashes.html.twig') }}
 
     {# data-no-ajax: signing in changes the header and the form token, so reload the whole page. #}
@@ -13,17 +13,19 @@
         {{ csrf_field() }}
         {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
 
-        <label for="login-email">Email</label>
+        <label for="login-email">{{ 'Email'|trans }}</label>
         <input type="email" id="login-email" name="email" required value="{{ email }}" autocomplete="email" maxlength="190">
 
-        <label for="login-password">Password</label>
+        <label for="login-password">{{ 'Password'|trans }}</label>
         <input type="password" id="login-password" name="password" required autocomplete="current-password">
 
-        <button type="submit" class="btn-primary">Sign in</button>
+        <button type="submit" class="btn-primary">{{ 'Sign in'|trans }}</button>
     </form>
 
-    <p><a href="{{ path('account.forgot', {}, {email: email ?: null}) }}">Forgot your password?</a></p>
-    <p>New here? <a href="{{ path('account.register', {}, {next: next ?: null}) }}">Create an account</a> — or simply
-       <a href="{{ path('cart') }}">check out as a guest</a>, no account needed.</p>
+    <p><a href="{{ path('account.forgot', {}, {email: email ?: null}) }}">{{ 'Forgot your password?'|trans }}</a></p>
+    <p>{{ 'New here? {register}Create an account{/register} — or simply {guest}check out as a guest{/guest}, no account needed.'|trans({
+        register: '<a href="' ~ path('account.register', {}, {next: next ?: null})|e ~ '">', '/register': '</a>',
+        guest: '<a href="' ~ path('cart')|e ~ '">', '/guest': '</a>',
+    })|raw }}</p>
 </section>
 {% endblock %}

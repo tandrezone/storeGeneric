@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Payment\Method;
 
 use App\Http\Router;
+use App\I18n\Translator;
 use App\Infrastructure\HttpClient;
 use App\Payment\AbstractPaymentMethod;
 use App\Service\OrderLinks;
@@ -20,9 +21,9 @@ use RuntimeException;
  */
 final class PayPalMethod extends AbstractPaymentMethod
 {
-    public function __construct(Config $config, Router $router, OrderLinks $links, private readonly HttpClient $http)
+    public function __construct(Config $config, Router $router, OrderLinks $links, Translator $translator, private readonly HttpClient $http)
     {
-        parent::__construct($config, $router, $links);
+        parent::__construct($config, $router, $links, $translator);
     }
 
     public function id(): string
@@ -35,7 +36,7 @@ final class PayPalMethod extends AbstractPaymentMethod
     }
     public function description(): string
     {
-        return 'Pay with your PayPal balance, bank or card via PayPal.';
+        return $this->translator->trans('Pay with your PayPal balance, bank or card via PayPal.');
     }
 
     protected function requiredSettings(): array

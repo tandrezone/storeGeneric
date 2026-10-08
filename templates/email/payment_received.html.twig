@@ -1,8 +1,8 @@
 {% extends 'email/_layout.html.twig' %}
 
 {% block body %}
-<p>Hi {{ order.ship_name }},</p>
-<p>We've received your payment of <strong>{{ order.total|money }}</strong> for order <strong>{{ order.order_number }}</strong>. Thank you!</p>
+<p>{{ 'Hi {name},'|trans({name: order.ship_name}) }}</p>
+<p>{{ 'We\'ve received your payment of {total} for order {number}. Thank you!'|trans({total: '<strong>' ~ order.total|money|e ~ '</strong>', number: '<strong>' ~ order.order_number|e ~ '</strong>'})|raw }}</p>
 {{ include('email/_items.html.twig') }}
-<p><a href="{{ order_url }}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;">View your order</a></p>
+<p><a href="{{ order_url }}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;">{{ 'View your order'|trans }}</a></p>
 {% endblock %}

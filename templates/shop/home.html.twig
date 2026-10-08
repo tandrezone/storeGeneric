@@ -1,9 +1,9 @@
 {% extends 'layout/shop.html.twig' %}
 
-{% set title = search != '' ? 'Search: ' ~ search ~ (category ? ' in ' ~ category.name) : (category ? category.name : (page > 1 ? 'All products' : store.name)) ~ (page > 1 ? ' – page ' ~ page) %}
+{% set title = (search != '' ? (category ? 'Search: {query} in {category}'|trans({query: search, category: category.name}) : 'Search: {query}'|trans({query: search})) : (category ? category.name : (page > 1 ? 'All products'|trans : store.name))) ~ (page > 1 ? ' – ' ~ 'page {page}'|trans({page: page})) %}
 {% set meta_description = category and category.description
     ? category.description|striptags|slice(0, 155)
-    : (category ? 'Shop ' ~ category.name ~ ' at ' ~ store.name ~ '.' : 'Browse ' ~ total ~ ' products at ' ~ store.name ~ '.') %}
+    : (category ? 'Shop {category} at {store}.'|trans({category: category.name, store: store.name}) : 'Browse {count} product at {store}.'|trans_plural(total, {store: store.name})) %}
 {# Search results and re-sorted lists aren't separate pages for search engines. #}
 {% set robots = search != '' ? 'noindex, follow' : null %}
 {% set canonical = absolute_url(path('home', {}, {category: active_category, page: page > 1 ? page : null})) %}
@@ -27,7 +27,7 @@
 {% if page == 1 and search == '' and category is null %}
     {{ theme_part('hero') }}
 {% elseif category is null %}
-    <h1 class="page-heading">{{ search != '' ? 'Search results' : 'All products' }}</h1>
+    <h1 class="page-heading">{{ search != '' ? 'Search results'|trans : 'All products'|trans }}</h1>
 {% endif %}
 
 {% if category %}
@@ -46,9 +46,9 @@
     </section>
 {% endif %}
 
-<nav class="filters" aria-label="Categories">
+<nav class="filters" aria-label="{{ 'Categories'|trans }}">
     <a href="{{ path('home', {}, {q: filters.q, sort: filters.sort}) }}" class="filter-pill {{ active_category is null ? 'active' }}"
-       {% if active_category is null %}aria-current="page"{% endif %}>All</a>
+       {% if active_category is null %}aria-current="page"{% endif %}>{{ 'All'|trans }}</a>
     {% for cat in categories %}
         <a href="{{ path('home', {}, {category: cat.slug, q: filters.q, sort: filters.sort}) }}"
            class="filter-pill {{ active_category == cat.slug ? 'active' }}"
@@ -59,10 +59,10 @@
 <div class="shop-toolbar">
     <p class="results-summary">
     {% if search != '' %}
-        {{ total }} {{ total == 1 ? 'result' : 'results' }} for “{{ search }}”{{ category ? ' in ' ~ category.name }}.
-        <a href="{{ path('home', {}, {category: active_category}) }}">Clear search</a>
+        {% if category %}{{ '{count} result for “{query}” in {category}.'|trans_plural(total, {query: search, category: category.name}) }}{% else %}{{ '{count} result for “{query}”.'|trans_plural(total, {query: search}) }}{% endif %}
+        <a href="{{ path('home', {}, {category: active_category}) }}">{{ 'Clear search'|trans }}</a>
     {% elseif total > 0 %}
-        {{ total }} {{ total == 1 ? 'product' : 'products' }}{% if pages > 1 %} · page {{ page }} of {{ pages }}{% endif %}
+        {{ '{count} product'|trans_plural(total) }}{% if pages > 1 %} · {{ 'Page {page} of {pages}'|trans({page: page, pages: pages}) }}{% endif %}
     {% endif %}
     </p>
     {% if total > 1 %}
@@ -70,19 +70,19 @@
         <form class="sort-form" action="{{ path('home') }}" method="get">
             {% if active_category %}<input type="hidden" name="category" value="{{ active_category }}">{% endif %}
             {% if search != '' %}<input type="hidden" name="q" value="{{ search }}">{% endif %}
-            <label for="shop-sort">Sort by</label>
+            <label for="shop-sort">{{ 'Sort by'|trans }}</label>
             <select id="shop-sort" name="sort" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
                 {% for key, label in sort_labels %}
-                    <option value="{{ key }}" {{ key == sort ? 'selected' }}>{{ label }}</option>
+                    <option value="{{ key }}" {{ key == sort ? 'selected' }}>{{ label|trans }}</option>
                 {% endfor %}
             </select>
-            <noscript><button type="submit" class="btn-secondary">Sort</button></noscript>
+            <noscript><button type="submit" class="btn-secondary">{{ 'Sort'|trans }}</button></noscript>
         </form>
     {% endif %}
 </div>
 
 {% if products is not empty %}
-    <section class="product-grid" aria-label="Products">
+    <section class="product-grid" aria-label="{{ 'Products'|trans }}">
         {% for product in products %}
             {% include 'shop/partials/product-card.html.twig' with {product: product, eager: loop.index <= 4 and page == 1} only %}
         {% endfor %}
@@ -90,41 +90,41 @@
 {% else %}
     <div class="empty-state">
         {% if search != '' %}
-            <h2>No products match “{{ search }}”</h2>
-            <p>Check the spelling, try fewer words{{ category ? ', or search all categories' }}.</p>
+            <h2>{{ 'No products match “{query}”'|trans({query: search}) }}</h2>
+            <p>{{ category ? 'Check the spelling, try fewer words, or search all categories.'|trans : 'Check the spelling, try fewer words.'|trans }}</p>
             <p>
-                {% if category %}<a class="btn-secondary" href="{{ path('home', {}, {q: search}) }}">Search all categories</a>{% endif %}
-                <a class="btn-primary" href="{{ path('home') }}">Browse all products</a>
+                {% if category %}<a class="btn-secondary" href="{{ path('home', {}, {q: search}) }}">{{ 'Search all categories'|trans }}</a>{% endif %}
+                <a class="btn-primary" href="{{ path('home') }}">{{ 'Browse all products'|trans }}</a>
             </p>
         {% elseif category %}
-            <h2>Nothing in {{ category.name }} yet</h2>
-            <p>New products are on their way. Have a look at the rest of the shop in the meantime.</p>
-            <p><a class="btn-primary" href="{{ path('home') }}">Browse all products</a></p>
+            <h2>{{ 'Nothing in {category} yet'|trans({category: category.name}) }}</h2>
+            <p>{{ 'New products are on their way. Have a look at the rest of the shop in the meantime.'|trans }}</p>
+            <p><a class="btn-primary" href="{{ path('home') }}">{{ 'Browse all products'|trans }}</a></p>
         {% else %}
-            <h2>The shop is being stocked</h2>
-            <p>There are no products yet — please check back soon.</p>
+            <h2>{{ 'The shop is being stocked'|trans }}</h2>
+            <p>{{ 'There are no products yet — please check back soon.'|trans }}</p>
         {% endif %}
     </div>
 {% endif %}
 
 {% if pages > 1 %}
-    <nav class="pagination" aria-label="Pages">
+    <nav class="pagination" aria-label="{{ 'Pages'|trans }}">
         {% if page > 1 %}
-            <a href="{{ path('home', {}, filters|merge({page: page - 1 > 1 ? page - 1 : null})) }}" rel="prev">‹ Previous</a>
+            <a href="{{ path('home', {}, filters|merge({page: page - 1 > 1 ? page - 1 : null})) }}" rel="prev">‹ {{ 'Previous'|trans }}</a>
         {% endif %}
         {% for p in 1..pages %}
             {% if p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
                 {% if p == page %}
                     <span class="is-current" aria-current="page">{{ p }}</span>
                 {% else %}
-                    <a href="{{ path('home', {}, filters|merge({page: p > 1 ? p : null})) }}" aria-label="Page {{ p }}">{{ p }}</a>
+                    <a href="{{ path('home', {}, filters|merge({page: p > 1 ? p : null})) }}" aria-label="{{ 'Page {page}'|trans({page: p}) }}">{{ p }}</a>
                 {% endif %}
             {% elseif p == page - 3 or p == page + 3 %}
                 <span class="pagination-gap" aria-hidden="true">…</span>
             {% endif %}
         {% endfor %}
         {% if page < pages %}
-            <a href="{{ path('home', {}, filters|merge({page: page + 1})) }}" rel="next">Next ›</a>
+            <a href="{{ path('home', {}, filters|merge({page: page + 1})) }}" rel="next">{{ 'Next'|trans }} ›</a>
         {% endif %}
     </nav>
 {% endif %}

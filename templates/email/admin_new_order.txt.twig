@@ -1,10 +1,10 @@
 {% autoescape false %}
-New order {{ order.order_number }} — {{ order.total|money }}, {{ payment_label }} (payment: {{ order.payment_status }}).
+{{ 'New order {number} — {total}, {method} (payment: {status}).'|trans({number: order.order_number, total: order.total|money, method: payment_label, status: order.payment_status|capitalize|trans}) }}
 
-Customer: {{ order.ship_name }} <{{ order.email }}>{% if order.phone %}, {{ order.phone }}{% endif %}
+{{ 'Customer'|trans }}: {{ order.ship_name }} <{{ order.email }}>{% if order.phone %}, {{ order.phone }}{% endif %}
 
 {{ include('email/_items.txt.twig') }}
-Shipping to:
+{{ 'Shipping to'|trans }}:
 {{ include('email/_address.txt.twig') }}
-Admin: {{ admin_url }}
+{{ 'Open the order in the admin'|trans }}: {{ admin_url }}
 {% endautoescape %}

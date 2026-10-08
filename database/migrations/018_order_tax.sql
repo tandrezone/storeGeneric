@@ -10,9 +10,9 @@
 -- ============================================================
 
 ALTER TABLE orders
-    ADD COLUMN IF NOT EXISTS prices_include_tax TINYINT(1) NOT NULL DEFAULT 1 AFTER shipping_cost,
-    ADD COLUMN IF NOT EXISTS tax_rate DECIMAL(5,2) NOT NULL DEFAULT 0.00 AFTER prices_include_tax,
+    ADD COLUMN IF NOT EXISTS prices_include_tax TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1 = VAT included in prices, 0 = VAT added on top' AFTER shipping_cost,
+    ADD COLUMN IF NOT EXISTS tax_rate DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT 'VAT % applied (by shipping country)' AFTER prices_include_tax,
     ADD COLUMN IF NOT EXISTS tax_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER tax_rate;
 
 ALTER TABLE order_items
-    ADD COLUMN IF NOT EXISTS tax_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER line_total;
+    ADD COLUMN IF NOT EXISTS tax_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'VAT part of the line (after discount)' AFTER line_total;

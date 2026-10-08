@@ -8,6 +8,7 @@ use App\Http\Exception\HttpException;
 use App\Http\Responder;
 use App\Http\RouteMatch;
 use App\Http\Session;
+use App\I18n\Translator;
 use App\Security\AdminAuthenticator;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -26,6 +27,7 @@ final class AdminAuthMiddleware implements MiddlewareInterface
         private readonly AdminAuthenticator $auth,
         private readonly Responder $responder,
         private readonly Session $session,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -42,7 +44,7 @@ final class AdminAuthMiddleware implements MiddlewareInterface
                 throw new HttpException(401, 'Not authenticated.');
             }
             if ($this->auth->wasRevoked()) {
-                $this->session->flash('error', 'You have been logged out: your account was deactivated or its password was changed.');
+                $this->session->flash('error', $this->translator->trans('You have been logged out: your account was deactivated or its password was changed.'));
             }
 
             return $this->responder->redirectToRoute('admin.login');
@@ -56,7 +58,9 @@ final class AdminAuthMiddleware implements MiddlewareInterface
         }
 
         if ($required !== null && !$role->includes($required)) {
-            throw new HttpException(403, "Your account's role ({$role->label()}) doesn't allow this. Ask the store owner if you need access.");
+            throw new HttpException(403, $this->translator->trans("Your account's role ({role}) doesn't allow this. Ask the store owner if you need access.", [
+                'role' => $this->translator->trans($role->label()),
+            ]));
         }
 
         return $handler->handle($request);

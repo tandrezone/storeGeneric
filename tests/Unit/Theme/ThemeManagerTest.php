@@ -36,8 +36,9 @@ final class ThemeManagerTest extends TestCase
         $paths = new Paths($this->root);
         $config = Config::fromArray([]);
         $store = new StoreSettings(new SettingRepository(new Database($config)), $config, $paths);
-        $theme = new Theme($paths, $store, new Router(new RouteCollection()), new NullLogger(), new Translator(dirname(__DIR__, 3) . '/translations'), $this->root . '/cache');
-        $this->themes = new ThemeManager($paths, $theme);
+        $translator = new Translator(dirname(__DIR__, 3) . '/translations');
+        $theme = new Theme($paths, $store, new Router(new RouteCollection()), new NullLogger(), $translator, $this->root . '/cache');
+        $this->themes = new ThemeManager($paths, $theme, $translator);
     }
 
     public function tearDown(): void

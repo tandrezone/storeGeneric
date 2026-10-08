@@ -1,12 +1,12 @@
 {% extends 'layout/shop.html.twig' %}
 
-{% set title = 'Profile & password' %}
+{% set title = 'Profile & password'|trans %}
 {% set robots = 'noindex, nofollow' %}
 {% set account_nav = 'profile' %}
 
 {#
-  Four forms posting to account.profile.submit with an `action`
-  (profile / email / password / delete). `errors` is keyed by that action.
+  Five forms posting to account.profile.submit with an `action`
+  (profile / language / email / password / delete). `errors` is keyed by that action.
 #}
 {% macro form_error(errors, action) %}
     {% if errors[action] is defined %}<div class="form-errors" role="alert"><ul><li>{{ errors[action] }}</li></ul></div>{% endif %}
@@ -15,7 +15,7 @@
 {% block content %}
 {% from _self import form_error %}
 <section class="account-page">
-    <h1>Profile &amp; password</h1>
+    <h1>{{ 'Profile & password'|trans }}</h1>
     {{ include('shop/account/_nav.html.twig') }}
     {{ include('shop/account/_flashes.html.twig', {errors: []}) }}
 
@@ -23,58 +23,75 @@
         <form method="post" action="{{ path('account.profile.submit') }}" class="panel account-form">
             {{ csrf_field() }}
             <input type="hidden" name="action" value="profile">
-            <h2>Your details</h2>
+            <h2>{{ 'Your details'|trans }}</h2>
             {{ form_error(errors, 'profile') }}
-            <label for="profile-name">Full name</label>
+            <label for="profile-name">{{ 'Full name'|trans }}</label>
             <input type="text" id="profile-name" name="name" required maxlength="150" value="{{ form.name }}" autocomplete="name">
-            <label for="profile-phone">Phone (optional)</label>
+            <label for="profile-phone">{{ 'Phone (optional)'|trans }}</label>
             <input type="tel" id="profile-phone" name="phone" maxlength="40" value="{{ form.phone }}" autocomplete="tel">
-            <button type="submit" class="btn-primary">Save details</button>
+            <button type="submit" class="btn-primary">{{ 'Save details'|trans }}</button>
         </form>
+
+        {% set language_options = languages() %}
+        {% if language_options|length > 1 %}
+            {# data-no-ajax: the whole page (header included) switches language. #}
+            <form method="post" action="{{ path('account.profile.submit') }}" class="panel account-form" data-no-ajax>
+                {{ csrf_field() }}
+                <input type="hidden" name="action" value="language">
+                <h2>{{ 'Language'|trans }}</h2>
+                {{ form_error(errors, 'language') }}
+                <label for="profile-locale">{{ 'Language for the shop and our emails'|trans }}</label>
+                <select id="profile-locale" name="locale">
+                    {% for language in language_options %}
+                        <option value="{{ language.code }}" lang="{{ language.html_lang }}" {{ language.active ? 'selected' }}>{{ language.name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn-primary">{{ 'Save language'|trans }}</button>
+            </form>
+        {% endif %}
 
         <form method="post" action="{{ path('account.profile.submit') }}" class="panel account-form">
             {{ csrf_field() }}
             <input type="hidden" name="action" value="email">
-            <h2>Email address</h2>
+            <h2>{{ 'Email address'|trans }}</h2>
             {{ form_error(errors, 'email') }}
             <p class="field-hint">
-                {% if customer.email_verified_at %}{{ customer.email }} is confirmed.{% else %}{{ customer.email }} isn't confirmed yet.{% endif %}
-                A new address has to be confirmed again.
+                {% if customer.email_verified_at %}{{ '{email} is confirmed.'|trans({email: customer.email}) }}{% else %}{{ '{email} isn\'t confirmed yet.'|trans({email: customer.email}) }}{% endif %}
+                {{ 'A new address has to be confirmed again.'|trans }}
             </p>
-            <label for="profile-email">Email</label>
+            <label for="profile-email">{{ 'Email'|trans }}</label>
             <input type="email" id="profile-email" name="email" required maxlength="190" value="{{ form.email }}" autocomplete="email">
-            <label for="profile-email-password">Current password</label>
+            <label for="profile-email-password">{{ 'Current password'|trans }}</label>
             <input type="password" id="profile-email-password" name="current_password" required autocomplete="current-password">
-            <button type="submit" class="btn-primary">Change email</button>
+            <button type="submit" class="btn-primary">{{ 'Change email'|trans }}</button>
         </form>
 
         <form method="post" action="{{ path('account.profile.submit') }}" class="panel account-form">
             {{ csrf_field() }}
             <input type="hidden" name="action" value="password">
-            <h2>Password</h2>
+            <h2>{{ 'Password'|trans }}</h2>
             {{ form_error(errors, 'password') }}
-            <label for="profile-current-password">Current password</label>
+            <label for="profile-current-password">{{ 'Current password'|trans }}</label>
             <input type="password" id="profile-current-password" name="current_password" required autocomplete="current-password">
-            <label for="profile-new-password">New password</label>
+            <label for="profile-new-password">{{ 'New password'|trans }}</label>
             <input type="password" id="profile-new-password" name="password" required minlength="{{ min_password }}" autocomplete="new-password" aria-describedby="profile-new-password-hint">
-            <p class="field-hint" id="profile-new-password-hint">At least {{ min_password }} characters. Other devices are signed out.</p>
-            <label for="profile-new-password-confirm">Repeat new password</label>
+            <p class="field-hint" id="profile-new-password-hint">{{ 'At least {min} characters. Other devices are signed out.'|trans({min: min_password}) }}</p>
+            <label for="profile-new-password-confirm">{{ 'Repeat new password'|trans }}</label>
             <input type="password" id="profile-new-password-confirm" name="password_confirm" required minlength="{{ min_password }}" autocomplete="new-password">
-            <button type="submit" class="btn-primary">Change password</button>
+            <button type="submit" class="btn-primary">{{ 'Change password'|trans }}</button>
         </form>
 
         {# data-no-ajax: deleting the account signs you out (new header and form token). #}
         <form method="post" action="{{ path('account.profile.submit') }}" class="panel account-form account-danger" data-no-ajax>
             {{ csrf_field() }}
             <input type="hidden" name="action" value="delete">
-            <h2>Delete account</h2>
+            <h2>{{ 'Delete account'|trans }}</h2>
             {{ form_error(errors, 'delete') }}
-            <p>Your name, email, phone and saved addresses are removed and you can't sign in any more.
-               Orders you placed are kept for our records (with the shipping details they were sent to).</p>
-            <label for="profile-delete-password">Current password</label>
+            <p>{{ 'Your name, email, phone and saved addresses are removed and you can\'t sign in any more. Orders you placed are kept for our records (with the shipping details they were sent to).'|trans }}</p>
+            <label for="profile-delete-password">{{ 'Current password'|trans }}</label>
             <input type="password" id="profile-delete-password" name="current_password" required autocomplete="current-password">
-            <label class="inline-check"><input type="checkbox" name="confirm" value="1" required> Yes, delete my account</label>
-            <button type="submit" class="btn-danger">Delete my account</button>
+            <label class="inline-check"><input type="checkbox" name="confirm" value="1" required> {{ 'Yes, delete my account'|trans }}</label>
+            <button type="submit" class="btn-danger">{{ 'Delete my account'|trans }}</button>
         </form>
     </div>
 </section>

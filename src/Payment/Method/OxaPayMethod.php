@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Payment\Method;
 
 use App\Http\Router;
+use App\I18n\Translator;
 use App\Infrastructure\OxaPayClient;
 use App\Payment\AbstractPaymentMethod;
 use App\Service\OrderLinks;
@@ -14,9 +15,9 @@ use RuntimeException;
 /** OxaPay crypto invoices, confirmed by the HMAC-signed callback (OxaPayWebhookController). */
 final class OxaPayMethod extends AbstractPaymentMethod
 {
-    public function __construct(Config $config, Router $router, OrderLinks $links, private readonly OxaPayClient $client)
+    public function __construct(Config $config, Router $router, OrderLinks $links, Translator $translator, private readonly OxaPayClient $client)
     {
-        parent::__construct($config, $router, $links);
+        parent::__construct($config, $router, $links, $translator);
     }
 
     public function id(): string
@@ -26,12 +27,12 @@ final class OxaPayMethod extends AbstractPaymentMethod
 
     public function label(): string
     {
-        return 'Crypto (OxaPay)';
+        return $this->translator->trans('Crypto (OxaPay)');
     }
 
     public function description(): string
     {
-        return 'Pay in cryptocurrency on OxaPay\'s payment page.';
+        return $this->translator->trans('Pay in cryptocurrency on OxaPay\'s payment page.');
     }
 
     protected function requiredSettings(): array

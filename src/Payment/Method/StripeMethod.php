@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Payment\Method;
 
 use App\Http\Router;
+use App\I18n\Translator;
 use App\Infrastructure\HttpClient;
 use App\Payment\AbstractPaymentMethod;
 use App\Service\OrderLinks;
@@ -19,9 +20,9 @@ use RuntimeException;
  */
 final class StripeMethod extends AbstractPaymentMethod
 {
-    public function __construct(Config $config, Router $router, OrderLinks $links, private readonly HttpClient $http)
+    public function __construct(Config $config, Router $router, OrderLinks $links, Translator $translator, private readonly HttpClient $http)
     {
-        parent::__construct($config, $router, $links);
+        parent::__construct($config, $router, $links, $translator);
     }
 
     public function id(): string
@@ -30,11 +31,11 @@ final class StripeMethod extends AbstractPaymentMethod
     }
     public function label(): string
     {
-        return 'Card (Stripe)';
+        return $this->translator->trans('Card (Stripe)');
     }
     public function description(): string
     {
-        return 'Pay by card, Apple Pay or Google Pay on Stripe\'s secure page.';
+        return $this->translator->trans('Pay by card, Apple Pay or Google Pay on Stripe\'s secure page.');
     }
 
     protected function requiredSettings(): array

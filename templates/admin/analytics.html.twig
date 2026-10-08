@@ -1,6 +1,6 @@
 {% extends 'layout/admin.html.twig' %}
 
-{% set title = 'Admin — Analytics' %}
+{% set title = 'Admin — {page}'|trans({page: 'Analytics'|trans}) %}
 {% set active_nav = 'analytics' %}
 
 {% block content %}
@@ -8,55 +8,55 @@
 {% set reached_shipping = summary.checkout_shipping.unique_sessions %}
 {% set reached_payment = summary.checkout_payment.unique_sessions %}
 {% set funnel = [
-    {label: 'Visited site', count: visited},
-    {label: 'Reached shipping', count: reached_shipping},
-    {label: 'Reached payment', count: reached_payment},
+    {label: 'Visited site'|trans, count: visited},
+    {label: 'Reached shipping'|trans, count: reached_shipping},
+    {label: 'Reached payment'|trans, count: reached_payment},
 ] %}
 {% set funnel_max = max(1, visited) %}
 
-<h1>Analytics</h1>
+<h1>{{ 'Analytics'|trans }}</h1>
 
 <div class="filters">
     {% for range in ranges %}
-        <a href="{{ path('admin.analytics', {}, {days: range}) }}" class="filter-pill {{ days == range ? 'active' }}">{{ range }} days</a>
+        <a href="{{ path('admin.analytics', {}, {days: range}) }}" class="filter-pill {{ days == range ? 'active' }}">{{ '{count} day'|trans_plural(range) }}</a>
     {% endfor %}
 </div>
 
 <div class="stat-grid">
     <div class="stat-tile">
-        <span class="stat-label">Site visits</span>
+        <span class="stat-label">{{ 'Site visits'|trans }}</span>
         <span class="stat-value">{{ summary.visit.total|number_format }}</span>
-        <span class="stat-sub">{{ visited|number_format }} unique visitors</span>
+        <span class="stat-sub">{{ '{count} unique visitor'|trans_plural(visited) }}</span>
     </div>
     <div class="stat-tile">
-        <span class="stat-label">Product views</span>
+        <span class="stat-label">{{ 'Product views'|trans }}</span>
         <span class="stat-value">{{ summary.product_view.total|number_format }}</span>
-        <span class="stat-sub">{{ summary.product_view.unique_sessions|number_format }} unique visitors</span>
+        <span class="stat-sub">{{ '{count} unique visitor'|trans_plural(summary.product_view.unique_sessions) }}</span>
     </div>
     <div class="stat-tile">
-        <span class="stat-label">Reached shipping</span>
+        <span class="stat-label">{{ 'Reached shipping'|trans }}</span>
         <span class="stat-value">{{ reached_shipping|number_format }}</span>
-        <span class="stat-sub">visitors</span>
+        <span class="stat-sub">{{ 'visitors'|trans }}</span>
     </div>
     <div class="stat-tile">
-        <span class="stat-label">Reached payment</span>
+        <span class="stat-label">{{ 'Reached payment'|trans }}</span>
         <span class="stat-value">{{ reached_payment|number_format }}</span>
-        <span class="stat-sub">visitors</span>
+        <span class="stat-sub">{{ 'visitors'|trans }}</span>
     </div>
     <div class="stat-tile">
-        <span class="stat-label">Visit → shipping</span>
+        <span class="stat-label">{{ 'Visit → shipping'|trans }}</span>
         <span class="stat-value">{{ visited > 0 ? (reached_shipping / visited * 100)|round : 0 }}%</span>
-        <span class="stat-sub">conversion</span>
+        <span class="stat-sub">{{ 'conversion'|trans }}</span>
     </div>
     <div class="stat-tile">
-        <span class="stat-label">Shipping → payment</span>
+        <span class="stat-label">{{ 'Shipping → payment'|trans }}</span>
         <span class="stat-value">{{ reached_shipping > 0 ? (reached_payment / reached_shipping * 100)|round : 0 }}%</span>
-        <span class="stat-sub">conversion</span>
+        <span class="stat-sub">{{ 'conversion'|trans }}</span>
     </div>
 </div>
 
 <div class="panel">
-    <h2>Checkout funnel</h2>
+    <h2>{{ 'Checkout funnel'|trans }}</h2>
     <div class="funnel">
         {% for step in funnel %}
             {% set pct = (step.count / funnel_max * 100)|round %}
@@ -64,7 +64,7 @@
                 <span class="funnel-label">{{ step.label }}</span>
                 <div class="funnel-bar-track">
                     <div class="funnel-bar funnel-step-{{ loop.index }}" style="width: {{ max(pct, 2) }}%;"
-                         tabindex="0" title="{{ step.label }}: {{ step.count|number_format }} visitors ({{ pct }}%)">
+                         tabindex="0" title="{{ '{step}: {count} visitors ({pct}%)'|trans({step: step.label, count: step.count|number_format, pct: pct}) }}">
                         <span class="funnel-value">{{ step.count|number_format }}</span>
                     </div>
                 </div>
@@ -75,16 +75,16 @@
 </div>
 
 <div class="panel">
-    <h2>Daily traffic</h2>
+    <h2>{{ 'Daily traffic'|trans }}</h2>
     <div class="chart-legend">
-        <span class="legend-item"><span class="legend-swatch legend-swatch-line legend-teal"></span>Total visits</span>
-        <span class="legend-item"><span class="legend-swatch legend-swatch-line legend-violet"></span>Unique visitors</span>
+        <span class="legend-item"><span class="legend-swatch legend-swatch-line legend-teal"></span>{{ 'Total visits'|trans }}</span>
+        <span class="legend-item"><span class="legend-swatch legend-swatch-line legend-violet"></span>{{ 'Unique visitors'|trans }}</span>
     </div>
     <div class="chart-wrap" id="visits-chart" data-points="{{ daily|json_encode }}"></div>
     <details class="chart-table-toggle">
-        <summary>View as table</summary>
+        <summary>{{ 'View as table'|trans }}</summary>
         <table class="cart-table admin-table">
-            <thead><tr><th>Day</th><th class="tabular">Total visits</th><th class="tabular">Unique visitors</th></tr></thead>
+            <thead><tr><th>{{ 'Day'|trans }}</th><th class="tabular">{{ 'Total visits'|trans }}</th><th class="tabular">{{ 'Unique visitors'|trans }}</th></tr></thead>
             <tbody>
                 {% for point in daily %}
                     <tr>
@@ -100,9 +100,9 @@
 
 <div class="analytics-grid-2col">
     <div class="panel">
-        <h2>Most viewed products</h2>
+        <h2>{{ 'Most viewed products'|trans }}</h2>
         <table class="cart-table admin-table">
-            <thead><tr><th>Product</th><th class="tabular">Views</th><th class="tabular">Unique visitors</th></tr></thead>
+            <thead><tr><th>{{ 'Product'|trans }}</th><th class="tabular">{{ 'Views'|trans }}</th><th class="tabular">{{ 'Unique visitors'|trans }}</th></tr></thead>
             <tbody>
                 {% for row in top_products %}
                     <tr>
@@ -111,16 +111,16 @@
                         <td class="tabular">{{ row.unique_sessions|number_format }}</td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="3" style="color: var(--color-muted);">No product views yet.</td></tr>
+                    <tr><td colspan="3" style="color: var(--color-muted);">{{ 'No product views yet.'|trans }}</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
     <div class="panel">
-        <h2>Most visited pages</h2>
+        <h2>{{ 'Most visited pages'|trans }}</h2>
         <table class="cart-table admin-table">
-            <thead><tr><th>Page</th><th class="tabular">Visits</th><th class="tabular">Unique visitors</th></tr></thead>
+            <thead><tr><th>{{ 'Page'|trans }}</th><th class="tabular">{{ 'Visits'|trans }}</th><th class="tabular">{{ 'Unique visitors'|trans }}</th></tr></thead>
             <tbody>
                 {% for row in top_paths %}
                     <tr>
@@ -129,7 +129,7 @@
                         <td class="tabular">{{ row.unique_sessions|number_format }}</td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="3" style="color: var(--color-muted);">No visits yet.</td></tr>
+                    <tr><td colspan="3" style="color: var(--color-muted);">{{ 'No visits yet.'|trans }}</td></tr>
                 {% endfor %}
             </tbody>
         </table>

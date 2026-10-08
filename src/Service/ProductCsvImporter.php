@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\I18n\Translator;
 use App\Infrastructure\Database;
 use App\Repository\CategoryRepository;
 use App\Repository\ProductCsvRepository;
@@ -48,7 +49,14 @@ final class ProductCsvImporter
         private readonly ProductRepository $products,
         private readonly VariantRepository $variants,
         private readonly CategoryRepository $categories,
+        private readonly Translator $translator,
     ) {
+    }
+
+    /** @param array<string, mixed> $params */
+    private function t(string $message, array $params = []): string
+    {
+        return $this->translator->trans($message, $params);
     }
 
     /**
@@ -61,11 +69,11 @@ final class ProductCsvImporter
     public function readRows(string $text): array
     {
         if (strlen($text) > self::MAX_BYTES) {
-            throw new RuntimeException('The file is too large (max ' . (self::MAX_BYTES >> 20) . ' MB).');
+            throw new RuntimeException($this->t('The file is too large (max {mb} MB).', ['mb' => self::MAX_BYTES >> 20]));
         }
         $rows = Csv::parseLines($text, self::MAX_ROWS + 1);
         if ($rows === []) {
-            throw new RuntimeException('The file is empty.');
+            throw new RuntimeException($this->t('The file is empty.'));
         }
 
         $headerLine = (int) array_key_first($rows);
@@ -75,17 +83,17 @@ final class ProductCsvImporter
         );
         unset($rows[$headerLine]); // (array_shift would renumber the line keys)
         if (!in_array('sku', $header, true)) {
-            throw new RuntimeException('The first row must be a header with at least a "sku" column. Columns: ' . implode(', ', self::COLUMNS) . '.');
+            throw new RuntimeException($this->t('The first row must be a header with at least a "sku" column. Columns: {columns}.', ['columns' => implode(', ', self::COLUMNS)]));
         }
         $unknown = array_diff(array_filter($header), self::COLUMNS);
         if ($unknown !== []) {
-            throw new RuntimeException('Unknown column(s): ' . implode(', ', $unknown) . '. Allowed: ' . implode(', ', self::COLUMNS) . '.');
+            throw new RuntimeException($this->t('Unknown column(s): {columns}. Allowed: {allowed}.', ['columns' => implode(', ', $unknown), 'allowed' => implode(', ', self::COLUMNS)]));
         }
         if (count($header) !== count(array_unique($header))) {
-            throw new RuntimeException('A column appears twice in the header.');
+            throw new RuntimeException($this->t('A column appears twice in the header.'));
         }
         if ($rows === []) {
-            throw new RuntimeException('The file has a header but no rows.');
+            throw new RuntimeException($this->t('The file has a header but no rows.'));
         }
 
         $result = [];
@@ -117,15 +125,15 @@ final class ProductCsvImporter
 
         $sku = $text('sku') ?? '';
         if ($sku === '' && $text('product_id') === null) {
-            $errors[] = 'SKU is required.';
+            $errors[] = $this->t('SKU is required.');
         } elseif (mb_strlen($sku) > self::MAX_VARIANT_FIELD) {
-            $errors[] = 'SKU can be at most ' . self::MAX_VARIANT_FIELD . ' characters.';
+            $errors[] = $this->t('SKU can be at most {max} characters.', ['max' => self::MAX_VARIANT_FIELD]);
         }
 
         $productId = null;
         if (($raw = $text('product_id')) !== null) {
             if (!ctype_digit($raw) || (int) $raw < 1) {
-                $errors[] = "product_id \"{$raw}\" is not a valid id.";
+                $errors[] = $this->t('product_id "{value}" is not a valid id.', ['value' => $raw]);
             } else {
                 $productId = (int) $raw;
             }
@@ -133,22 +141,22 @@ final class ProductCsvImporter
 
         $name = $text('name');
         if ($name !== null && mb_strlen($name) > self::MAX_NAME) {
-            $errors[] = 'Name can be at most ' . self::MAX_NAME . ' characters.';
+            $errors[] = $this->t('Name can be at most {max} characters.', ['max' => self::MAX_NAME]);
         }
         $category = $text('category');
         if ($category !== null && mb_strlen($category) > self::MAX_CATEGORY) {
-            $errors[] = 'Category can be at most ' . self::MAX_CATEGORY . ' characters.';
+            $errors[] = $this->t('Category can be at most {max} characters.', ['max' => self::MAX_CATEGORY]);
         }
         $short = $text('short_description');
         if ($short !== null && mb_strlen($short) > self::MAX_SHORT_DESCRIPTION) {
-            $errors[] = 'Short description can be at most ' . self::MAX_SHORT_DESCRIPTION . ' characters.';
+            $errors[] = $this->t('Short description can be at most {max} characters.', ['max' => self::MAX_SHORT_DESCRIPTION]);
         }
 
         $status = $text('status');
         if ($status !== null) {
             $status = strtolower($status);
             if (!in_array($status, ProductRepository::STATUSES, true)) {
-                $errors[] = "Unknown status \"{$status}\" (use " . implode(', ', ProductRepository::STATUSES) . ').';
+                $errors[] = $this->t('Unknown status "{status}" (use {allowed}).', ['status' => $status, 'allowed' => implode(', ', ProductRepository::STATUSES)]);
             }
         }
 
@@ -158,7 +166,9 @@ final class ProductCsvImporter
             }
             $value = trim((string) $row[$key]);
             if (mb_strlen($value) > self::MAX_VARIANT_FIELD) {
-                $errors[] = ucfirst($key) . ' can be at most ' . self::MAX_VARIANT_FIELD . ' characters.';
+                $errors[] = $key === 'label'
+                    ? $this->t('Label can be at most {max} characters.', ['max' => self::MAX_VARIANT_FIELD])
+                    : $this->t('Unit can be at most {max} characters.', ['max' => self::MAX_VARIANT_FIELD]);
             }
 
             return $value === '' ? false : $value;
@@ -170,9 +180,9 @@ final class ProductCsvImporter
         if (($raw = $text('price')) !== null) {
             $number = self::decimal($raw);
             if ($number === null || $number < 0) {
-                $errors[] = "Price \"{$raw}\" is not a valid amount.";
+                $errors[] = $this->t('Price "{value}" is not a valid amount.', ['value' => $raw]);
             } elseif ($number > VariantRepository::MAX_PRICE) {
-                $errors[] = 'That price is too high.';
+                $errors[] = $this->t('That price is too high.');
             } else {
                 $price = round($number, 2);
             }
@@ -181,9 +191,9 @@ final class ProductCsvImporter
         $stock = null;
         if (($raw = $text('stock')) !== null) {
             if (!ctype_digit($raw)) {
-                $errors[] = "Stock \"{$raw}\" must be a whole number of 0 or more.";
+                $errors[] = $this->t('Stock "{value}" must be a whole number of 0 or more.', ['value' => $raw]);
             } elseif ((float) $raw > self::MAX_STOCK) {
-                $errors[] = 'That stock level is too high.';
+                $errors[] = $this->t('That stock level is too high.');
             } else {
                 $stock = (int) $raw;
             }
@@ -198,7 +208,7 @@ final class ProductCsvImporter
                 default                                    => null,
             };
             if ($active === null) {
-                $errors[] = "Active must be 1 or 0 (got \"{$raw}\").";
+                $errors[] = $this->t('Active must be 1 or 0 (got "{value}").', ['value' => $raw]);
             }
         }
 
@@ -265,7 +275,7 @@ final class ProductCsvImporter
             if ($data['sku'] !== '') {
                 $key = mb_strtolower($data['sku']);
                 if (isset($seenSkus[$key])) {
-                    $entry['errors'][] = "SKU \"{$data['sku']}\" already appears on line {$seenSkus[$key]}.";
+                    $entry['errors'][] = $this->t('SKU "{sku}" already appears on line {line}.', ['sku' => $data['sku'], 'line' => $seenSkus[$key]]);
                 } else {
                     $seenSkus[$key] = $line;
                 }
@@ -279,7 +289,7 @@ final class ProductCsvImporter
                 $categoryId = $categoryIds[$catKey] ?? $newCategories[$catKey] ?? null;
                 if ($categoryId === null && $entry['errors'] === []) {
                     if (!$createCategories) {
-                        $entry['errors'][] = "Category \"{$data['category']}\" does not exist (tick \"Create missing categories\" to add it).";
+                        $entry['errors'][] = $this->t('Category "{category}" does not exist (tick "Create missing categories" to add it).', ['category' => $data['category']]);
                     } else {
                         if ($apply) {
                             // Undone below if the row turns out to have errors.
@@ -289,7 +299,7 @@ final class ProductCsvImporter
                         $newCategories[$catKey] = $categoryId;
                         $createdCategory = $catKey;
                         $counts['new_categories']++;
-                        $entry['changes'][] = "new category \"{$data['category']}\"";
+                        $entry['changes'][] = $this->t('new category "{category}"', ['category' => $data['category']]);
                     }
                 }
             }
@@ -333,7 +343,7 @@ final class ProductCsvImporter
     {
         $productId = (int) $variant['product_id'];
         if ($data['product_id'] !== null && $data['product_id'] !== $productId) {
-            $entry['errors'][] = "SKU \"{$data['sku']}\" belongs to product #{$productId}, not #{$data['product_id']}.";
+            $entry['errors'][] = $this->t('SKU "{sku}" belongs to product #{product}, not #{given}.', ['sku' => $data['sku'], 'product' => $productId, 'given' => $data['product_id']]);
 
             return;
         }
@@ -388,7 +398,7 @@ final class ProductCsvImporter
     {
         $product = $productsById[(int) $data['product_id']] ?? null;
         if ($product === null) {
-            $entry['errors'][] = "Product #{$data['product_id']} does not exist.";
+            $entry['errors'][] = $this->t('Product #{id} does not exist.', ['id' => $data['product_id']]);
 
             return;
         }
@@ -450,7 +460,7 @@ final class ProductCsvImporter
     private function planCreate(array &$entry, array $data, ?int $categoryId, array $productsById, array &$newProducts, int &$fakeId, bool $apply): void
     {
         if ($data['price'] === null || $data['price'] <= 0) {
-            $entry['errors'][] = 'A new variant needs a price above 0.';
+            $entry['errors'][] = $this->t('A new variant needs a price above 0.');
         }
         $variant = [
             'sku'       => $data['sku'],
@@ -465,7 +475,7 @@ final class ProductCsvImporter
         if ($data['product_id'] !== null) {
             $product = $productsById[$data['product_id']] ?? null;
             if ($product === null) {
-                $entry['errors'][] = "Product #{$data['product_id']} does not exist (leave product_id empty to create a new product).";
+                $entry['errors'][] = $this->t('Product #{id} does not exist (leave product_id empty to create a new product).', ['id' => $data['product_id']]);
 
                 return;
             }
@@ -474,7 +484,7 @@ final class ProductCsvImporter
             }
             $entry['name'] = (string) $product['name'];
             $entry['action'] = 'create_variant';
-            $entry['changes'][] = "new variant of product #{$data['product_id']}";
+            $entry['changes'][] = $this->t('new variant of product #{id}', ['id' => $data['product_id']]);
             if ($apply) {
                 $this->variants->create(['product_id' => (int) $data['product_id']] + $variant);
             }
@@ -484,10 +494,10 @@ final class ProductCsvImporter
 
         // A new product (rows with the same name + category share it).
         if ($data['name'] === null) {
-            $entry['errors'][] = 'Name is required for a new product.';
+            $entry['errors'][] = $this->t('Name is required for a new product.');
         }
         if ($categoryId === null) {
-            $entry['errors'][] = 'Category is required for a new product.';
+            $entry['errors'][] = $this->t('Category is required for a new product.');
         }
         if ($entry['errors'] !== []) {
             return;
@@ -495,7 +505,7 @@ final class ProductCsvImporter
         $groupKey = mb_strtolower($data['name']) . '|' . $categoryId;
         if (isset($newProducts[$groupKey])) {
             $entry['action'] = 'create_variant';
-            $entry['changes'][] = 'new variant of the new product above';
+            $entry['changes'][] = $this->t('new variant of the new product above');
             if ($apply) {
                 $this->variants->create(['product_id' => $newProducts[$groupKey]] + $variant);
             }
@@ -503,13 +513,13 @@ final class ProductCsvImporter
             return;
         }
         if ($data['short_description'] === null) {
-            $entry['errors'][] = 'Short description is required for a new product.';
+            $entry['errors'][] = $this->t('Short description is required for a new product.');
 
             return;
         }
 
         $entry['action'] = 'create_product';
-        $entry['changes'][] = 'new product (status "created")';
+        $entry['changes'][] = $this->t('new product (status "created")');
         if (!$apply) {
             $newProducts[$groupKey] = --$fakeId;
 
@@ -538,13 +548,28 @@ final class ProductCsvImporter
             $old = $before[$field];
             $new = $after[$field];
             if (is_float($old) || is_float($new) ? abs((float) $old - (float) $new) >= 0.005 : $old !== $new) {
+                $empty = $this->t('(empty)');
                 $show = static fn (mixed $v): string => match (true) {
-                    $v === null   => '(empty)',
+                    $v === null   => $empty,
                     is_float($v)  => number_format($v, 2, '.', ''),
                     default       => mb_strimwidth((string) $v, 0, 40, '…'),
                 };
-                $label = ['is_active' => 'active', 'category_id' => 'category', 'short_description' => 'short description'][$field] ?? $field;
-                $changes[] = $field === 'category_id' ? 'category changed' : "{$label} {$show($old)} → {$show($new)}";
+                if ($field === 'category_id') {
+                    $changes[] = $this->t('category changed');
+                    continue;
+                }
+                $label = match ($field) {
+                    'label'             => $this->t('label'),
+                    'unit'              => $this->t('unit'),
+                    'price'             => $this->t('price'),
+                    'stock'             => $this->t('stock'),
+                    'is_active'         => $this->t('active'),
+                    'name'              => $this->t('name'),
+                    'short_description' => $this->t('short description'),
+                    'status'            => $this->t('status'),
+                    default             => $field,
+                };
+                $changes[] = $this->t('{field} {old} → {new}', ['field' => $label, 'old' => $show($old), 'new' => $show($new)]);
             }
         }
 

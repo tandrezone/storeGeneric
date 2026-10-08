@@ -8,6 +8,7 @@ use App\Http\ClientIp;
 use App\Http\Responder;
 use App\Http\Router;
 use App\Http\Session;
+use App\I18n\Translator;
 use App\Security\CustomerAuthenticator;
 use App\Service\CustomerAccounts;
 use App\Service\OrderLinks;
@@ -35,6 +36,7 @@ final class AccountAuthController
         private readonly OrderLinks $links,
         private readonly ClientIp $clientIp,
         private readonly Router $router,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -58,11 +60,11 @@ final class AccountAuthController
 
         if ($this->auth->lastFailure() === 'locked') {
             return $this->loginForm($request, $email, [
-                sprintf('Too many sign-in attempts. Please wait %d minutes and try again, or reset your password.', CustomerAuthenticator::LOCKOUT_MINUTES),
+                $this->translator->trans('Too many sign-in attempts. Please wait {minutes} minutes and try again, or reset your password.', ['minutes' => CustomerAuthenticator::LOCKOUT_MINUTES]),
             ], 429);
         }
 
-        return $this->loginForm($request, $email, ['Wrong email or password.'], 401);
+        return $this->loginForm($request, $email, [$this->translator->trans('Wrong email or password.')], 401);
     }
 
     /** POST only (with the form token), so other sites can't sign the customer out. */
@@ -72,7 +74,7 @@ final class AccountAuthController
         // On a shared computer the next visitor mustn't see orders placed in this session.
         $this->links->forgetPlaced();
         $this->session->remove(self::RESEND_KEY);
-        $this->session->flash('success', 'You have been signed out.');
+        $this->session->flash('success', $this->translator->trans('You have been signed out.'));
 
         return $this->responder->redirectToRoute('account.login');
     }
@@ -97,7 +99,7 @@ final class AccountAuthController
 
         $this->auth->login($customer);
         $this->session->set(self::RESEND_KEY, time());
-        $this->session->flash('success', "Welcome, {$customer['name']}! We sent a link to {$customer['email']} to confirm your email address.");
+        $this->session->flash('success', $this->translator->trans('Welcome, {name}! We sent a link to {email} to confirm your email address.', ['name' => $customer['name'], 'email' => $customer['email']]));
 
         return $this->responder->redirect($this->next($request, 'account'));
     }
@@ -115,12 +117,12 @@ final class AccountAuthController
         $email = trim((string) (((array) $request->getParsedBody())['email'] ?? ''));
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return $this->responder->view($request, 'shop/account/forgot-password.html.twig', [
-                'email' => $email, 'errors' => ['Please enter a valid email address.'], 'sent' => false,
+                'email' => $email, 'errors' => [$this->translator->trans('Please enter a valid email address.')], 'sent' => false,
             ], 422);
         }
         if (!$this->accounts->requestPasswordReset($email, $this->clientIp->of($request))) {
             return $this->responder->view($request, 'shop/account/forgot-password.html.twig', [
-                'email' => $email, 'errors' => ['Too many reset requests. Please try again in an hour.'], 'sent' => false,
+                'email' => $email, 'errors' => [$this->translator->trans('Too many reset requests. Please try again in an hour.')], 'sent' => false,
             ], 429);
         }
 
@@ -157,7 +159,7 @@ final class AccountAuthController
         }
 
         $this->auth->login($customer);
-        $this->session->flash('success', 'Your password has been changed and you are signed in.');
+        $this->session->flash('success', $this->translator->trans('Your password has been changed and you are signed in.'));
 
         return $this->responder->redirectToRoute('account');
     }
@@ -172,9 +174,9 @@ final class AccountAuthController
             ], 410);
         }
 
-        $message = 'Thank you — your email address is confirmed.';
+        $message = $this->translator->trans('Thank you — your email address is confirmed.');
         if ($result['linked'] > 0) {
-            $message .= sprintf(' %d earlier order%s placed with it %s now in your account.', $result['linked'], $result['linked'] === 1 ? '' : 's', $result['linked'] === 1 ? 'is' : 'are');
+            $message .= ' ' . $this->translator->transPlural('{count} earlier order placed with it is now in your account.', $result['linked']);
         }
         $this->session->flash('success', $message);
 
@@ -189,19 +191,19 @@ final class AccountAuthController
             return $this->responder->redirectToRoute('account.login', [], ['next' => '/account']);
         }
         if ($customer['email_verified_at'] !== null) {
-            $this->session->flash('success', 'Your email address is already confirmed.');
+            $this->session->flash('success', $this->translator->trans('Your email address is already confirmed.'));
 
             return $this->responder->redirectToRoute('account');
         }
 
         $last = (int) $this->session->get(self::RESEND_KEY, 0);
         if ($last > time() - self::RESEND_SECONDS) {
-            $this->session->flash('error', 'We just sent you a link. Please wait a minute before asking for another one.');
+            $this->session->flash('error', $this->translator->trans('We just sent you a link. Please wait a minute before asking for another one.'));
         } elseif ($this->accounts->sendVerification($customer)) {
             $this->session->set(self::RESEND_KEY, time());
-            $this->session->flash('success', "We sent a new confirmation link to {$customer['email']}.");
+            $this->session->flash('success', $this->translator->trans('We sent a new confirmation link to {email}.', ['email' => $customer['email']]));
         } else {
-            $this->session->flash('error', 'We couldn\'t send the email right now. Please try again later.');
+            $this->session->flash('error', $this->translator->trans('We couldn\'t send the email right now. Please try again later.'));
         }
 
         return $this->responder->redirectToRoute('account');

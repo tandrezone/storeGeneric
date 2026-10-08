@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Security;
 
 use App\Http\Session;
+use App\I18n\Translator;
 use App\Repository\AdminUserRepository;
 use App\Repository\LoginAttemptRepository;
 use App\Support\Config;
@@ -190,14 +191,17 @@ final class AdminAuthenticator
         }
     }
 
-    /** Null when $password is acceptable, else the reason. */
-    public static function passwordProblem(string $password): ?string
+    /** Null when $password is acceptable, else the reason (in English without a $translator). */
+    public static function passwordProblem(string $password, ?Translator $translator = null): ?string
     {
+        $say = static fn (string $message, array $params): string => $translator !== null
+            ? $translator->trans($message, $params)
+            : strtr($message, array_combine(array_map(static fn ($k) => '{' . $k . '}', array_keys($params)), array_map('strval', $params)));
         if (mb_strlen($password) < self::MIN_PASSWORD_LENGTH) {
-            return sprintf('The password must be at least %d characters long.', self::MIN_PASSWORD_LENGTH);
+            return $say('The password must be at least {min} characters long.', ['min' => self::MIN_PASSWORD_LENGTH]);
         }
         if (strlen($password) > self::MAX_PASSWORD_BYTES) {
-            return sprintf('The password can be at most %d bytes long.', self::MAX_PASSWORD_BYTES);
+            return $say('The password can be at most {max} bytes long.', ['max' => self::MAX_PASSWORD_BYTES]);
         }
 
         return null;

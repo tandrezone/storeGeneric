@@ -15,11 +15,11 @@ final class CashOnDeliveryMethod extends AbstractPaymentMethod
     }
     public function label(): string
     {
-        return 'Cash on delivery';
+        return $this->translator->trans('Cash on delivery');
     }
     public function description(): string
     {
-        return 'Pay the courier in cash when your order arrives.';
+        return $this->translator->trans('Pay the courier in cash when your order arrives.');
     }
 
     public function isOffline(): bool
@@ -34,10 +34,14 @@ final class CashOnDeliveryMethod extends AbstractPaymentMethod
 
     public function instructions(array $order): string
     {
-        $note = $this->config->get('COD_NOTE', 'Please have the exact amount ready when the courier arrives.');
+        // COD_NOTE is the store's own text (one language); the default is translated.
+        $note = $this->config->has('COD_NOTE')
+            ? $this->config->get('COD_NOTE')
+            : $this->translator->trans('Please have the exact amount ready when the courier arrives.');
+        $amount = '<strong>' . htmlspecialchars($this->plainAmount((float) $order['total'])) . '</strong>';
 
-        return '<h2>Cash on delivery</h2><p>You\'ll pay <strong>'
-            . htmlspecialchars($this->plainAmount((float) $order['total']))
-            . '</strong> on delivery. ' . htmlspecialchars($note) . '</p>';
+        return '<h2>' . htmlspecialchars($this->translator->trans('Cash on delivery')) . '</h2><p>'
+            . $this->translator->trans('You\'ll pay {amount} on delivery.', ['amount' => $amount])
+            . ' ' . htmlspecialchars($note) . '</p>';
     }
 }

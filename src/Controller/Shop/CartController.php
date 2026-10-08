@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller\Shop;
 
 use App\Http\Responder;
+use App\I18n\Translator;
 use App\Service\CartService;
 use App\Service\StoreSettings;
 use App\Support\Money;
@@ -17,6 +18,7 @@ final class CartController
         private readonly Responder $responder,
         private readonly CartService $cart,
         private readonly StoreSettings $store,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -29,7 +31,7 @@ final class CartController
             'items'        => $items,
             'total'        => $this->cart->total($items),
             'removed'      => $removed,
-            'money_format' => Money::spec($this->store->currency()),
+            'money_format' => Money::spec($this->store->currency(), $this->translator->intlLocale()),
         ]);
     }
 }

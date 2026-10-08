@@ -1,10 +1,10 @@
 {% extends 'layout/shop.html.twig' %}
 
-{% set title = 'Checkout' %}
+{% set title = 'Checkout'|trans %}
 
 {% block content %}
 <section class="checkout-page">
-    <h1>Checkout</h1>
+    <h1>{{ 'Checkout'|trans }}</h1>
 
     {% if notice %}<p class="msg" role="status">{{ notice }}</p>{% endif %}
 
@@ -19,81 +19,81 @@
     {# Customer accounts: optional. Guests check out exactly as before. #}
     {% if account %}
         <div class="checkout-account">
-            <p>Signed in as <strong>{{ account.name }}</strong> ({{ account.email }}) — this order will appear in <a href="{{ path('account.orders') }}">your account</a>.</p>
+            <p>{{ 'Signed in as {name} ({email}) — this order will appear in {link}your account{/link}.'|trans({name: '<strong>' ~ account.name|e ~ '</strong>', email: account.email|e, link: '<a href="' ~ path('account.orders')|e ~ '">', '/link': '</a>'})|raw }}</p>
             {% if saved_addresses|length > 1 %}
                 {# Without JavaScript "Use" reloads the page with that address; checkout.js fills the fields on change. #}
                 <form method="get" action="{{ path('checkout') }}" class="saved-address-picker">
-                    <label for="saved-address">Ship to a saved address</label>
+                    <label for="saved-address">{{ 'Ship to a saved address'|trans }}</label>
                     <div class="coupon-row">
                         <select id="saved-address" name="address" data-saved-address>
                             {% for address in saved_addresses %}
                                 <option value="{{ address.id }}" {{ form.address_id == address.id ? 'selected' }}
                                         data-address="{{ address|filter((v, k) => k in ['name', 'phone', 'address1', 'address2', 'city', 'state', 'postal_code', 'country'])|json_encode }}">
-                                    {{ address.label ? address.label ~ ' — ' }}{{ address.name }}, {{ address.address1 }}, {{ address.city }}{{ address.is_default ? ' (default)' }}
+                                    {{ address.label ? address.label ~ ' — ' }}{{ address.name }}, {{ address.address1 }}, {{ address.city }}{{ address.is_default ? ' (' ~ 'default'|trans ~ ')' }}
                                 </option>
                             {% endfor %}
                         </select>
-                        <button type="submit" class="btn-secondary">Use</button>
+                        <button type="submit" class="btn-secondary">{{ 'Use'|trans }}</button>
                     </div>
                 </form>
             {% endif %}
         </div>
     {% else %}
-        <p class="checkout-account">Have an account? <a href="{{ path('account.login', {}, {next: path('checkout')}) }}">Sign in</a> to use your saved addresses —
-           or just continue as a guest.</p>
+        <p class="checkout-account">{{ 'Have an account? {link}Sign in{/link} to use your saved addresses — or just continue as a guest.'|trans({link: '<a href="' ~ path('account.login', {}, {next: path('checkout')})|e ~ '">', '/link': '</a>'})|raw }}</p>
     {% endif %}
 
     <div class="checkout-grid">
         <form method="post" action="{{ path('checkout.submit') }}" class="shipping-form" id="checkout-form" data-no-ajax data-checkout data-subtotal="{{ subtotal }}"
               data-quote-url="{{ path('api.checkout.quote') }}" data-discount="{{ summary.discount }}"
               data-currency="{{ store.currency }}" data-currency-symbol="{{ money_format.symbol }}"
-              data-currency-before="{{ money_format.before ? '1' : '0' }}" data-currency-decimals="{{ money_format.decimals }}">
+              data-currency-before="{{ money_format.before ? '1' : '0' }}" data-currency-decimals="{{ money_format.decimals }}"
+              data-currency-decimal="{{ money_format.decimal }}" data-currency-group="{{ money_format.group }}">
             {{ csrf_field() }}
 
-            <label for="name">Full name</label>
+            <label for="name">{{ 'Full name'|trans }}</label>
             <input type="text" id="name" name="name" required value="{{ form.name }}">
 
-            <label for="email">Email</label>
+            <label for="email">{{ 'Email'|trans }}</label>
             <input type="email" id="email" name="email" required value="{{ form.email }}">
-            <p class="field-hint">Used for order tracking updates.</p>
+            <p class="field-hint">{{ 'Used for order tracking updates.'|trans }}</p>
 
-            <label for="phone">Phone (optional)</label>
+            <label for="phone">{{ 'Phone (optional)'|trans }}</label>
             <input type="tel" id="phone" name="phone" value="{{ form.phone }}">
 
-            <label for="address1">Address</label>
+            <label for="address1">{{ 'Address'|trans }}</label>
             <input type="text" id="address1" name="address1" required value="{{ form.address1 }}">
 
-            <label for="address2">Address line 2 (optional)</label>
+            <label for="address2">{{ 'Address line 2 (optional)'|trans }}</label>
             <input type="text" id="address2" name="address2" value="{{ form.address2 }}">
 
             <div class="form-row">
                 <div>
-                    <label for="city">City</label>
+                    <label for="city">{{ 'City'|trans }}</label>
                     <input type="text" id="city" name="city" required value="{{ form.city }}">
                 </div>
                 <div>
-                    <label for="state">State / Province</label>
+                    <label for="state">{{ 'State / Province'|trans }}</label>
                     <input type="text" id="state" name="state" value="{{ form.state }}">
                 </div>
             </div>
 
             <div class="form-row">
                 <div>
-                    <label for="postal_code">Postal code</label>
+                    <label for="postal_code">{{ 'Postal code'|trans }}</label>
                     <input type="text" id="postal_code" name="postal_code" required value="{{ form.postal_code }}">
                 </div>
                 <div>
-                    <label for="country">Country</label>
+                    <label for="country">{{ 'Country'|trans }}</label>
                     <input type="text" id="country" name="country" required value="{{ form.country }}">
                 </div>
             </div>
 
             {% if account %}
                 <input type="hidden" name="address_id" value="{{ form.address_id }}">
-                <label class="inline-check"><input type="checkbox" name="save_address" value="1" {{ form.save_address ? 'checked' }}> Save this address to my account</label>
+                <label class="inline-check"><input type="checkbox" name="save_address" value="1" {{ form.save_address ? 'checked' }}> {{ 'Save this address to my account'|trans }}</label>
             {% endif %}
 
-            <h2>Shipping method</h2>
+            <h2>{{ 'Shipping method'|trans }}</h2>
             <div class="shipping-methods" data-shipping-methods>
                 {% for method in shipping_methods %}
                     <label class="shipping-method-option">
@@ -105,16 +105,16 @@
                             {{ method.name }}
                             {% if method.description %}<br><small class="field-hint">{{ method.description }}</small>{% endif %}
                             {% if method.free_over is not null and method.price > 0 %}
-                                <br><small class="field-hint">Free on orders over {{ method.free_over|money }}</small>
+                                <br><small class="field-hint">{{ 'Free on orders over {amount}'|trans({amount: method.free_over|money}) }}</small>
                             {% endif %}
                         </span>
-                        <span class="shipping-method-cost">{{ method.price > 0 ? method.price|money : 'Free' }}</span>
+                        <span class="shipping-method-cost">{{ method.price > 0 ? method.price|money : 'Free'|trans }}</span>
                     </label>
                 {% endfor %}
             </div>
-            <p class="field-hint" data-no-shipping style="display: none;">We don't ship to that country yet. Check the spelling or contact support.</p>
+            <p class="field-hint" data-no-shipping style="display: none;">{{ 'We don\'t ship to that country yet. Check the spelling or contact support.'|trans }}</p>
 
-            <h2>Payment method</h2>
+            <h2>{{ 'Payment method'|trans }}</h2>
             <div class="shipping-methods payment-methods">
                 {% for method in payment_methods %}
                     <label class="shipping-method-option payment-method-option">
@@ -127,11 +127,11 @@
                 {% endfor %}
             </div>
 
-            <button type="submit" class="btn-primary" {{ payment_methods is empty or shipping_methods is empty ? 'disabled' }}>Place order</button>
+            <button type="submit" class="btn-primary" {{ payment_methods is empty or shipping_methods is empty ? 'disabled' }}>{{ 'Place order'|trans }}</button>
         </form>
 
         <aside class="order-summary">
-            <h2>Order summary</h2>
+            <h2>{{ 'Order summary'|trans }}</h2>
             <ul>
                 {% for item in items %}
                     <li>
@@ -140,34 +140,34 @@
                     </li>
                 {% endfor %}
             </ul>
-            <p class="order-subtotal"><span>Subtotal</span><span id="checkout-subtotal">{{ summary.subtotal|money }}</span></p>
-            <p class="order-shipping"><span>Shipping</span><span id="checkout-shipping-cost">{{ summary.shipping|money }}</span></p>
+            <p class="order-subtotal"><span>{{ 'Subtotal'|trans }}</span><span id="checkout-subtotal">{{ summary.subtotal|money }}</span></p>
+            <p class="order-shipping"><span>{{ 'Shipping'|trans }}</span><span id="checkout-shipping-cost">{{ summary.shipping|money }}</span></p>
             <p class="order-discount" id="checkout-discount-row" {{ summary.discount > 0 ? '' : 'hidden' }}>
-                <span>Discount{% if summary.coupon_code %} ({{ summary.coupon_code }}){% endif %}</span>
+                <span>{% if summary.coupon_code %}{{ 'Discount ({code})'|trans({code: summary.coupon_code}) }}{% else %}{{ 'Discount'|trans }}{% endif %}</span>
                 <span id="checkout-discount">−{{ summary.discount|money }}</span>
             </p>
             <p class="order-tax" id="checkout-tax-row" {{ summary.tax_label and not summary.prices_include_tax ? '' : 'hidden' }}>
                 <span data-tax-label>{{ summary.tax_label }}</span><span id="checkout-tax">{{ summary.tax_amount|money }}</span>
             </p>
-            <p class="order-total"><span>Total</span><span id="checkout-total">{{ summary.total|money }}</span></p>
+            <p class="order-total"><span>{{ 'Total'|trans }}</span><span id="checkout-total">{{ summary.total|money }}</span></p>
             <p class="order-tax-included" id="checkout-tax-included-row" {{ summary.tax_label and summary.prices_include_tax ? '' : 'hidden' }}>
                 <span data-tax-label>{{ summary.tax_label }}</span><span id="checkout-tax-included">{{ summary.tax_amount|money }}</span>
             </p>
 
             <div class="coupon-box">
                 {% if summary.coupon_code %}
-                    <p>Discount code <strong>{{ summary.coupon_code }}</strong>: {{ summary.coupon_description }}</p>
-                    <button type="submit" form="checkout-form" name="coupon_action" value="remove" class="btn-secondary" formnovalidate>Remove code</button>
+                    <p>{{ 'Discount code'|trans }} <strong>{{ summary.coupon_code }}</strong>: {{ summary.coupon_description }}</p>
+                    <button type="submit" form="checkout-form" name="coupon_action" value="remove" class="btn-secondary" formnovalidate>{{ 'Remove code'|trans }}</button>
                 {% else %}
-                    <label for="coupon_code">Discount code</label>
+                    <label for="coupon_code">{{ 'Discount code'|trans }}</label>
                     <div class="coupon-row">
                         <input type="text" id="coupon_code" name="coupon_code" form="checkout-form" value="{{ form.coupon_code }}"
                                maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false">
-                        <button type="submit" form="checkout-form" name="coupon_action" value="apply" class="btn-secondary" formnovalidate data-coupon-apply>Apply</button>
+                        <button type="submit" form="checkout-form" name="coupon_action" value="apply" class="btn-secondary" formnovalidate data-coupon-apply>{{ 'Apply'|trans }}</button>
                     </div>
                 {% endif %}
             </div>
-            <p class="payment-note">Online payments open on the provider's secure page; for bank transfer or cash on delivery you'll get instructions after placing the order.</p>
+            <p class="payment-note">{{ 'Online payments open on the provider\'s secure page; for bank transfer or cash on delivery you\'ll get instructions after placing the order.'|trans }}</p>
         </aside>
     </div>
 </section>

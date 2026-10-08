@@ -30,13 +30,15 @@
     // Same format as the server's `money` filter (App\Support\Money::spec()).
     var symbol = form.dataset.currencySymbol || '€';
     var symbolBefore = form.dataset.currencyBefore === '1';
+    var decimalPoint = form.dataset.currencyDecimal || '.';
+    var groupSeparator = form.dataset.currencyGroup || ',';
     var decimals = parseInt(form.dataset.currencyDecimals, 10);
     if (isNaN(decimals)) decimals = 2;
 
     function formatMoney(value) {
         var parts = Number(value).toFixed(decimals).split('.');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        var number = parts.join('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, groupSeparator);
+        var number = parts.join(decimalPoint);
         return symbolBefore ? symbol + number : number + symbol;
     }
 

@@ -1,6 +1,6 @@
 {% extends 'layout/admin.html.twig' %}
 
-{% set title = 'Admin — Discounts' %}
+{% set title = 'Admin — {page}'|trans({page: 'Discounts'|trans}) %}
 {% set active_nav = 'discounts' %}
 
 {# datetime-local value: posted values ("2026-10-07T10:00") as typed, stored ones converted. #}
@@ -9,68 +9,67 @@
 {% macro fields(m) %}
     {% import _self as form %}
     <div class="form-row">
-        <label>Code
+        <label>{{ 'Code'|trans }}
             <input type="text" name="code" value="{{ m.code ?? '' }}" maxlength="40" required placeholder="SUMMER10" autocapitalize="characters" spellcheck="false">
         </label>
-        <label>Type
+        <label>{{ 'Type'|trans }}
             <select name="type" required>
-                {% for value, label in {percent: 'Percentage off the subtotal', fixed: 'Fixed amount off the subtotal', free_shipping: 'Free shipping'} %}
+                {% for value, label in {percent: 'Percentage off the subtotal'|trans, fixed: 'Fixed amount off the subtotal'|trans, free_shipping: 'Free shipping'|trans} %}
                     <option value="{{ value }}" {{ (m.type ?? 'percent') == value ? 'selected' }}>{{ label }}</option>
                 {% endfor %}
             </select>
         </label>
-        <label>Value (% or amount)
+        <label>{{ 'Value (% or amount)'|trans }}
             <input type="number" name="value" value="{{ m.value ?? '' }}" step="0.01" min="0" placeholder="10">
         </label>
     </div>
     <div class="form-row">
-        <label>Minimum subtotal (optional)
-            <input type="number" name="min_subtotal" value="{{ m.min_subtotal ?? '' }}" step="0.01" min="0" placeholder="No minimum">
+        <label>{{ 'Minimum subtotal (optional)'|trans }}
+            <input type="number" name="min_subtotal" value="{{ m.min_subtotal ?? '' }}" step="0.01" min="0" placeholder="{{ 'No minimum'|trans }}">
         </label>
-        <label>Starts (optional)
+        <label>{{ 'Starts (optional)'|trans }}
             <input type="datetime-local" name="starts_at" value="{{ form.when(m.starts_at ?? '') }}">
         </label>
-        <label>Ends (optional)
+        <label>{{ 'Ends (optional)'|trans }}
             <input type="datetime-local" name="ends_at" value="{{ form.when(m.ends_at ?? '') }}">
         </label>
     </div>
     <div class="form-row">
-        <label>Usage limit (optional)
-            <input type="number" name="usage_limit" value="{{ m.usage_limit ?? '' }}" step="1" min="1" placeholder="Unlimited">
+        <label>{{ 'Usage limit (optional)'|trans }}
+            <input type="number" name="usage_limit" value="{{ m.usage_limit ?? '' }}" step="1" min="1" placeholder="{{ 'Unlimited'|trans }}">
         </label>
-        <label>Uses per customer email (optional)
-            <input type="number" name="per_email_limit" value="{{ m.per_email_limit ?? '' }}" step="1" min="1" placeholder="Unlimited">
+        <label>{{ 'Uses per customer email (optional)'|trans }}
+            <input type="number" name="per_email_limit" value="{{ m.per_email_limit ?? '' }}" step="1" min="1" placeholder="{{ 'Unlimited'|trans }}">
         </label>
     </div>
     <p class="field-hint">
-        Codes aren't case-sensitive. The discount comes off the items subtotal before VAT; a fixed amount never takes it below 0.
-        Free shipping ignores the value. Orders cancelled before payment give their use back.
+        {{ 'Codes aren\'t case-sensitive. The discount comes off the items subtotal before VAT; a fixed amount never takes it below 0. Free shipping ignores the value. Orders cancelled before payment give their use back.'|trans }}
     </p>
     <label style="display: flex; align-items: center; gap: 8px;">
         <input type="checkbox" name="is_active" value="1" style="width: auto;" {{ (m.is_active ?? true) ? 'checked' }}>
-        Active
+        {{ 'Active'|trans }}
     </label>
 {% endmacro %}
 
 {% block content %}
 {% import _self as form %}
-<h1>Discounts</h1>
+<h1>{{ 'Discounts'|trans }}</h1>
 
 {% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
 
 <details class="panel" {{ edit_id == 0 and input is not null ? 'open' }}>
-    <summary class="panel-summary">Add discount code</summary>
+    <summary class="panel-summary">{{ 'Add discount code'|trans }}</summary>
     <form method="post" action="{{ path('admin.discounts.submit') }}">
         {{ csrf_field() }}
         <input type="hidden" name="action" value="create">
         {{ form.fields(edit_id == 0 and input is not null ? input : {}) }}
-        <button type="submit" class="btn-primary">Add code</button>
+        <button type="submit" class="btn-primary">{{ 'Add code'|trans }}</button>
     </form>
 </details>
 
 <table class="cart-table admin-table">
     <thead>
-        <tr><th>Code</th><th>Discount</th><th>Minimum</th><th>Valid</th><th>Used</th><th>Status</th><th>Actions</th></tr>
+        <tr><th>{{ 'Code'|trans }}</th><th>{{ 'Discount'|trans }}</th><th>{{ 'Minimum'|trans }}</th><th>{{ 'Valid'|trans }}</th><th>{{ 'Used'|trans }}</th><th>{{ 'Status'|trans }}</th><th>{{ 'Actions'|trans }}</th></tr>
     </thead>
     <tbody>
         {% for c in coupons %}
@@ -81,32 +80,32 @@
                 <td class="tabular">{{ c.min_subtotal is not null ? c.min_subtotal|money : '—' }}</td>
                 <td>
                     {% if c.starts_at or c.ends_at %}
-                        {{ c.starts_at ? c.starts_at|date('j M Y H:i') : 'now' }} – {{ c.ends_at ? c.ends_at|date('j M Y H:i') : 'no end' }}
+                        {{ c.starts_at ? c.starts_at|local_date('medium', true) : 'now'|trans }} – {{ c.ends_at ? c.ends_at|local_date('medium', true) : 'no end'|trans }}
                     {% else %}
-                        <span class="field-hint">Always</span>
+                        <span class="field-hint">{{ 'Always'|trans }}</span>
                     {% endif %}
                 </td>
                 <td class="tabular">
                     {{ c.used_count }}{% if c.usage_limit is not null %} / {{ c.usage_limit }}{% endif %}
-                    {% if c.per_email_limit is not null %}<br><span class="field-hint">{{ c.per_email_limit }} per customer</span>{% endif %}
+                    {% if c.per_email_limit is not null %}<br><span class="field-hint">{{ '{count} per customer'|trans({count: c.per_email_limit}) }}</span>{% endif %}
                 </td>
-                <td><span class="status-badge" data-status="{{ c.state == 'active' ? 'approved' : (c.state == 'scheduled' ? 'processing' : 'invalid') }}">{{ c.state }}</span></td>
+                <td><span class="status-badge" data-status="{{ c.state == 'active' ? 'approved' : (c.state == 'scheduled' ? 'processing' : 'invalid') }}">{{ c.state|capitalize|trans }}</span></td>
                 <td>
                     <div class="table-actions">
-                        <button type="button" class="btn-secondary" data-toggle="coupon-edit-{{ c.id }}" aria-expanded="{{ open ? 'true' : 'false' }}">Edit</button>
+                        <button type="button" class="btn-secondary" data-toggle="coupon-edit-{{ c.id }}" aria-expanded="{{ open ? 'true' : 'false' }}">{{ 'Edit'|trans }}</button>
                         <form method="post" action="{{ path('admin.discounts.submit') }}" class="inline-form">
                             {{ csrf_field() }}
                             <input type="hidden" name="action" value="toggle">
                             <input type="hidden" name="id" value="{{ c.id }}">
-                            <button type="submit" class="btn-secondary">{{ c.is_active ? 'Deactivate' : 'Activate' }}</button>
+                            <button type="submit" class="btn-secondary">{{ c.is_active ? 'Deactivate'|trans : 'Activate'|trans }}</button>
                         </form>
                         {% if c.order_count == 0 %}
                             <form method="post" action="{{ path('admin.discounts.submit') }}" class="inline-form"
-                                  data-confirm="Delete the discount code {{ c.code }}?">
+                                  data-confirm="{{ 'Delete the discount code {code}?'|trans({code: c.code}) }}">
                                 {{ csrf_field() }}
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="id" value="{{ c.id }}">
-                                <button type="submit" class="icon-btn icon-btn-danger" title="Delete">🗑</button>
+                                <button type="submit" class="icon-btn icon-btn-danger" title="{{ 'Delete'|trans }}">🗑</button>
                             </form>
                         {% endif %}
                     </div>
@@ -120,16 +119,16 @@
                             <input type="hidden" name="action" value="update">
                             <input type="hidden" name="id" value="{{ c.id }}">
                             {{ form.fields(open and input is not null ? input : c) }}
-                            <button type="submit" class="btn-primary">Save changes</button>
+                            <button type="submit" class="btn-primary">{{ 'Save changes'|trans }}</button>
                         </form>
                     </div>
                 </td>
             </tr>
         {% else %}
-            <tr><td colspan="7" style="color: var(--color-muted);">No discount codes yet.</td></tr>
+            <tr><td colspan="7" style="color: var(--color-muted);">{{ 'No discount codes yet.'|trans }}</td></tr>
         {% endfor %}
     </tbody>
 </table>
 
-<p class="field-hint">Codes used on orders can't be deleted (orders keep a copy of the code) — deactivate them instead.</p>
+<p class="field-hint">{{ 'Codes used on orders can\'t be deleted (orders keep a copy of the code) — deactivate them instead.'|trans }}</p>
 {% endblock %}

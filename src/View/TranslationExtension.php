@@ -57,9 +57,11 @@ final class TranslationExtension extends AbstractExtension
      */
     public static function filters(Translator $translator): array
     {
+        [$trans, $plural] = self::translators($translator);
+
         return [
-            new TwigFilter('trans', /** @param array<array-key, mixed> $params */ static fn (?string $message,array $params = []): string => $translator->trans((string) $message, $params)),
-            new TwigFilter('trans_plural', /** @param array<array-key, mixed> $params */ static fn (?string $message,int|float|string|null $count, array $params = []): string => $translator->transPlural((string) $message, (float) $count == (int) $count ? (int) $count : (float) $count, $params)),
+            new TwigFilter('trans', $trans),
+            new TwigFilter('trans_plural', $plural),
             new TwigFilter('local_date', static fn (mixed $date, string $style = 'medium', bool $time = false): string => LocaleFormat::date(self::dateValue($date), $translator->intlLocale(), $style, $time)),
             new TwigFilter('local_number', static fn (float|int|string|null $number, int $decimals = 0): string => LocaleFormat::number($number, $translator->intlLocale(), $decimals)),
         ];
@@ -72,10 +74,33 @@ final class TranslationExtension extends AbstractExtension
      */
     public static function functions(Translator $translator): array
     {
+        [$trans, $plural] = self::translators($translator);
+
         return [
-            new TwigFunction('t', /** @param array<array-key, mixed> $params */ static fn (?string $message,array $params = []): string => $translator->trans((string) $message, $params)),
-            new TwigFunction('t_plural', /** @param array<array-key, mixed> $params */ static fn (?string $message,int|float|string|null $count, array $params = []): string => $translator->transPlural((string) $message, (float) $count == (int) $count ? (int) $count : (float) $count, $params)),
+            new TwigFunction('t', $trans),
+            new TwigFunction('t_plural', $plural),
         ];
+    }
+
+    /**
+     * Callables behind |trans / t() and |trans_plural / t_plural().
+     *
+     * @return array{0: callable(?string, array<array-key, mixed>=): string, 1: callable(?string, int|float|string|null, array<array-key, mixed>=): string}
+     */
+    private static function translators(Translator $translator): array
+    {
+        $trans = static function (?string $message, array $params = []) use ($translator): string {
+            /** @var array<array-key, mixed> $params */
+            return $translator->trans((string) $message, $params);
+        };
+        $plural = static function (?string $message, int|float|string|null $count, array $params = []) use ($translator): string {
+            /** @var array<array-key, mixed> $params */
+            $number = (float) $count;
+
+            return $translator->transPlural((string) $message, $number == (int) $number ? (int) $number : $number, $params);
+        };
+
+        return [$trans, $plural];
     }
 
     /** @return list<array{code: string, name: string, html_lang: string, active: bool}> */

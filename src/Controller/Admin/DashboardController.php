@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller\Admin;
 
 use App\Http\Responder;
+use App\I18n\Translator;
 use App\Payment\PaymentMethod;
 use App\Payment\PaymentRegistry;
 use App\Repository\DashboardRepository;
@@ -23,7 +24,8 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 final class DashboardController
 {
-    private const PERIODS = ['today' => 1, '7 days' => 7, '30 days' => 30];
+    /** Label (English source text, translated for the page) => days. */
+    private const PERIODS = ['Today' => 1, 'Last 7 days' => 7, 'Last 30 days' => 30];
     private const CHART_DAYS = 30;
 
     public function __construct(
@@ -33,6 +35,7 @@ final class DashboardController
         private readonly StoreSettings $store,
         private readonly PaymentRegistry $payments,
         private readonly AdminAuthenticator $auth,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -43,13 +46,14 @@ final class DashboardController
 
         $kpis = [];
         foreach (self::PERIODS as $label => $days) {
-            $kpis[] = ['label' => $label, 'days' => $days] + $this->dashboard->totals($days);
+            $kpis[] = ['label' => $this->translator->trans($label), 'days' => $days] + $this->dashboard->totals($days);
         }
 
         $topProducts = $this->dashboard->topProducts(self::CHART_DAYS, 8);
         $currency = $this->store->currency();
+        $intl = $this->translator->intlLocale();
         $daily = array_map(
-            static fn (array $d) => $d + ['revenue_label' => Money::format($d['revenue'], $currency)],
+            static fn (array $d) => $d + ['revenue_label' => Money::format($d['revenue'], $currency, $intl)],
             $this->dashboard->dailyRevenue(self::CHART_DAYS)
         );
         if (!$showRevenue) {
@@ -71,7 +75,7 @@ final class DashboardController
             'threshold'       => $threshold,
             'top_products'    => $topProducts,
             'recent_orders'   => $this->dashboard->recentOrders(8),
-            'payment_labels'  => array_map(static fn (PaymentMethod $m) => $m->label(), $this->payments->all()),
+            'payment_labels'  => array_map(fn (PaymentMethod $m) => $this->translator->trans($m->label()), $this->payments->all()),
         ]);
     }
 }

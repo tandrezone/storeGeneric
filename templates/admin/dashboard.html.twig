@@ -1,54 +1,54 @@
 {% extends 'layout/admin.html.twig' %}
 
-{% set title = 'Admin — Dashboard' %}
+{% set title = 'Admin — {page}'|trans({page: 'Dashboard'|trans}) %}
 {% set active_nav = 'dashboard' %}
 
 {% block content %}
-<h1>Dashboard</h1>
+<h1>{{ 'Dashboard'|trans }}</h1>
 
 <div class="stat-grid">
     {% for kpi in kpis %}
         {% if show_revenue %}
             <div class="stat-tile">
-                <span class="stat-label">Revenue · {{ kpi.label }}</span>
+                <span class="stat-label">{{ 'Revenue · {period}'|trans({period: kpi.label}) }}</span>
                 <span class="stat-value">{{ kpi.revenue|money }}</span>
-                <span class="stat-sub">{{ kpi.paid_orders|number_format }} paid · avg {{ kpi.average|money }}</span>
+                <span class="stat-sub">{{ '{count} paid · avg {amount}'|trans_plural(kpi.paid_orders, {amount: kpi.average|money}) }}</span>
             </div>
         {% endif %}
         <div class="stat-tile">
-            <span class="stat-label">Orders · {{ kpi.label }}</span>
+            <span class="stat-label">{{ 'Orders · {period}'|trans({period: kpi.label}) }}</span>
             <span class="stat-value">{{ kpi.orders|number_format }}</span>
-            <span class="stat-sub">{{ kpi.paid_orders|number_format }} paid</span>
+            <span class="stat-sub">{{ '{count} paid'|trans_plural(kpi.paid_orders) }}</span>
         </div>
     {% endfor %}
     <a class="stat-tile" href="{{ path('admin.orders', {}, {status: 'paid'}) }}">
-        <span class="stat-label">To ship</span>
+        <span class="stat-label">{{ 'To ship'|trans }}</span>
         <span class="stat-value">{{ awaiting.to_ship|number_format }}</span>
-        <span class="stat-sub">paid, not shipped</span>
+        <span class="stat-sub">{{ 'paid, not shipped'|trans }}</span>
     </a>
     <a class="stat-tile" href="{{ path('admin.orders', {}, {status: 'pending'}) }}">
-        <span class="stat-label">Awaiting payment</span>
+        <span class="stat-label">{{ 'Awaiting payment'|trans }}</span>
         <span class="stat-value">{{ awaiting.awaiting_payment|number_format }}</span>
-        <span class="stat-sub">bank transfer / cash on delivery</span>
+        <span class="stat-sub">{{ 'bank transfer / cash on delivery'|trans }}</span>
     </a>
     <a class="stat-tile" href="{{ path('admin.products', {}, {stock: 'low'}) }}">
-        <span class="stat-label">Low stock</span>
+        <span class="stat-label">{{ 'Low stock'|trans }}</span>
         <span class="stat-value">{{ low_stock_count|number_format }}</span>
-        <span class="stat-sub">variants at {{ threshold }} or less</span>
+        <span class="stat-sub">{{ 'variants at {threshold} or less'|trans({threshold: threshold}) }}</span>
     </a>
 </div>
 
 {% if show_revenue %}
 <div class="panel">
-    <h2>Revenue, last {{ chart_days }} days</h2>
+    <h2>{{ 'Revenue, last {days} days'|trans({days: chart_days}) }}</h2>
     <div class="chart-legend">
-        <span class="legend-item"><span class="legend-swatch legend-swatch-line legend-teal"></span>Revenue from paid orders</span>
+        <span class="legend-item"><span class="legend-swatch legend-swatch-line legend-teal"></span>{{ 'Revenue from paid orders'|trans }}</span>
     </div>
     <div class="chart-wrap" id="revenue-chart" data-points="{{ daily|json_encode }}"></div>
     <details class="chart-table-toggle">
-        <summary>View as table</summary>
+        <summary>{{ 'View as table'|trans }}</summary>
         <table class="cart-table admin-table">
-            <thead><tr><th>Day</th><th class="tabular">Revenue</th><th class="tabular">Paid orders</th></tr></thead>
+            <thead><tr><th>{{ 'Day'|trans }}</th><th class="tabular">{{ 'Revenue'|trans }}</th><th class="tabular">{{ 'Paid orders'|trans }}</th></tr></thead>
             <tbody>
                 {% for point in daily %}
                     <tr>
@@ -65,29 +65,29 @@
 
 <div class="analytics-grid-2col">
     <div class="panel">
-        <h2>Orders awaiting action</h2>
+        <h2>{{ 'Orders awaiting action'|trans }}</h2>
         <table class="cart-table admin-table">
-            <thead><tr><th>Order #</th><th>Waiting for</th><th>Method</th><th class="tabular">Total</th><th>Placed</th></tr></thead>
+            <thead><tr><th>{{ 'Order #'|trans }}</th><th>{{ 'Waiting for'|trans }}</th><th>{{ 'Method'|trans }}</th><th class="tabular">{{ 'Total'|trans }}</th><th>{{ 'Placed'|trans }}</th></tr></thead>
             <tbody>
                 {% for order in awaiting_orders %}
                     <tr>
                         <td><a href="{{ path('admin.order', {id: order.id}) }}">{{ order.order_number }}</a><br><span class="field-hint">{{ order.ship_name }}</span></td>
-                        <td><span class="status-badge" data-status="{{ order.waiting_for == 'ship' ? 'paid' : 'pending' }}">{{ order.waiting_for == 'ship' ? 'shipping' : 'payment' }}</span></td>
+                        <td><span class="status-badge" data-status="{{ order.waiting_for == 'ship' ? 'paid' : 'pending' }}">{{ order.waiting_for == 'ship' ? 'Shipping'|trans : 'Payment'|trans }}</span></td>
                         <td class="field-hint">{{ payment_labels[order.payment_method] ?? order.payment_method }}</td>
                         <td class="tabular">{{ order.total|money }}</td>
                         <td class="field-hint">{{ order.created_at }}</td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="5" style="color: var(--color-muted);">Nothing waiting — all caught up.</td></tr>
+                    <tr><td colspan="5" style="color: var(--color-muted);">{{ 'Nothing waiting — all caught up.'|trans }}</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
     <div class="panel">
-        <h2>Low stock</h2>
+        <h2>{{ 'Low stock'|trans }}</h2>
         <table class="cart-table admin-table">
-            <thead><tr><th>Product</th><th>Variant</th><th class="tabular">Stock</th></tr></thead>
+            <thead><tr><th>{{ 'Product'|trans }}</th><th>{{ 'Variant'|trans }}</th><th class="tabular">{{ 'Stock'|trans }}</th></tr></thead>
             <tbody>
                 {% for v in low_stock %}
                     <tr>
@@ -96,19 +96,19 @@
                         <td class="tabular"><span class="stock-badge {{ v.stock <= 0 ? 'is-out' : 'is-low' }}">{{ v.stock }}</span></td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="3" style="color: var(--color-muted);">No variant is at or below {{ threshold }}.</td></tr>
+                    <tr><td colspan="3" style="color: var(--color-muted);">{{ 'No variant is at or below {threshold}.'|trans({threshold: threshold}) }}</td></tr>
                 {% endfor %}
             </tbody>
         </table>
         {% if low_stock_count > low_stock|length %}
-            <p class="field-hint"><a href="{{ path('admin.products', {}, {stock: 'low'}) }}">All {{ low_stock_count }} low-stock variants →</a></p>
+            <p class="field-hint"><a href="{{ path('admin.products', {}, {stock: 'low'}) }}">{{ 'All {count} low-stock variants →'|trans({count: low_stock_count}) }}</a></p>
         {% endif %}
     </div>
 
     <div class="panel">
-        <h2>Top sellers, last 30 days</h2>
+        <h2>{{ 'Top sellers, last 30 days'|trans }}</h2>
         <table class="cart-table admin-table">
-            <thead><tr><th>Product</th><th class="tabular">Units</th>{% if show_revenue %}<th class="tabular">Revenue</th>{% endif %}</tr></thead>
+            <thead><tr><th>{{ 'Product'|trans }}</th><th class="tabular">{{ 'Units'|trans }}</th>{% if show_revenue %}<th class="tabular">{{ 'Revenue'|trans }}</th>{% endif %}</tr></thead>
             <tbody>
                 {% for p in top_products %}
                     <tr>
@@ -117,30 +117,30 @@
                         {% if show_revenue %}<td class="tabular">{{ p.revenue|money }}</td>{% endif %}
                     </tr>
                 {% else %}
-                    <tr><td colspan="{{ show_revenue ? 3 : 2 }}" style="color: var(--color-muted);">No paid orders in the last 30 days.</td></tr>
+                    <tr><td colspan="{{ show_revenue ? 3 : 2 }}" style="color: var(--color-muted);">{{ 'No paid orders in the last 30 days.'|trans }}</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
     <div class="panel">
-        <h2>Recent orders</h2>
+        <h2>{{ 'Recent orders'|trans }}</h2>
         <table class="cart-table admin-table">
-            <thead><tr><th>Order #</th><th>Status</th><th>Payment</th><th class="tabular">Total</th></tr></thead>
+            <thead><tr><th>{{ 'Order #'|trans }}</th><th>{{ 'Status'|trans }}</th><th>{{ 'Payment'|trans }}</th><th class="tabular">{{ 'Total'|trans }}</th></tr></thead>
             <tbody>
                 {% for order in recent_orders %}
                     <tr>
                         <td><a href="{{ path('admin.order', {id: order.id}) }}">{{ order.order_number }}</a><br><span class="field-hint">{{ order.created_at }}</span></td>
-                        <td><span class="status-badge" data-status="{{ order.status }}">{{ order.status }}</span></td>
-                        <td><span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status }}</span></td>
+                        <td><span class="status-badge" data-status="{{ order.status }}">{{ order.status|capitalize|trans }}</span></td>
+                        <td><span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status|capitalize|trans }}</span></td>
                         <td class="tabular">{{ order.total|money }}</td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="4" style="color: var(--color-muted);">No orders yet.</td></tr>
+                    <tr><td colspan="4" style="color: var(--color-muted);">{{ 'No orders yet.'|trans }}</td></tr>
                 {% endfor %}
             </tbody>
         </table>
-        <p class="field-hint"><a href="{{ path('admin.orders') }}">All orders →</a></p>
+        <p class="field-hint"><a href="{{ path('admin.orders') }}">{{ 'All orders →'|trans }}</a></p>
     </div>
 </div>
 

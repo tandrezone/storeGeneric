@@ -8,16 +8,16 @@
             <td align="right" style="padding:6px 0;border-bottom:1px solid #e5e7eb;">{{ item.line_total|money }}</td>
         </tr>
     {% endfor %}
-    <tr><td style="padding:6px 0;">Subtotal</td><td align="right">{{ order.subtotal|money }}</td></tr>
-    <tr><td style="padding:6px 0;">Shipping ({{ order.shipping_label ?: order.shipping_method }})</td><td align="right">{{ order.shipping_cost|money }}</td></tr>
+    <tr><td style="padding:6px 0;">{{ 'Subtotal'|trans }}</td><td align="right">{{ order.subtotal|money }}</td></tr>
+    <tr><td style="padding:6px 0;">{{ 'Shipping ({method})'|trans({method: order.shipping_label ?: order.shipping_method}) }}</td><td align="right">{{ order.shipping_cost|money }}</td></tr>
     {% if order.discount_amount|default(0) > 0 %}
-        <tr><td style="padding:6px 0;">Discount{% if order.coupon_code %} ({{ order.coupon_code }}){% endif %}</td><td align="right">−{{ order.discount_amount|money }}</td></tr>
+        <tr><td style="padding:6px 0;">{{ 'Discount'|trans }}{% if order.coupon_code %} ({{ order.coupon_code }}){% endif %}</td><td align="right">−{{ order.discount_amount|money }}</td></tr>
     {% endif %}
     {% if order.tax_amount|default(0) > 0 and not order.prices_include_tax %}
-        <tr><td style="padding:6px 0;">VAT ({{ order.tax_rate * 1 }}%)</td><td align="right">{{ order.tax_amount|money }}</td></tr>
+        <tr><td style="padding:6px 0;">{{ 'VAT ({rate}%)'|trans({rate: order.tax_rate * 1}) }}</td><td align="right">{{ order.tax_amount|money }}</td></tr>
     {% endif %}
-    <tr><td style="padding:6px 0;font-weight:bold;">Total</td><td align="right" style="font-weight:bold;">{{ order.total|money }}</td></tr>
+    <tr><td style="padding:6px 0;font-weight:bold;">{{ 'Total'|trans }}</td><td align="right" style="font-weight:bold;">{{ order.total|money }}</td></tr>
     {% if order.tax_amount|default(0) > 0 and order.prices_include_tax %}
-        <tr><td style="padding:2px 0;color:#6b7280;font-size:13px;">Includes VAT ({{ order.tax_rate * 1 }}%)</td><td align="right" style="color:#6b7280;font-size:13px;">{{ order.tax_amount|money }}</td></tr>
+        <tr><td style="padding:2px 0;color:#6b7280;font-size:13px;">{{ 'Includes VAT ({rate}%)'|trans({rate: order.tax_rate * 1}) }}</td><td align="right" style="color:#6b7280;font-size:13px;">{{ order.tax_amount|money }}</td></tr>
     {% endif %}
 </table>

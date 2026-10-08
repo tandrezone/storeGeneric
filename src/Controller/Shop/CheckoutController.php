@@ -6,6 +6,8 @@ namespace App\Controller\Shop;
 
 use App\Http\Responder;
 use App\Http\Session;
+use App\I18n\LocaleFormat;
+use App\I18n\Translator;
 use App\Payment\PaymentMethod;
 use App\Payment\PaymentRecorder;
 use App\Payment\PaymentRegistry;
@@ -54,13 +56,14 @@ final class CheckoutController
         private readonly LoggerInterface $logger,
         private readonly CustomerAuthenticator $customerAuth,
         private readonly CustomerAddressRepository $customerAddresses,
+        private readonly Translator $translator,
     ) {
     }
 
     public function show(ServerRequestInterface $request): ResponseInterface
     {
         $removed = $this->cart->removeUnavailable();
-        $notices = $removed === [] ? [] : ['No longer available and removed from your cart: ' . implode(', ', $removed) . '.'];
+        $notices = $removed === [] ? [] : [$this->translator->trans('No longer available and removed from your cart: {products}.', ['products' => implode(', ', $removed)])];
         $items = $this->cart->items();
         if ($items === []) {
             foreach ($notices as $notice) {
@@ -130,7 +133,7 @@ final class CheckoutController
             }
 
             return $this->form($request, $items, $input, [
-                'Could not start the payment with ' . $paymentMethod->label() . '. Please try again or choose another payment method.',
+                $this->translator->trans('Could not start the payment with {method}. Please try again or choose another payment method.', ['method' => $paymentMethod->label()]),
             ], 502);
         }
 
@@ -176,7 +179,7 @@ final class CheckoutController
             $this->session->remove(self::COUPON_KEY);
             unset($input['coupon_code']);
 
-            return $this->form($request, $items, $input, [], 200, 'Discount code removed.');
+            return $this->form($request, $items, $input, [], 200, $this->translator->trans('Discount code removed.'));
         }
 
         $email = trim((string) ($input['email'] ?? ''));
@@ -192,7 +195,10 @@ final class CheckoutController
         $this->session->set(self::COUPON_KEY, (string) $coupon['code']);
         unset($input['coupon_code']);
 
-        return $this->form($request, $items, $input, [], 200, "Discount code {$coupon['code']} applied: " . $this->coupons->describe($coupon) . '.');
+        return $this->form($request, $items, $input, [], 200, $this->translator->trans('Discount code {code} applied: {discount}.', [
+            'code'     => (string) $coupon['code'],
+            'discount' => $this->coupons->describe($coupon),
+        ]));
     }
 
     /**
@@ -330,7 +336,9 @@ final class CheckoutController
     private function summary(array $totals, ?array $coupon): array
     {
         $rate = (float) $totals['tax_rate'];
-        $rateText = rtrim(rtrim(number_format($rate, 2, '.', ''), '0'), '.');
+        // "23" / "6,5": only the decimals the rate needs, in the visitor's number format.
+        $rateDecimals = strlen(rtrim(substr(number_format($rate, 2, '.', ''), -2), '0'));
+        $rateText = LocaleFormat::number($rate, $this->translator->intlLocale(), $rateDecimals);
 
         return [
             'subtotal'           => $totals['subtotal'],
@@ -341,7 +349,9 @@ final class CheckoutController
             'tax_rate'           => $rate,
             'tax_amount'         => $totals['tax_amount'],
             'prices_include_tax' => $totals['prices_include_tax'],
-            'tax_label'          => $rate > 0.0 ? ($totals['prices_include_tax'] ? "Includes VAT ({$rateText}%)" : "VAT ({$rateText}%)") : null,
+            'tax_label'          => $rate > 0.0
+                ? $this->translator->trans($totals['prices_include_tax'] ? 'Includes VAT ({rate}%)' : 'VAT ({rate}%)', ['rate' => $rateText])
+                : null,
             'total'              => $totals['total'],
         ];
     }
@@ -354,14 +364,20 @@ final class CheckoutController
     {
         $errors = [];
         if ($customer['name'] === '') {
-            $errors[] = 'Full name is required.';
+            $errors[] = $this->translator->trans('Full name is required.');
         }
         if (!filter_var($customer['email'], FILTER_VALIDATE_EMAIL)) {
-            $errors[] = 'A valid email is required.';
+            $errors[] = $this->translator->trans('A valid email is required.');
         }
-        foreach (['address1' => 'Address', 'city' => 'City', 'postal_code' => 'Postal code', 'country' => 'Country'] as $field => $label) {
+        $required = [
+            'address1'    => 'Address is required.',
+            'city'        => 'City is required.',
+            'postal_code' => 'Postal code is required.',
+            'country'     => 'Country is required.',
+        ];
+        foreach ($required as $field => $message) {
             if ($customer[$field] === '') {
-                $errors[] = "{$label} is required.";
+                $errors[] = $this->translator->trans($message);
             }
         }
 
@@ -372,13 +388,16 @@ final class CheckoutController
             }
         }
         if ($method === null) {
-            $errors[] = 'Please choose a shipping method.';
+            $errors[] = $this->translator->trans('Please choose a shipping method.');
         } elseif ($customer['country'] !== '' && !$this->shipping->servesCountry($method, $customer['country'])) {
-            $errors[] = "{$method['name']} doesn't deliver to {$customer['country']}. Please choose another shipping method.";
+            $errors[] = $this->translator->trans('{method} doesn\'t deliver to {country}. Please choose another shipping method.', [
+                'method'  => (string) $method['name'],
+                'country' => $customer['country'],
+            ]);
         }
 
         if ($paymentMethod === null) {
-            $errors[] = 'Please choose a payment method.';
+            $errors[] = $this->translator->trans('Please choose a payment method.');
         }
 
         return $errors;
@@ -396,10 +415,10 @@ final class CheckoutController
         $payments = $this->payments->enabled();
 
         if ($methods === []) {
-            $errors[] = 'Checkout is unavailable: no shipping methods are set up yet.';
+            $errors[] = $this->translator->trans('Checkout is unavailable: no shipping methods are set up yet.');
         }
         if ($payments === []) {
-            $errors[] = 'Checkout is unavailable: no payment methods are enabled yet.';
+            $errors[] = $this->translator->trans('Checkout is unavailable: no payment methods are enabled yet.');
         }
 
         $form = array_fill_keys(self::FIELDS, '');
@@ -416,7 +435,7 @@ final class CheckoutController
         $email = filter_var($form['email'], FILTER_VALIDATE_EMAIL) ? $form['email'] : '';
         [$coupon, $couponError] = $this->sessionCoupon($subtotal, $email, true);
         if ($couponError !== null && !in_array($couponError, $errors, true)) {
-            $errors[] = $couponError . ' It has been removed from your order.';
+            $errors[] = $couponError . ' ' . $this->translator->trans('It has been removed from your order.');
         }
 
         // Priced after the discount, like the order itself (a free-shipping threshold counts the discounted subtotal).
@@ -445,7 +464,7 @@ final class CheckoutController
             'form'                   => $form,
             'errors'                 => $errors,
             'notice'                 => $notice,
-            'money_format'           => Money::spec($this->store->currency()),
+            'money_format'           => Money::spec($this->store->currency(), $this->translator->intlLocale()),
             'account'                => $account,
             'saved_addresses'        => $savedAddresses,
         ], $status);

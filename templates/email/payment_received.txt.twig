@@ -1,10 +1,10 @@
 {% autoescape false %}
-Hi {{ order.ship_name }},
+{{ 'Hi {name},'|trans({name: order.ship_name}) }}
 
-We've received your payment of {{ order.total|money }} for order {{ order.order_number }}. Thank you!
+{{ 'We\'ve received your payment of {total} for order {number}. Thank you!'|trans({total: order.total|money, number: order.order_number}) }}
 
 {{ include('email/_items.txt.twig') }}
-View your order: {{ order_url }}
+{{ 'View your order'|trans }}: {{ order_url }}
 
 {{ store_name }} — {{ store_email }}
 {% endautoescape %}

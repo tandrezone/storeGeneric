@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS coupons (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(40) NOT NULL,
     type ENUM('percent', 'fixed', 'free_shipping') NOT NULL DEFAULT 'percent',
-    value DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    value DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'percent (0-100) or amount off; unused for free_shipping',
     min_subtotal DECIMAL(10,2) DEFAULT NULL COMMENT 'items subtotal needed to use the code; NULL = any',
     starts_at DATETIME DEFAULT NULL,
     ends_at DATETIME DEFAULT NULL,

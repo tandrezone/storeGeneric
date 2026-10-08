@@ -1,6 +1,6 @@
 {# A saved address (`address`, customer_addresses row) as text. #}
 <address class="account-address">
-    {% if address.label %}<strong>{{ address.label }}</strong>{% if address.is_default %} <span class="status-badge" data-status="paid">default</span>{% endif %}<br>{% elseif address.is_default %}<span class="status-badge" data-status="paid">default</span><br>{% endif %}
+    {% if address.label %}<strong>{{ address.label }}</strong>{% if address.is_default %} <span class="status-badge" data-status="paid">{{ 'default'|trans }}</span>{% endif %}<br>{% elseif address.is_default %}<span class="status-badge" data-status="paid">{{ 'default'|trans }}</span><br>{% endif %}
     {{ address.name }}<br>
     {{ address.address1 }}<br>
     {% if address.address2 %}{{ address.address2 }}<br>{% endif %}

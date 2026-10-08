@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\I18n\Translator;
 use App\Infrastructure\Database;
 use App\Payment\PaymentMethod;
 use App\Payment\PaymentRecorder;
@@ -54,6 +55,7 @@ final class OrderService
         private readonly OrderNotifier $notifier,
         private readonly Config $config,
         private readonly LoggerInterface $logger,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -106,7 +108,10 @@ final class OrderService
         $this->db->transaction(function () use ($id, $status): void {
             $order = $this->lock($id);
             if (!in_array($status, self::NEXT[$order['status']] ?? [], true) || !$this->statusAllowed($order, $status)) {
-                throw new RuntimeException("An order can't go from {$order['status']} to {$status}.");
+                throw new RuntimeException($this->translator->trans('An order can\'t go from {from} to {to}.', [
+                    'from' => $this->statusName((string) $order['status']),
+                    'to'   => $this->statusName($status),
+                ]));
             }
             $this->orders->setStatuses($id, $status);
         });
@@ -115,9 +120,9 @@ final class OrderService
     /** Records a manual payment (bank transfer / cash on delivery received). */
     public function markPaid(int $id): void
     {
-        $order = $this->orders->find($id) ?? throw new RuntimeException('Order not found.');
+        $order = $this->orders->find($id) ?? throw new RuntimeException($this->translator->trans('Order not found.'));
         if (!$this->canMarkPaid($order)) {
-            throw new RuntimeException('This order is already paid or refunded.');
+            throw new RuntimeException($this->translator->trans('This order is already paid or refunded.'));
         }
         $this->recorder->record(
             (string) $order['order_number'],
@@ -135,7 +140,7 @@ final class OrderService
         $this->db->transaction(function () use ($id): void {
             $order = $this->lock($id);
             if (!$this->canCancel($order)) {
-                throw new RuntimeException('Only unpaid orders that haven\'t shipped can be cancelled. Use "Refund" for paid orders.');
+                throw new RuntimeException($this->translator->trans('Only unpaid orders that haven\'t shipped can be cancelled. Use "Refund" for paid orders.'));
             }
             $this->orders->setStatuses($id, 'cancelled');
             $this->stock->release($order);
@@ -166,7 +171,7 @@ final class OrderService
         $this->db->transaction(function () use ($id, $restock): void {
             $order = $this->lock($id);
             if (!$this->canRefund($order)) {
-                throw new RuntimeException('Only paid orders can be refunded.');
+                throw new RuntimeException($this->translator->trans('Only paid orders can be refunded.'));
             }
             $this->orders->setStatuses($id, 'refunded', 'refunded');
             $this->payments->record(
@@ -192,7 +197,7 @@ final class OrderService
         $this->db->transaction(function () use ($id, $trackingNumber, $carrier): void {
             $order = $this->lock($id);
             if (!$this->canShip($order)) {
-                throw new RuntimeException("A {$order['status']} order can't be shipped.");
+                throw new RuntimeException($this->translator->trans('A {status} order can\'t be shipped.', ['status' => $this->statusName((string) $order['status'])]));
             }
             $this->orders->markShipped($id, $trackingNumber, $carrier);
         });
@@ -203,7 +208,7 @@ final class OrderService
     {
         $this->db->transaction(function () use ($id, $trackingNumber, $carrier): void {
             if (!$this->canEditTracking($this->lock($id))) {
-                throw new RuntimeException('Tracking can only be edited once the order has shipped.');
+                throw new RuntimeException($this->translator->trans('Tracking can only be edited once the order has shipped.'));
             }
             $this->orders->updateTracking($id, $trackingNumber, $carrier);
         });
@@ -259,6 +264,12 @@ final class OrderService
     /** @return array<string, mixed> */
     private function lock(int $id): array
     {
-        return $this->orders->lockForUpdate($id) ?? throw new RuntimeException('Order not found.');
+        return $this->orders->lockForUpdate($id) ?? throw new RuntimeException($this->translator->trans('Order not found.'));
+    }
+
+    /** "pending" in English, "pendente" in Portuguese (the status names in the shared catalog, lower-cased). */
+    private function statusName(string $status): string
+    {
+        return mb_strtolower($this->translator->trans(ucfirst($status)));
     }
 }

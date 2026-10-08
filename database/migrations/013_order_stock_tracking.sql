@@ -11,7 +11,7 @@
 ALTER TABLE orders
     MODIFY status ENUM('pending','paid','processing','shipped','completed','cancelled','refunded') NOT NULL DEFAULT 'pending',
     MODIFY payment_status ENUM('unpaid','paying','paid','failed','expired','refunded') NOT NULL DEFAULT 'unpaid',
-    ADD COLUMN stock_reserved TINYINT(1) NOT NULL DEFAULT 0 AFTER total,
+    ADD COLUMN stock_reserved TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 while the order holds stock for its items (taken at checkout, given back once)' AFTER total,
     ADD COLUMN tracking_number VARCHAR(100) DEFAULT NULL AFTER stock_reserved,
     ADD COLUMN carrier VARCHAR(100) DEFAULT NULL AFTER tracking_number,
     ADD COLUMN shipped_at TIMESTAMP NULL DEFAULT NULL AFTER carrier,

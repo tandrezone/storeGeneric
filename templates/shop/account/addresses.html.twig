@@ -1,6 +1,6 @@
 {% extends 'layout/shop.html.twig' %}
 
-{% set title = 'Your addresses' %}
+{% set title = 'Your addresses'|trans %}
 {% set robots = 'noindex, nofollow' %}
 {% set account_nav = 'addresses' %}
 
@@ -13,14 +13,14 @@
 {% set failed_action = input.action ?? '' %}
 {% set failed_id = (input.id ?? 0) * 1 %}
 <section class="account-page">
-    <h1>Your addresses</h1>
+    <h1>{{ 'Your addresses'|trans }}</h1>
     {{ include('shop/account/_nav.html.twig') }}
     {{ include('shop/account/_flashes.html.twig') }}
 
-    <p>The default address is filled in for you at checkout, where you can also pick any other saved one.</p>
+    <p>{{ 'The default address is filled in for you at checkout, where you can also pick any other saved one.'|trans }}</p>
 
     {% if addresses is empty %}
-        <p>No saved addresses yet.</p>
+        <p>{{ 'No saved addresses yet.'|trans }}</p>
     {% endif %}
 
     <div class="account-grid">
@@ -34,27 +34,27 @@
                             {{ csrf_field() }}
                             <input type="hidden" name="action" value="set_default">
                             <input type="hidden" name="id" value="{{ address.id }}">
-                            <button type="submit" class="btn-secondary">Make default</button>
+                            <button type="submit" class="btn-secondary">{{ 'Make default'|trans }}</button>
                         </form>
                     {% endif %}
                     <form method="post" action="{{ path('account.addresses.submit') }}">
                         {{ csrf_field() }}
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="id" value="{{ address.id }}">
-                        <button type="submit" class="btn-danger">Delete</button>
+                        <button type="submit" class="btn-danger">{{ 'Delete'|trans }}</button>
                     </form>
                 </div>
                 <details id="address-edit-{{ address.id }}" {{ editing ? 'open' }}>
-                    <summary>Edit</summary>
+                    <summary>{{ 'Edit'|trans }}</summary>
                     <form method="post" action="{{ path('account.addresses.submit') }}" class="account-form">
                         {{ csrf_field() }}
                         <input type="hidden" name="action" value="update">
                         <input type="hidden" name="id" value="{{ address.id }}">
                         {{ include('shop/account/_address-fields.html.twig', {prefix: 'address-' ~ address.id, values: editing ? input : address}) }}
                         {% if not address.is_default %}
-                            <label class="inline-check"><input type="checkbox" name="is_default" value="1"> Make this my default address</label>
+                            <label class="inline-check"><input type="checkbox" name="is_default" value="1"> {{ 'Make this my default address'|trans }}</label>
                         {% endif %}
-                        <button type="submit" class="btn-primary">Save address</button>
+                        <button type="submit" class="btn-primary">{{ 'Save address'|trans }}</button>
                     </form>
                 </details>
             </div>
@@ -62,15 +62,15 @@
     </div>
 
     <details id="address-new" class="panel" {{ failed_action == 'create' or addresses is empty ? 'open' }}>
-        <summary class="panel-summary">Add an address</summary>
+        <summary class="panel-summary">{{ 'Add an address'|trans }}</summary>
         <form method="post" action="{{ path('account.addresses.submit') }}" class="account-form">
             {{ csrf_field() }}
             <input type="hidden" name="action" value="create">
             {{ include('shop/account/_address-fields.html.twig', {prefix: 'address-new', values: failed_action == 'create' ? input : {name: customer.name, phone: customer.phone}}) }}
             {% if addresses is not empty %}
-                <label class="inline-check"><input type="checkbox" name="is_default" value="1" {{ (input.is_default ?? false) ? 'checked' }}> Make this my default address</label>
+                <label class="inline-check"><input type="checkbox" name="is_default" value="1" {{ (input.is_default ?? false) ? 'checked' }}> {{ 'Make this my default address'|trans }}</label>
             {% endif %}
-            <button type="submit" class="btn-primary">Save address</button>
+            <button type="submit" class="btn-primary">{{ 'Save address'|trans }}</button>
         </form>
     </details>
 </section>

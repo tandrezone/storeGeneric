@@ -6,6 +6,7 @@ namespace App\Controller\Shop;
 
 use App\Http\Responder;
 use App\Http\Session;
+use App\I18n\Translator;
 use App\Payment\PaymentRegistry;
 use App\Repository\OrderLookupAttemptRepository;
 use App\Repository\OrderRepository;
@@ -33,6 +34,7 @@ final class OrderController
         private readonly OrderLinks $links,
         private readonly OrderLookupAttemptRepository $attempts,
         private readonly Session $session,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -72,17 +74,17 @@ final class OrderController
         $form = ['order' => $number, 'email' => $email];
 
         if ($this->tooManyAttempts($ip)) {
-            return $this->lookupForm($request, $form, ['Too many attempts. Please wait ' . self::LOOKUP_WINDOW_MINUTES . ' minutes and try again.'], 429);
+            return $this->lookupForm($request, $form, [$this->translator->trans('Too many attempts. Please wait {minutes} minutes and try again.', ['minutes' => self::LOOKUP_WINDOW_MINUTES])], 429);
         }
         if ($number === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return $this->lookupForm($request, $form, ['Enter your order number and the email you used at checkout.'], 422);
+            return $this->lookupForm($request, $form, [$this->translator->trans('Enter your order number and the email you used at checkout.')], 422);
         }
 
         $order = $this->orders->findByNumberAndEmail($number, $email);
         if ($order === null) {
             $this->recordFailure($ip);
 
-            return $this->lookupForm($request, $form, ['We couldn\'t find an order with that number and email.'], 422);
+            return $this->lookupForm($request, $form, [$this->translator->trans('We couldn\'t find an order with that number and email.')], 422);
         }
 
         return $this->responder->redirectToRoute('order.track', [], $this->links->query((string) $order['order_number']));

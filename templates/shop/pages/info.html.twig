@@ -1,58 +1,49 @@
 {% extends 'layout/shop.html.twig' %}
 
-{% set title = 'Info' %}
+{% set title = 'Info'|trans %}
 
 {% block content %}
 <section class="content-page">
-    <h1>Info</h1>
-    <p class="page-subtitle">How ordering, payment, and shipping work.</p>
+    <h1>{{ 'Info'|trans }}</h1>
+    <p class="page-subtitle">{{ 'How ordering, payment, and shipping work.'|trans }}</p>
 
-    <h2>How to order</h2>
+    <h2>{{ 'How to order'|trans }}</h2>
     <p>
-        Browse the shop, pick a variant on the product page, and add it to your cart.
-        Your cart is saved to your session, so it's still there if you come back later
-        on the same device and browser. When you're ready, go to checkout and fill in
-        your shipping details.
+        {{ 'Browse the shop, pick a variant on the product page, and add it to your cart. Your cart is saved to your session, so it\'s still there if you come back later on the same device and browser. When you\'re ready, go to checkout and fill in your shipping details.'|trans }}
     </p>
 
-    <h2>Payment</h2>
+    <h2>{{ 'Payment'|trans }}</h2>
     <p>
-        You choose how to pay at checkout. Your order is created first with a status of
-        <em>pending</em> and switches to <em>paid</em> once payment is confirmed.
-        We currently accept:
+        {{ 'You choose how to pay at checkout. Your order is created first with a status of {pending} and switches to {paid} once payment is confirmed. We currently accept:'|trans({
+            pending: '<em>' ~ 'Pending'|trans|lower|e ~ '</em>',
+            paid: '<em>' ~ 'Paid'|trans|lower|e ~ '</em>',
+        })|raw }}
     </p>
     <ul>
         {% for method in payment_methods %}
             <li><strong>{{ method.label }}</strong> — {{ method.description }}</li>
         {% else %}
-            <li>Payment options will be listed here once they are set up.</li>
+            <li>{{ 'Payment options will be listed here once they are set up.'|trans }}</li>
         {% endfor %}
     </ul>
 
-    <h2>Order tracking</h2>
+    <h2>{{ 'Order tracking'|trans }}</h2>
     <p>
-        We don't require an account. Every order gets an order number
-        (e.g. <code>ORD-20260803-A1B2C3</code>) shown on the confirmation page and
-        sent to the email you provided at checkout — keep both handy, since looking
-        up an order requires the order number together with that email.
+        {{ 'We don\'t require an account. Every order gets an order number (e.g. {example}) shown on the confirmation page and sent to the email you provided at checkout — keep both handy, since looking up an order requires the order number together with that email.'|trans({example: '<code>ORD-20260803-A1B2C3</code>'})|raw }}
     </p>
 
-    <h2>Shipping</h2>
+    <h2>{{ 'Shipping'|trans }}</h2>
     <p>
-        Orders ship once payment is confirmed. Shipping times vary by item and
-        destination; if a specific product page doesn't list a delivery estimate,
-        assume a standard dispatch window and reach out via
-        <a href="{{ path('page.support') }}">Support</a> if it's been longer than expected.
+        {{ 'Orders ship once payment is confirmed. Shipping times vary by item and destination; if a specific product page doesn\'t list a delivery estimate, assume a standard dispatch window and reach out via {support} if it\'s been longer than expected.'|trans({
+            support: '<a href="' ~ path('page.support')|e ~ '">' ~ 'Support'|trans|e ~ '</a>',
+        })|raw }}
     </p>
 
-    <h2>Stock &amp; availability</h2>
+    <h2>{{ 'Stock & availability'|trans }}</h2>
     <p>
-        Stock is checked at checkout, not just when an item is added to your cart —
-        so on rare occasions an item that showed as available may turn out to be sold
-        out by the time you pay. If that happens you'll see a clear message and won't
-        be charged.
+        {{ 'Stock is checked at checkout, not just when an item is added to your cart — so on rare occasions an item that showed as available may turn out to be sold out by the time you pay. If that happens you\'ll see a clear message and won\'t be charged.'|trans }}
     </p>
 
-    <p class="updated-note">Last updated August 2026.</p>
+    <p class="updated-note">{{ 'Last updated August 2026.'|trans }}</p>
 </section>
 {% endblock %}

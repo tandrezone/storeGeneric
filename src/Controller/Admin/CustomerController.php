@@ -7,6 +7,7 @@ namespace App\Controller\Admin;
 use App\Http\Exception\HttpException;
 use App\Http\Responder;
 use App\Http\Session;
+use App\I18n\Translator;
 use App\Payment\PaymentMethod;
 use App\Payment\PaymentRegistry;
 use App\Repository\CustomerAddressRepository;
@@ -34,6 +35,7 @@ final class CustomerController
         private readonly CustomerAddressRepository $addresses,
         private readonly OrderRepository $orders,
         private readonly PaymentRegistry $payments,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -82,14 +84,14 @@ final class CustomerController
         switch ((string) ($body['action'] ?? '')) {
             case 'set_active':
                 if ($customer['deleted_at'] !== null) {
-                    $this->session->flash('error', 'This account was deleted by the customer and can\'t be reactivated.');
+                    $this->session->flash('error', $this->translator->trans('This account was deleted by the customer and can\'t be reactivated.'));
                     break;
                 }
                 $active = !empty($body['active']);
                 $this->customers->setActive($id, $active);
                 $this->session->flash('success', $active
-                    ? "{$customer['email']} can sign in again."
-                    : "{$customer['email']} is deactivated and signed out. Their orders are unchanged.");
+                    ? $this->translator->trans('{email} can sign in again.', ['email' => $customer['email']])
+                    : $this->translator->trans('{email} is deactivated and signed out. Their orders are unchanged.', ['email' => $customer['email']]));
                 break;
 
             default:

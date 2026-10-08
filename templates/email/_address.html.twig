@@ -1,5 +1,5 @@
 <p style="font-size:14px;">
-    <strong>Shipping to</strong><br>
+    <strong>{{ 'Shipping to'|trans }}</strong><br>
     {{ order.ship_name }}<br>
     {{ order.ship_address1 }}<br>
     {% if order.ship_address2 %}{{ order.ship_address2 }}<br>{% endif %}

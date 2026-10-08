@@ -7,8 +7,15 @@
 (function () {
     const NS = 'http://www.w3.org/2000/svg';
 
+    /** Number in the page's language ("1,234" / "1 234"). */
     function fmt(n) {
-        return n.toLocaleString();
+        return window.StoreI18n ? window.StoreI18n.number(n) : Number(n).toLocaleString();
+    }
+
+    /** Translated text (i18n.js, loaded by the layout); the English text if it is missing. */
+    function __(key, params) {
+        if (window.StoreI18n) return window.StoreI18n.t(key, params);
+        return key.replace(/\{(\w+)\}/g, (m, name) => (params && name in params ? String(params[name]) : m));
     }
 
     function el(tag, attrs) {
@@ -61,7 +68,7 @@
         const svg = el('svg', {
             viewBox: `0 0 ${width} ${height}`,
             role: 'img',
-            'aria-label': 'Daily visits: total visits and unique visitors over time',
+            'aria-label': __('Daily visits: total visits and unique visitors over time'),
         });
 
         // Gridlines + axis labels: 0, 1/3, 2/3, max.
@@ -110,8 +117,8 @@
             tooltip.appendChild(date);
 
             [
-                ['Total visits', p.total, 'var(--chart-teal)'],
-                ['Unique visitors', p.unique_sessions, 'var(--chart-violet)'],
+                [__('Total visits'), p.total, 'var(--chart-teal)'],
+                [__('Unique visitors'), p.unique_sessions, 'var(--chart-violet)'],
             ].forEach(([name, value, color]) => {
                 const row = document.createElement('div');
                 row.className = 'chart-tooltip-row';
@@ -152,7 +159,7 @@
                 height: plotHeight,
                 class: 'chart-hit',
                 tabindex: '0',
-                'aria-label': `${p.day}: ${fmt(p.total)} total visits, ${fmt(p.unique_sessions)} unique visitors`,
+                'aria-label': __('{day}: {total} total visits, {unique} unique visitors', { day: p.day, total: fmt(p.total), unique: fmt(p.unique_sessions) }),
             });
             hit.addEventListener('pointerenter', () => showTooltip(i));
             hit.addEventListener('pointermove', () => showTooltip(i));

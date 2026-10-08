@@ -1,12 +1,17 @@
 {% extends 'email/_layout.html.twig' %}
 
 {% block body %}
-<p>Hi {{ order.ship_name }},</p>
-<p>Good news — your order <strong>{{ order.order_number }}</strong> is on its way{% if order.carrier %} with <strong>{{ order.carrier }}</strong>{% endif %}.</p>
+<p>{{ 'Hi {name},'|trans({name: order.ship_name}) }}</p>
+{% set number = '<strong>' ~ order.order_number|e ~ '</strong>' %}
+{% if order.carrier %}
+    <p>{{ 'Good news — your order {number} is on its way with {carrier}.'|trans({number: number, carrier: '<strong>' ~ order.carrier|e ~ '</strong>'})|raw }}</p>
+{% else %}
+    <p>{{ 'Good news — your order {number} is on its way.'|trans({number: number})|raw }}</p>
+{% endif %}
 {% if order.tracking_number %}
-    <p>Tracking number: <strong>{{ order.tracking_number }}</strong></p>
+    <p>{{ 'Tracking number'|trans }}: <strong>{{ order.tracking_number }}</strong></p>
 {% endif %}
 {{ include('email/_address.html.twig') }}
 {{ include('email/_items.html.twig') }}
-<p><a href="{{ order_url }}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;">Track your order</a></p>
+<p><a href="{{ order_url }}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;">{{ 'Track your order'|trans }}</a></p>
 {% endblock %}

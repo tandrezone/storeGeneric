@@ -1,12 +1,12 @@
 {% extends 'layout/shop.html.twig' %}
 
-{% set title = 'Create an account' %}
+{% set title = 'Create an account'|trans %}
 {% set robots = 'noindex, nofollow' %}
 
 {% block content %}
 <section class="account-page account-auth-page">
-    <h1>Create an account</h1>
-    <p>Save your addresses for a faster checkout and see all your orders in one place.</p>
+    <h1>{{ 'Create an account'|trans }}</h1>
+    <p>{{ 'Save your addresses for a faster checkout and see all your orders in one place.'|trans }}</p>
     {{ include('shop/account/_flashes.html.twig') }}
 
     {# data-no-ajax: registering signs you in (new header and form token). #}
@@ -14,23 +14,23 @@
         {{ csrf_field() }}
         {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
 
-        <label for="register-name">Full name</label>
+        <label for="register-name">{{ 'Full name'|trans }}</label>
         <input type="text" id="register-name" name="name" required maxlength="150" value="{{ form.name }}" autocomplete="name">
 
-        <label for="register-email">Email</label>
+        <label for="register-email">{{ 'Email'|trans }}</label>
         <input type="email" id="register-email" name="email" required maxlength="190" value="{{ form.email }}" autocomplete="email" aria-describedby="register-email-hint">
-        <p class="field-hint" id="register-email-hint">We'll send you a link to confirm it.</p>
+        <p class="field-hint" id="register-email-hint">{{ 'We\'ll send you a link to confirm it.'|trans }}</p>
 
-        <label for="register-password">Password</label>
+        <label for="register-password">{{ 'Password'|trans }}</label>
         <input type="password" id="register-password" name="password" required minlength="{{ min_password }}" autocomplete="new-password" aria-describedby="register-password-hint">
-        <p class="field-hint" id="register-password-hint">At least {{ min_password }} characters.</p>
+        <p class="field-hint" id="register-password-hint">{{ 'At least {min} characters.'|trans({min: min_password}) }}</p>
 
-        <label for="register-password-confirm">Repeat password</label>
+        <label for="register-password-confirm">{{ 'Repeat password'|trans }}</label>
         <input type="password" id="register-password-confirm" name="password_confirm" required minlength="{{ min_password }}" autocomplete="new-password">
 
-        <button type="submit" class="btn-primary">Create account</button>
+        <button type="submit" class="btn-primary">{{ 'Create account'|trans }}</button>
     </form>
 
-    <p>Already have an account? <a href="{{ path('account.login', {}, {next: next ?: null}) }}">Sign in</a></p>
+    <p>{{ 'Already have an account?'|trans }} <a href="{{ path('account.login', {}, {next: next ?: null}) }}">{{ 'Sign in'|trans }}</a></p>
 </section>
 {% endblock %}

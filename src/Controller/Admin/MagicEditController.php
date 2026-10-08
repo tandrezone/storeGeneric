@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller\Admin;
 
 use App\Http\Responder;
+use App\I18n\Translator;
 use App\Infrastructure\GeminiClient;
 use App\Repository\ProductRepository;
 use App\Security\HtmlSanitizer;
@@ -24,6 +25,7 @@ final class MagicEditController
         private readonly ProductRepository $products,
         private readonly GeminiClient $gemini,
         private readonly HtmlSanitizer $sanitizer,
+        private readonly Translator $translator,
     ) {
     }
 
@@ -34,12 +36,12 @@ final class MagicEditController
         $instruction = trim((string) ($body['instruction'] ?? ''));
 
         if ($productId <= 0 || $instruction === '') {
-            return $this->responder->json(['success' => false, 'error' => 'A product and an instruction are required.'], 400);
+            return $this->responder->json(['success' => false, 'error' => $this->translator->trans('A product and an instruction are required.')], 400);
         }
 
         $product = $this->products->findForAdmin($productId);
         if ($product === null) {
-            return $this->responder->json(['success' => false, 'error' => 'Product not found.'], 404);
+            return $this->responder->json(['success' => false, 'error' => $this->translator->trans('Product not found.')], 404);
         }
 
         $prompt = <<<PROMPT

@@ -1,16 +1,16 @@
 {% extends 'layout/shop.html.twig' %}
 
-{% set title = 'Track your order' %}
+{% set title = 'Track your order'|trans %}
 
 {% block content %}
 <section class="confirmation-page order-track-page">
     {% if order %}
-        <h1>Order {{ order.order_number }}</h1>
+        <h1>{{ 'Order {number}'|trans({number: order.order_number}) }}</h1>
         {{ include('shop/_order-details.html.twig') }}
-        <p><a href="{{ path('order.track') }}">Look up another order</a></p>
+        <p><a href="{{ path('order.track') }}">{{ 'Look up another order'|trans }}</a></p>
     {% else %}
-        <h1>Track your order</h1>
-        <p>Enter the order number from your confirmation email and the email address you used at checkout.</p>
+        <h1>{{ 'Track your order'|trans }}</h1>
+        <p>{{ 'Enter the order number from your confirmation email and the email address you used at checkout.'|trans }}</p>
 
         {% if errors is not empty %}
             <div class="form-errors">
@@ -20,16 +20,16 @@
 
         <form method="post" action="{{ path('order.lookup') }}" class="shipping-form" data-no-ajax>
             {{ csrf_field() }}
-            <label for="lookup-order">Order number</label>
+            <label for="lookup-order">{{ 'Order number'|trans }}</label>
             <input type="text" id="lookup-order" name="order" required placeholder="ORD-20260101-ABC123" value="{{ form.order }}" autocomplete="off">
 
-            <label for="lookup-email">Email</label>
+            <label for="lookup-email">{{ 'Email'|trans }}</label>
             <input type="email" id="lookup-email" name="email" required value="{{ form.email }}" autocomplete="email">
 
-            <button type="submit" class="btn-primary">Find my order</button>
+            <button type="submit" class="btn-primary">{{ 'Find my order'|trans }}</button>
         </form>
     {% endif %}
 
-    <p><a href="{{ path('home') }}">Continue shopping</a></p>
+    <p><a href="{{ path('home') }}">{{ 'Continue shopping'|trans }}</a></p>
 </section>
 {% endblock %}

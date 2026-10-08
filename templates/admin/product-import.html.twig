@@ -1,49 +1,49 @@
 {% extends 'layout/admin.html.twig' %}
 
-{% set title = 'Admin — Import products' %}
+{% set title = 'Admin — Import products'|trans %}
 {% set active_nav = 'products' %}
 
 {% block content %}
-<h1>Import products from CSV</h1>
-<p><a href="{{ path('admin.products') }}">‹ Back to products</a></p>
+<h1>{{ 'Import products from CSV'|trans }}</h1>
+<p><a href="{{ path('admin.products') }}">‹ {{ 'Back to products'|trans }}</a></p>
 
 {% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
 
 {% if report is not null %}
     {% set c = report.counts %}
     <div class="panel">
-        <h2>Preview{{ pending ? ' — ' ~ pending.filename }}</h2>
-        <p>Nothing has been saved yet. Applying this file will:</p>
+        <h2>{{ 'Preview'|trans }}{{ pending ? ' — ' ~ pending.filename }}</h2>
+        <p>{{ 'Nothing has been saved yet. Applying this file will:'|trans }}</p>
         <ul class="import-summary">
-            <li><strong>{{ c.create_product }}</strong> new product(s) (status <em>created</em>)</li>
-            <li><strong>{{ c.create_variant }}</strong> new variant(s)</li>
-            <li><strong>{{ c.update }}</strong> update(s)</li>
-            <li><strong>{{ c.unchanged }}</strong> unchanged row(s)</li>
-            {% if c.new_categories %}<li><strong>{{ c.new_categories }}</strong> new categor{{ c.new_categories == 1 ? 'y' : 'ies' }}</li>{% endif %}
-            <li class="{{ c.error ? 'import-has-errors' }}"><strong>{{ c.error }}</strong> row(s) with errors — skipped when applying</li>
+            <li>{{ '<strong>{count}</strong> new product (status <em>{status}</em>)'|trans_plural(c.create_product, {status: 'Created'|trans|lower|e})|raw }}</li>
+            <li>{{ '<strong>{count}</strong> new variant'|trans_plural(c.create_variant)|raw }}</li>
+            <li>{{ '<strong>{count}</strong> update'|trans_plural(c.update)|raw }}</li>
+            <li>{{ '<strong>{count}</strong> unchanged row'|trans_plural(c.unchanged)|raw }}</li>
+            {% if c.new_categories %}<li>{{ '<strong>{count}</strong> new category'|trans_plural(c.new_categories)|raw }}</li>{% endif %}
+            <li class="{{ c.error ? 'import-has-errors' }}">{{ '<strong>{count}</strong> row with errors — skipped when applying'|trans_plural(c.error)|raw }}</li>
         </ul>
 
         {% if pending and c.create_product + c.create_variant + c.update > 0 %}
             <form method="post" action="{{ path('admin.products.import.submit') }}" class="inline-form"
-                  data-confirm="Apply this import? It changes {{ c.create_product + c.create_variant + c.update }} row(s) in one go.">
+                  data-confirm="{{ 'Apply this import? It changes {count} row in one go.'|trans_plural(c.create_product + c.create_variant + c.update) }}">
                 {{ csrf_field() }}
                 <input type="hidden" name="action" value="apply">
                 <input type="hidden" name="token" value="{{ pending.token }}">
-                <button type="submit" class="btn-primary">Apply import</button>
+                <button type="submit" class="btn-primary">{{ 'Apply import'|trans }}</button>
             </form>
         {% else %}
-            <p class="field-hint">There is nothing to apply.</p>
+            <p class="field-hint">{{ 'There is nothing to apply.'|trans }}</p>
         {% endif %}
         <form method="post" action="{{ path('admin.products.import.submit') }}" class="inline-form">
             {{ csrf_field() }}
             <input type="hidden" name="action" value="cancel">
-            <button type="submit" class="btn-secondary">Cancel</button>
+            <button type="submit" class="btn-secondary">{{ 'Cancel'|trans }}</button>
         </form>
     </div>
 
     <table class="cart-table admin-table import-preview">
         <thead>
-            <tr><th>Line</th><th>SKU</th><th>Product</th><th>Result</th><th>Details</th></tr>
+            <tr><th>{{ 'Line'|trans }}</th><th>{{ 'SKU'|trans }}</th><th>{{ 'Product'|trans }}</th><th>{{ 'Result'|trans }}</th><th>{{ 'Details'|trans }}</th></tr>
         </thead>
         <tbody>
             {% for row in report.rows %}
@@ -51,7 +51,7 @@
                     <td class="tabular">{{ row.line }}</td>
                     <td>{{ row.sku }}</td>
                     <td>{{ row.name }}</td>
-                    <td><span class="status-badge" data-status="{{ row.action == 'error' ? 'failed' : (row.action == 'unchanged' ? 'pending' : 'paid') }}">{{ row.action|replace({'_': ' '}) }}</span></td>
+                    <td><span class="status-badge" data-status="{{ row.action == 'error' ? 'failed' : (row.action == 'unchanged' ? 'pending' : 'paid') }}">{{ row.action|replace({'_': ' '})|capitalize|trans }}</span></td>
                     <td>
                         {% for error in row.errors %}<div class="import-error">{{ error }}</div>{% endfor %}
                         {% for change in row.changes %}<div>{{ change }}</div>{% endfor %}
@@ -63,30 +63,31 @@
 {% endif %}
 
 <details class="panel" {{ report is null ? 'open' }}>
-    <summary class="panel-summary">{{ report is null ? 'Upload a CSV file' : 'Upload a different file' }}</summary>
+    <summary class="panel-summary">{{ report is null ? 'Upload a CSV file'|trans : 'Upload a different file'|trans }}</summary>
     <form method="post" action="{{ path('admin.products.import.submit') }}" enctype="multipart/form-data">
         {{ csrf_field() }}
         <input type="hidden" name="action" value="preview">
-        <label>CSV file (max {{ max_mb }} MB, {{ max_rows }} rows)
+        <label>{{ 'CSV file (max {mb} MB, {rows} rows)'|trans({mb: max_mb, rows: max_rows}) }}
             <input type="file" name="csv" accept=".csv,text/csv" required>
         </label>
         <label style="display: flex; align-items: center; gap: 8px;">
             <input type="checkbox" name="create_categories" value="1" style="width: auto;" {{ pending and pending.create_categories ? 'checked' }}>
-            Create missing categories (otherwise rows with an unknown category are errors)
+            {{ 'Create missing categories (otherwise rows with an unknown category are errors)'|trans }}
         </label>
-        <button type="submit" class="btn-primary">Preview import</button>
+        <button type="submit" class="btn-primary">{{ 'Preview import'|trans }}</button>
     </form>
 </details>
 
+{# Column names, SKU/product_id etc. are literal CSV headers and stay in English. #}
 <div class="panel">
-    <h2>File format</h2>
-    <p>The same format as <a href="{{ path('admin.products.export') }}">Export CSV</a> — export first, edit in a spreadsheet, save as <em>CSV UTF-8</em> and import. One row per variant; the first row is the header:</p>
+    <h2>{{ 'File format'|trans }}</h2>
+    <p>{{ 'The same format as <a href="{url}">Export CSV</a> — export first, edit in a spreadsheet, save as <em>CSV UTF-8</em> and import. One row per variant; the first row is the header:'|trans({url: path('admin.products.export')})|raw }}</p>
     <p><code>{{ columns|join(',') }}</code></p>
     <ul>
-        <li>Rows are matched by <strong>sku</strong>. A known SKU updates that variant's price, stock, label, unit and active flag and its product's name, category, status and short description. Columns you leave out (or empty cells in name, category, status, short_description, price, stock, active) keep their current values; an empty label or unit clears it.</li>
-        <li>An unknown SKU creates a variant: of <strong>product_id</strong> when given, otherwise of a new product (needs name, category, short_description and a price above 0). Rows with the same name and category share one new product. New products start with status <em>created</em>.</li>
-        <li><strong>category</strong> is the category name; <strong>status</strong> is one of {{ statuses|join(', ') }}; <strong>active</strong> is 1 or 0; prices may use a comma or a dot as decimal separator.</li>
-        <li>Nothing is deleted: products and variants missing from the file are left alone.</li>
+        <li>{{ 'Rows are matched by <strong>sku</strong>. A known SKU updates that variant\'s price, stock, label, unit and active flag and its product\'s name, category, status and short description. Columns you leave out (or empty cells in name, category, status, short_description, price, stock, active) keep their current values; an empty label or unit clears it.'|trans|raw }}</li>
+        <li>{{ 'An unknown SKU creates a variant: of <strong>product_id</strong> when given, otherwise of a new product (needs name, category, short_description and a price above 0). Rows with the same name and category share one new product. New products start with status <em>created</em>.'|trans|raw }}</li>
+        <li>{{ '<strong>category</strong> is the category name; <strong>status</strong> is one of {statuses}; <strong>active</strong> is 1 or 0; prices may use a comma or a dot as decimal separator.'|trans({statuses: statuses|join(', ')|e})|raw }}</li>
+        <li>{{ 'Nothing is deleted: products and variants missing from the file are left alone.'|trans }}</li>
     </ul>
 </div>
 {% endblock %}

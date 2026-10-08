@@ -1,6 +1,6 @@
 {# Base layout for HTML emails: inline styles only, since mail clients ignore stylesheets. #}
 <!doctype html>
-<html lang="en">
+<html lang="{{ html_lang() }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -15,7 +15,7 @@
                 {% block body %}{% endblock %}
             </td></tr>
             <tr><td style="font-size:12px;color:#6b7280;padding-top:24px;border-top:1px solid #e5e7eb;">
-                Questions? Reply to this email or write to <a href="mailto:{{ store_email }}" style="color:#6b7280;">{{ store_email }}</a>.
+                {{ 'Questions? Reply to this email or write to {email}.'|trans({email: '<a href="mailto:' ~ store_email|e ~ '" style="color:#6b7280;">' ~ store_email|e ~ '</a>'})|raw }}
             </td></tr>
         </table>
     </td></tr>

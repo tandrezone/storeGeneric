@@ -1,14 +1,14 @@
 {% autoescape false %}
-Hi {{ order.ship_name }},
+{{ 'Hi {name},'|trans({name: order.ship_name}) }}
 
 {% if refunded %}
-Your order {{ order.order_number }} has been refunded. The amount of {{ order.total|money }} goes back to your original payment method ({{ payment_label }}); depending on your bank this can take a few days to show.
+{{ 'Your order {number} has been refunded. The amount of {total} goes back to your original payment method ({method}); depending on your bank this can take a few days to show.'|trans({number: order.order_number, total: order.total|money, method: payment_label}) }}
 {% else %}
-Your order {{ order.order_number }} has been cancelled. Nothing was charged for it.
+{{ 'Your order {number} has been cancelled. Nothing was charged for it.'|trans({number: order.order_number}) }}
 {% endif %}
 
 {{ include('email/_items.txt.twig') }}
-If you have any questions, just reply to this email.
+{{ 'If you have any questions, just reply to this email.'|trans }}
 
 {{ store_name }} — {{ store_email }}
 {% endautoescape %}

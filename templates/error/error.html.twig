@@ -1,14 +1,14 @@
 {% extends 'layout/shop.html.twig' %}
 
-{% set title = status == 404 ? 'Page not found' : 'Error' %}
+{% set title = status == 404 ? 'Page not found'|trans : 'Error'|trans %}
 {% set canonical = null %}
 {% set robots = 'noindex' %}
 
 {% block content %}
 <section class="content-page">
-    <h1>{{ status == 404 ? 'Page not found' : (status == 400 ? 'Request not accepted' : 'Something went wrong') }}</h1>
+    <h1>{{ status == 404 ? 'Page not found'|trans : (status == 400 ? 'Request not accepted'|trans : 'Something went wrong'|trans) }}</h1>
     <p class="page-subtitle">{{ message }}</p>
-    <p><a href="{{ path('home') }}" class="btn-primary">Back to the shop</a></p>
+    <p><a href="{{ path('home') }}" class="btn-primary">{{ 'Back to the shop'|trans }}</a></p>
     {% if detail %}
         <pre class="magic-output" style="display:block;">{{ detail }}</pre>
     {% endif %}

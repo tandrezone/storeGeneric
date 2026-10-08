@@ -77,7 +77,7 @@ final class TaxAndCouponTest extends TestCase
     public function testCouponDiscounts(): void
     {
         $db = new Database(Config::fromArray([]));
-        $coupons = new CouponService(new CouponRepository($db), new OrderRepository($db), $this->store([]));
+        $coupons = new CouponService(new CouponRepository($db), new OrderRepository($db), $this->store([]), $this->translator());
 
         $this->assertSame(['items' => 8.0, 'shipping' => 0.0], $coupons->discount(['type' => 'percent', 'value' => '10'], 80.0, 5.0));
         $this->assertSame(['items' => 80.0, 'shipping' => 0.0], $coupons->discount(['type' => 'percent', 'value' => '150'], 80.0, 5.0));
@@ -90,14 +90,15 @@ final class TaxAndCouponTest extends TestCase
     public function testFreeShippingThresholdUsesDiscountedSubtotal(): void
     {
         $db = new Database(Config::fromArray([]));
-        $coupons = new CouponService(new CouponRepository($db), new OrderRepository($db), $this->store([]));
+        $coupons = new CouponService(new CouponRepository($db), new OrderRepository($db), $this->store([]), $this->translator());
         $checkout = new CheckoutService(
             $db,
             new VariantRepository($db),
             new OrderRepository($db),
-            new ShippingService(new ShippingMethodRepository($db)),
+            new ShippingService(new ShippingMethodRepository($db), $this->translator()),
             $coupons,
             $this->calculator(['tax_enabled' => '0']),
+            $this->translator(),
         );
         $method = ['cost' => '6.00', 'free_over' => '50.00'];
 
@@ -114,10 +115,15 @@ final class TaxAndCouponTest extends TestCase
         $this->assertSame(30.0, $free['total']);
     }
 
+    private function translator(): \App\I18n\Translator
+    {
+        return new \App\I18n\Translator(dirname(__DIR__, 3) . '/translations');
+    }
+
     /** @param array<string, string> $settings */
     private function calculator(array $settings): TaxCalculator
     {
-        return new TaxCalculator(new TaxSettings($this->settings($settings)), $this->store($settings));
+        return new TaxCalculator(new TaxSettings($this->settings($settings), new \App\I18n\Translator(dirname(__DIR__, 3) . '/translations')), $this->store($settings));
     }
 
     /** @param array<string, string> $settings */

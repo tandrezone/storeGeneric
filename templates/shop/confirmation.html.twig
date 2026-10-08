@@ -1,19 +1,19 @@
 {% extends 'layout/shop.html.twig' %}
 
-{% set title = 'Order Confirmation' %}
+{% set title = 'Order Confirmation'|trans %}
 
 {% block content %}
 <section class="confirmation-page">
     {% if order %}
         {% if order.status == 'cancelled' %}
-            <h1>This order was cancelled.</h1>
-            <p>The payment didn't go through, so nothing was charged. You're welcome to place the order again.</p>
+            <h1>{{ 'This order was cancelled.'|trans }}</h1>
+            <p>{{ 'The payment didn\'t go through, so nothing was charged. You\'re welcome to place the order again.'|trans }}</p>
         {% else %}
-            <h1>Thank you, your order is on its way to being processed.</h1>
+            <h1>{{ 'Thank you, your order is on its way to being processed.'|trans }}</h1>
             {% if order.payment_status == 'paid' %}
-                <p>Your payment is confirmed. A confirmation has been sent to {{ order.email }}.</p>
+                <p>{{ 'Your payment is confirmed. A confirmation has been sent to {email}.'|trans({email: order.email}) }}</p>
             {% else %}
-                <p>A confirmation will be sent to {{ order.email }} once payment is confirmed.</p>
+                <p>{{ 'A confirmation will be sent to {email} once payment is confirmed.'|trans({email: order.email}) }}</p>
             {% endif %}
         {% endif %}
 
@@ -21,21 +21,18 @@
             <div class="panel payment-instructions">{{ payment_instructions|raw }}</div>
         {% elseif order.payment_status in ['unpaid', 'paying'] and order.status != 'cancelled' %}
             <p class="field-hint">
-                It can take a minute for the payment confirmation to arrive. Refresh this page,
-                or check later with the link below.
+                {{ 'It can take a minute for the payment confirmation to arrive. Refresh this page, or check later with the link below.'|trans }}
             </p>
         {% endif %}
 
         {{ include('shop/_order-details.html.twig') }}
 
-        <p>Bookmark this page to check your order later: <a href="{{ track_url }}">track your order</a>.</p>
+        <p>{{ 'Bookmark this page to check your order later: {link}track your order{/link}.'|trans({link: '<a href="' ~ track_url|e ~ '">', '/link': '</a>'})|raw }}</p>
     {% else %}
-        <h1>Order received</h1>
-        <p>If you just completed payment, it will be confirmed shortly and you'll get an email.
-           You can check the status any time with your order number and email on the
-           <a href="{{ path('order.track') }}">order status page</a>.</p>
+        <h1>{{ 'Order received'|trans }}</h1>
+        <p>{{ 'If you just completed payment, it will be confirmed shortly and you\'ll get an email. You can check the status any time with your order number and email on the {link}order status page{/link}.'|trans({link: '<a href="' ~ path('order.track')|e ~ '">', '/link': '</a>'})|raw }}</p>
     {% endif %}
 
-    <p><a href="{{ path('home') }}">Continue shopping</a></p>
+    <p><a href="{{ path('home') }}">{{ 'Continue shopping'|trans }}</a></p>
 </section>
 {% endblock %}

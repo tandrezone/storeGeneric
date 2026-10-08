@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\I18n\Translator;
 use App\Infrastructure\Mailer;
 use App\View\View;
 use Psr\Log\LoggerInterface;
@@ -22,13 +23,14 @@ final class CustomerNotifier
         private readonly StoreSettings $store,
         private readonly OrderLinks $links,
         private readonly LoggerInterface $logger,
+        private readonly Translator $translator,
     ) {
     }
 
     /** After registering ($welcome) or changing the email address: the link that verifies it. */
     public function verifyEmail(string $to, string $name, string $verifyUrl, bool $welcome): bool
     {
-        return $this->send($to, 'customer_verify', $welcome ? 'Welcome! Please confirm your email' : 'Please confirm your email', [
+        return $this->send($to, 'customer_verify', $this->translator->trans($welcome ? 'Welcome! Please confirm your email' : 'Please confirm your email'), [
             'name'       => $name,
             'verify_url' => $verifyUrl,
             'welcome'    => $welcome,
@@ -37,7 +39,7 @@ final class CustomerNotifier
 
     public function passwordReset(string $to, string $name, string $resetUrl, int $minutes): bool
     {
-        return $this->send($to, 'customer_password_reset', 'Reset your password', [
+        return $this->send($to, 'customer_password_reset', $this->translator->trans('Reset your password'), [
             'name'      => $name,
             'reset_url' => $resetUrl,
             'minutes'   => $minutes,
