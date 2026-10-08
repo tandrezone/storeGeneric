@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Payment;
 
 use App\Http\Router;
+use App\I18n\LocaleFormat;
 use App\I18n\Translator;
 use App\Service\OrderLinks;
 use App\Support\Config;
@@ -89,9 +90,15 @@ abstract class AbstractPaymentMethod implements PaymentMethod
         return Money::toMinor($amount, $this->currency());
     }
 
-    /** "12.50 EUR" / "1200 JPY" for payment instructions. */
+    /**
+     * The amount for payment instructions in the active language, with the
+     * ISO code so there's no doubt which currency to pay: "12.50 EUR" in
+     * English, "12,50 EUR" in Portuguese, "1200 JPY".
+     */
     protected function plainAmount(float $amount): string
     {
-        return number_format($amount, Money::exponent($this->currency()), '.', '') . ' ' . $this->currency();
+        $number = LocaleFormat::number($amount, $this->translator->intlLocale(), Money::exponent($this->currency()));
+
+        return $number . ' ' . $this->currency();
     }
 }

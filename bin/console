@@ -24,6 +24,7 @@ exit((new Application($kernel->container(), [
     Command\CheckImageCommand::class,
     Command\ExpireOrdersCommand::class,
     Command\HashPasswordCommand::class,
+    Command\MigrateDatabaseCommand::class,
     Command\RegenerateImagesCommand::class,
     Command\ReimportDatabaseCommand::class,
     Command\RestoreDatabaseCommand::class,

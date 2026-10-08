@@ -51,7 +51,7 @@ On a Debian/Ubuntu server, `sudo ./setup-apache.sh` does everything below (see
 composer install
 cp .env.example .env                       # then fill it in
 mysql -u root -p < database/schema.sql     # tables + sample data
-mysql -u root -p online_store < database/migrations/012_settings.sql   # etc., on older databases
+bin/console db:migrate                  # on an existing database: applies the migrations it is missing
 ```
 
 Create a dedicated database user instead of using root:
@@ -119,11 +119,26 @@ bin/console admin:unlock <username> [--ip=address] clear the failed-login lockou
 bin/console images:add <product_id> <url> [--gallery]
 bin/console images:check <product_id> [--apply]    remove branding with Gemini or find a replacement
 bin/console images:regenerate [--force]            placeholder images for products without a photo
+bin/console db:migrate [--status] [--dry-run] [--baseline=NNN]   apply the migrations that haven't run yet
 bin/console db:reimport --force                    DEV ONLY: drop all tables, rebuild from schema + migrations
 bin/console orders:expire [--hours=48]             cancel unpaid online orders and restock them (run from cron)
 bin/console db:backup [--output=path] [--gzip] [--with-uploads] [--keep=N]   back up to var/backups/
 bin/console db:restore <file> --force [--with-uploads[=zip]]                  restore a backup
 ```
+
+### Migrations
+
+`bin/console db:migrate` applies the files in `database/migrations/` that haven't run yet, in order,
+and records each in a `schema_migrations` table so it runs once. Safe on a live shop (unlike
+`db:reimport`) — take a backup first.
+
+- **Empty database:** loads `schema.sql` (which already contains every migration) and records them all.
+- **Existing database set up by hand** (no history yet): migrations up to `012` are recorded without
+  running when the `settings` table exists; the rest run. If the database is older than that, say what
+  it already has: `bin/console db:migrate --baseline=010`.
+- `--status` lists every migration as applied or pending; `--dry-run` shows what would run.
+- Migrations `013` and later can safely run twice. If one fails halfway (MariaDB commits each
+  `ALTER` as it goes), fix the cause and run the command again.
 
 ### Backups
 
@@ -643,19 +658,13 @@ with the providers don't need to change.
 - [ ] **Change the default admin password** — see [Default Admin Credentials](#default-admin-credentials)
 - [ ] **Protect `/admin`** — e.g. restrict by IP with a `<Location /admin>` block (see the comment in the generated vhost)
 - [ ] **Test each enabled payment method in sandbox mode** — provider APIs change; the integrations live in `src/Payment/Method/` and `src/Controller/Payment/`
-- [ ] **Run `database/migrations/010_payment_methods.sql`, `011_shipping_methods.sql` and `012_settings.sql`** on existing databases
-- [ ] **Run `016_login_attempts_username.sql` and `017_category_details.sql`** on existing databases (per-username login lockout; category description/image)
-- [ ] **Run `021_admin_users.sql`, `022_admin_audit_log.sql` and `023_dashboard_indexes.sql`** on existing databases, log in once with the `.env` account (it becomes the first Owner), then add the other admins in **Admin → Users**
-- [ ] **Run `018_order_tax.sql`, `019_coupons.sql` and `020_order_discounts.sql`** on existing databases, then set up VAT in **Admin → Settings → Tax** (off by default)
+- [ ] **Run `bin/console db:migrate`** on existing databases (back up first), then set up VAT in **Admin → Settings → Tax** (off by default), pick the store language in **Admin → Settings**, and log in once with the `.env` account (it becomes the first Owner) before adding admins in **Admin → Users**
 - [ ] **Review shipping options** in **Admin → Shipping** (cost, free-over threshold, countries)
 - [ ] **Serve over HTTPS** — required for production webhooks
 - [ ] **Set `APP_DEBUG=false`** and check that `var/` is writable by the web server
-- [ ] **Run `database/migrations/013_order_stock_tracking.sql` and `014_order_lookup_attempts.sql`** on existing databases
-- [ ] **Set up email**: `MAIL_TRANSPORT=smtp` + `MAIL_*`, `ADMIN_NOTIFY_EMAIL`, and set `APP_SECRET`
+- [ ] **Set up email**: `MAIL_TRANSPORT=smtp` + `MAIL_*`, `ADMIN_NOTIFY_EMAIL`, and set `APP_SECRET` and `APP_URL` (emailed verify / reset links point at it)
 - [ ] **Add the cron job** for `bin/console orders:expire` (releases stock held by abandoned online payments)
 - [ ] **Schedule backups** — `bin/console db:backup --gzip --with-uploads --keep=14` from cron (see [Backups](#backups)), copy them off the server, and test a restore once
-- [ ] **Run `024_customers.sql`, `025_orders_customer.sql` and `026_customer_tokens.sql`** on existing databases (customer accounts; set `APP_URL` so emailed verify / reset links point at the store)
-- [ ] **Run `027_locales.sql`** on existing databases (order / customer / admin languages), then pick the store language in **Admin → Settings**
 
 ---
 
