@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Controller\Admin;
 
+use App\Http\Exception\HttpException;
 use App\Http\Responder;
 use App\Http\Session;
 use App\I18n\Translator;
 use App\Repository\SettingRepository;
+use App\Service\PromptLibrary;
 use App\Service\StoreSettings;
 use App\Service\TaxSettings;
 use App\Support\Paths;
@@ -18,7 +20,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
 
-/** Admin → Settings: store name, email, logo and default language; low-stock threshold; tax (VAT); choose, upload and delete themes. */
+/** Admin → Settings: store name, email, logo and default language; low-stock threshold; tax (VAT); AI prompt files; choose, upload and delete themes. */
 final class SettingsController
 {
     private const LOGO_TYPES = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp', 'image/gif' => 'gif'];
@@ -34,6 +36,7 @@ final class SettingsController
         private readonly Paths $paths,
         private readonly TaxSettings $tax,
         private readonly Translator $translator,
+        private readonly PromptLibrary $prompts,
     ) {
     }
 
@@ -45,6 +48,20 @@ final class SettingsController
     public function blankTheme(ServerRequestInterface $request): ResponseInterface
     {
         return $this->responder->download($this->themes->blankThemeZip(), 'blank-theme.zip', 'application/zip', true);
+    }
+
+    /** Shows a stored prompt as plain text, or downloads it with ?download=1. */
+    public function prompt(ServerRequestInterface $request): ResponseInterface
+    {
+        $query = $request->getQueryParams();
+        $name = (string) ($query['file'] ?? '');
+        $file = $this->prompts->path($name) ?? throw HttpException::notFound('Prompt not found.');
+
+        if (!empty($query['download'])) {
+            return $this->responder->download($file, $name, 'text/plain; charset=utf-8');
+        }
+
+        return $this->responder->text((string) file_get_contents($file));
     }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -77,6 +94,15 @@ final class SettingsController
                     $this->removeLogoFile();
                     $this->settings->set('logo_path', null);
                     $this->session->flash('success', $this->translator->trans('Logo removed.'));
+                    break;
+
+                case 'upload_prompts':
+                    $this->uploadPrompts($files['prompts'] ?? []);
+                    break;
+
+                case 'delete_prompt':
+                    $this->prompts->delete((string) ($body['prompt'] ?? ''));
+                    $this->session->flash('success', $this->translator->trans('Prompt deleted.'));
                     break;
 
                 case 'activate_theme':
@@ -175,6 +201,38 @@ final class SettingsController
         }
     }
 
+    /** Stores every valid file; reports the rejected ones without losing the rest. */
+    private function uploadPrompts(mixed $uploads): void
+    {
+        $uploads = array_filter(
+            is_array($uploads) ? $uploads : [$uploads],
+            static fn ($f) => $f instanceof UploadedFileInterface && $f->getError() !== UPLOAD_ERR_NO_FILE
+        );
+        if ($uploads === []) {
+            throw new RuntimeException($this->translator->trans('Choose one or more .md or .txt files to upload.'));
+        }
+
+        $saved = 0;
+        $errors = [];
+        foreach ($uploads as $upload) {
+            try {
+                $this->prompts->store($upload);
+                $saved++;
+            } catch (RuntimeException $e) {
+                $errors[] = $e->getMessage();
+            }
+        }
+        if ($saved === 0) {
+            throw new RuntimeException(implode(' ', $errors));
+        }
+
+        $message = $this->translator->transPlural('{count} prompt uploaded.', $saved);
+        if ($errors !== []) {
+            $message .= ' ' . implode(' ', $errors);
+        }
+        $this->session->flash('success', $message);
+    }
+
     /** @param array<string, mixed> $body */
     private function uploadTheme(array $body, mixed $zip): void
     {
@@ -218,6 +276,8 @@ final class SettingsController
             'show_name_with_logo' => $this->store->showNameWithLogo(),
             'low_stock_threshold' => $this->store->lowStockThreshold(),
             'tax'                 => $this->tax->toArray(),
+            'prompts'             => $this->prompts->all(),
+            'prompt_max_kb'       => PromptLibrary::MAX_BYTES >> 10,
             'store_language'      => $this->translator->normalize($this->store->language()) ?? 'en',
             'errors'              => $errors,
         ], $status);

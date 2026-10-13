@@ -127,6 +127,7 @@ return static function (RouteCollection $r): void {
         $r->get('/settings', [Admin\SettingsController::class, 'index'], 'admin.settings')->admin('owner');
         $r->post('/settings', [Admin\SettingsController::class, 'handle'], 'admin.settings.submit')->admin('owner');
         $r->get('/settings/blank-theme', [Admin\SettingsController::class, 'blankTheme'], 'admin.settings.blank_theme')->admin('owner');
+        $r->get('/settings/prompt', [Admin\SettingsController::class, 'prompt'], 'admin.settings.prompt')->admin('owner');
         $r->get('/users', [Admin\UserController::class, 'index'], 'admin.users')->admin('owner');
         $r->post('/users', [Admin\UserController::class, 'handle'], 'admin.users.submit')->admin('owner');
         $r->post('/api/magic-edit', [Admin\MagicEditController::class, 'suggest'], 'admin.api.magic_edit')->admin('staff')->withoutAudit();

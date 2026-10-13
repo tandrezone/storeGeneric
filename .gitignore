@@ -6,3 +6,4 @@ public/assets/images/generated/
 /vendor/
 .php-cs-fixer.cache
 /public/assets/images/thumbs/
+public/assets/images/products/

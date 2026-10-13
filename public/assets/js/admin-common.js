@@ -39,4 +39,20 @@
             field.form.submit();
         }
     });
+
+    // <label data-upload-zone> around a file input: highlight while a file
+    // is dragged over it, and list the chosen files in [data-upload-zone-files].
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(function (type) {
+        document.addEventListener(type, function (e) {
+            var zone = e.target.closest ? e.target.closest('[data-upload-zone]') : null;
+            if (zone) zone.classList.toggle('is-dragover', type === 'dragenter' || type === 'dragover');
+        });
+    });
+
+    document.addEventListener('change', function (e) {
+        var zone = e.target.closest ? e.target.closest('[data-upload-zone]') : null;
+        var list = zone ? zone.querySelector('[data-upload-zone-files]') : null;
+        if (!list || !e.target.files || !e.target.files.length) return;
+        list.textContent = Array.prototype.map.call(e.target.files, function (f) { return f.name; }).join(', ');
+    });
 })();

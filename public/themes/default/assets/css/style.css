@@ -996,3 +996,21 @@ form[aria-busy="true"] input[type="submit"] { cursor: progress; }
 .translation-form { padding: 0 14px 14px; }
 .translation-form label { margin-top: 10px; }
 .translation-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+
+/* Admin → Settings: drag-and-drop file zone; the transparent file input covers it, so dropping and clicking work natively. */
+.upload-zone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 28px 16px;
+    margin-bottom: 14px;
+    border: 2px dashed var(--color-border-strong, var(--color-border));
+    border-radius: var(--radius);
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.upload-zone input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.upload-zone:hover, .upload-zone.is-dragover { border-color: var(--color-accent); background: var(--color-accent-soft); }

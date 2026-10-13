@@ -110,6 +110,56 @@
 </section>
 
 <section class="panel">
+    <h2>{{ 'AI prompts'|trans }}</h2>
+    <p class="field-hint" style="margin-bottom: 14px;">{{ 'Keep the prompts you use to write product content here. They are stored privately on the server, not in the public site.'|trans }}</p>
+
+    <form method="post" action="{{ path('admin.settings.submit') }}" enctype="multipart/form-data" data-no-ajax>
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="upload_prompts">
+        <label class="upload-zone" data-upload-zone>
+            <input type="file" name="prompts[]" accept=".md,.txt,text/markdown,text/plain" multiple required>
+            <strong>{{ 'Drop prompt files here or click to choose'|trans }}</strong>
+            <span class="field-hint" data-upload-zone-files>{{ '.md or .txt, up to {kb} KB each. A file with the same name is replaced.'|trans({kb: prompt_max_kb}) }}</span>
+        </label>
+        <button type="submit" class="btn-primary">{{ 'Upload prompts'|trans }}</button>
+    </form>
+
+    {% if prompts %}
+        <table class="cart-table admin-table" style="margin-top: 18px;">
+            <thead>
+                <tr>
+                    <th>{{ 'File'|trans }}</th>
+                    <th>{{ 'Size'|trans }}</th>
+                    <th>{{ 'Uploaded'|trans }}</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in prompts %}
+                    <tr>
+                        <td><a href="{{ path('admin.settings.prompt', {}, {file: p.name}) }}" target="_blank" rel="noopener" data-no-ajax>{{ p.name }}</a></td>
+                        <td>{{ (p.size / 1024)|round(1) }} KB</td>
+                        <td>{{ p.modified|date('Y-m-d H:i') }}</td>
+                        <td class="table-actions">
+                            <a href="{{ path('admin.settings.prompt', {}, {file: p.name, download: 1}) }}" class="btn-secondary" data-no-ajax>⬇ {{ 'Download'|trans }}</a>
+                            <form method="post" action="{{ path('admin.settings.submit') }}" class="inline-form" data-no-ajax
+                                  data-confirm="{{ 'Delete the prompt "{name}"?'|trans({name: p.name}) }}">
+                                {{ csrf_field() }}
+                                <input type="hidden" name="action" value="delete_prompt">
+                                <input type="hidden" name="prompt" value="{{ p.name }}">
+                                <button type="submit" class="icon-btn icon-btn-danger" title="{{ 'Delete prompt'|trans }}">🗑</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="field-hint" style="margin-top: 14px;">{{ 'No prompts uploaded yet.'|trans }}</p>
+    {% endif %}
+</section>
+
+<section class="panel">
     <h2>{{ 'Themes'|trans }}</h2>
     <p class="field-hint" style="margin-bottom: 18px;">{{ 'The theme changes how the shop (and this admin panel) looks. Your products and orders aren\'t affected.'|trans }}</p>
 
