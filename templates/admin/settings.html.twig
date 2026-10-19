@@ -113,6 +113,13 @@
     <h2>{{ 'AI prompts'|trans }}</h2>
     <p class="field-hint" style="margin-bottom: 14px;">{{ 'Keep the prompts you use to write product content here. They are stored privately on the server, not in the public site.'|trans }}</p>
 
+    <p class="field-hint" style="margin-bottom: 14px;">
+        {{ 'Two reserved names replace the built-in AI prompts (.md or .txt):'|trans }}
+        <code>magic-edit</code> — {{ 'AI edit of a product. Placeholders:'|trans }} <code>{instruction}</code> <code>{name}</code> <code>{short_description}</code> <code>{long_description}</code> <code>{field_json}</code>;
+        <code>translate-product</code> — {{ 'product translation. Placeholders:'|trans }} <code>{language}</code> <code>{locale}</code> <code>{from}</code> <code>{from_locale}</code> <code>{name}</code> <code>{short_description}</code> <code>{long_description}</code> <code>{field_json}</code>.
+        {{ 'Other files are just stored. Without an override the built-in prompt is used.'|trans }}
+    </p>
+
     <form method="post" action="{{ path('admin.settings.submit') }}" enctype="multipart/form-data" data-no-ajax>
         {{ csrf_field() }}
         <input type="hidden" name="action" value="upload_prompts">

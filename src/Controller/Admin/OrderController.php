@@ -70,6 +70,7 @@ final class OrderController
                 'mark_paid'     => $this->service->canMarkPaid($order),
                 'cancel'        => $this->service->canCancel($order),
                 'refund'        => $this->service->canRefund($order),
+                'provider_refund' => $this->service->canRefundAtProvider($order),
                 'ship'          => $this->service->canShip($order),
                 'edit_tracking' => $this->service->canEditTracking($order),
             ],
@@ -102,8 +103,9 @@ final class OrderController
                     $this->session->flash('success', $this->translator->trans('Order cancelled and its stock put back.'));
                     break;
                 case 'refund':
-                    $this->service->refund($id, $restock);
-                    $this->session->flash('success', $restock ? $this->translator->trans('Order marked as refunded and restocked.') : $this->translator->trans('Order marked as refunded.'));
+                    $viaProvider = !empty($body['provider_refund']);
+                    $this->service->refund($id, $restock, $viaProvider);
+                    $this->session->flash('success', $viaProvider ? $this->translator->trans('Money refunded at the provider and order marked as refunded.') : ($restock ? $this->translator->trans('Order marked as refunded and restocked.') : $this->translator->trans('Order marked as refunded.')));
                     break;
                 case 'ship':
                     $this->service->ship($id, $tracking, $carrier);

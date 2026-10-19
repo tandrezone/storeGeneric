@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="{{ html_lang() }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ 'Admin — {page}'|trans({page: 'Login'|trans}) }}</title>
+<link rel="icon" href="{{ asset('images/icons/favicon.ico') }}" sizes="any">
+<link rel="icon" type="image/svg+xml" href="{{ asset('images/icons/favicon.svg') }}">
+<link rel="apple-touch-icon" href="{{ asset('images/icons/apple-touch-icon.png') }}">
+<link rel="stylesheet" href="{{ asset('css/style.css') }}">
+<style>
+    .login-page { display: flex; align-items: center; justify-content: center; min-height: 80vh; }
+    .login-card { width: 100%; max-width: 360px; }
+</style>
+</head>
+<body>
+<main class="container login-page">
+    <div class="panel login-card">
+        <span class="hero-eyebrow">{{ store.name }}</span>
+        <h1 style="margin: 10px 0 20px; font-size: 1.5rem;">{{ 'Two-factor login'|trans }}</h1>
+
+        {% for flash in flashes() %}
+            <p class="msg {{ flash.type == 'error' ? 'error' : '' }}">{{ flash.message }}</p>
+        {% endfor %}
+        {% if error %}<p class="msg error">{{ error }}</p>{% endif %}
+
+        <p class="field-hint">{{ 'Hello {name}. Enter the 6-digit code from your authenticator app, or one of your recovery codes.'|trans({name: username}) }}</p>
+        <form method="post" action="{{ path('admin.login.code.submit') }}" autocomplete="off">
+            {{ csrf_field() }}
+            <label>{{ 'Code'|trans }} <input type="text" name="code" required autofocus autocomplete="one-time-code" inputmode="text"></label>
+            <button type="submit" class="btn-primary">{{ 'Log in'|trans }}</button>
+        </form>
+        <p class="field-hint"><a href="{{ path('admin.login') }}">{{ 'Back to the password form'|trans }}</a></p>
+    </div>
+</main>
+</body>
+</html>

@@ -75,6 +75,37 @@ final class StripeMethod extends AbstractPaymentMethod
         return $url;
     }
 
+    public function supportsRefund(): bool
+    {
+        return true;
+    }
+
+    /** POST /v1/refunds for the payment intent (full amount). Docs: https://docs.stripe.com/api/refunds/create */
+    public function refund(string $reference, float $amount, string $idempotencyKey): string
+    {
+        if (!str_starts_with($reference, 'pi_')) {
+            throw new RuntimeException('Stripe: no payment intent is stored for this order — refund it in the Stripe dashboard.');
+        }
+
+        $response = $this->http->request('POST', 'https://api.stripe.com/v1/refunds', [
+            'Authorization: Bearer ' . $this->config->get('STRIPE_SECRET_KEY'),
+            'Idempotency-Key: refund-' . $idempotencyKey,
+        ], [
+            'payment_intent' => $reference,
+            'amount'         => $this->minorUnits($amount),
+            'metadata'       => ['order_number' => $idempotencyKey],
+        ], form: true);
+
+        $id = $response['body']['id'] ?? null;
+        if ($response['status'] < 200 || $response['status'] >= 300 || !is_string($id) || $id === ''
+            || ($response['body']['status'] ?? '') === 'failed') {
+            $error = $response['body']['error']['message'] ?? ('HTTP ' . $response['status']);
+            throw new RuntimeException('Stripe: ' . $error);
+        }
+
+        return $id;
+    }
+
     /**
      * Verifies the Stripe-Signature header ("t=…,v1=…"): HMAC-SHA256 of
      * "{t}.{raw body}" with the endpoint's whsec_ secret, within 5 minutes.

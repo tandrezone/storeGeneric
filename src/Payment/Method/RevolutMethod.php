@@ -82,6 +82,32 @@ final class RevolutMethod extends AbstractPaymentMethod
         return (string) $url;
     }
 
+    public function supportsRefund(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Refunds a completed order in full; $reference is the Revolut order id.
+     * Docs: https://developer.revolut.com/docs/merchant/refund-order
+     */
+    public function refund(string $reference, float $amount, string $idempotencyKey): string
+    {
+        $response = $this->http->request('POST', $this->baseUrl() . '/orders/' . rawurlencode($reference) . '/refund', $this->headers(), [
+            'amount'              => $this->minorUnits($amount),
+            'currency'            => $this->currency(),
+            'description'         => 'Refund of order ' . $idempotencyKey,
+            'merchant_order_data' => ['reference' => $idempotencyKey],
+        ]);
+
+        if ($response['status'] < 200 || $response['status'] >= 300) {
+            $error = $response['body']['message'] ?? ('HTTP ' . $response['status']);
+            throw new RuntimeException('Revolut: ' . $error);
+        }
+
+        return (string) ($response['body']['id'] ?? $reference);
+    }
+
     /** @return array<string, mixed> */
     public function fetchOrder(string $revolutOrderId): array
     {

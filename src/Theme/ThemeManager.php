@@ -444,7 +444,7 @@ copy), `logo()` (logo image and/or store name, as set in Settings), and
 `path('route.name')` for links — never hard-code URLs.
 
 Routes you can link to: `home`, `cart`, `checkout`, `page.about`, `page.info`,
-`page.support`, `page.terms`. A product link is `path('product.show', {id: 42})`;
+`page.support`, `page.terms`, `page.privacy`. A product link is `path('product.show', {id: 42})`;
 query strings go in a third argument: `path('home', {}, {category: 'tools'})`.
 
 ## Translations

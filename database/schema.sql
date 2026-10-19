@@ -330,10 +330,28 @@ CREATE TABLE admin_users (
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('owner', 'manager', 'staff') NOT NULL DEFAULT 'staff',
     locale VARCHAR(10) NOT NULL DEFAULT 'en' COMMENT 'admin panel language',
+    totp_secret VARCHAR(64) DEFAULT NULL COMMENT 'base32 TOTP secret (never logged)',
+    totp_enabled TINYINT(1) NOT NULL DEFAULT 0,
+    totp_last_step BIGINT UNSIGNED DEFAULT NULL COMMENT 'last accepted time step (replay protection)',
     active TINYINT(1) NOT NULL DEFAULT 1,
     last_login_at TIMESTAMP NULL DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_admin_users_username (username)
+) ENGINE=InnoDB;
+
+-- ----------------------------------------------------------
+-- One-time recovery codes for admin two-factor login (only the
+-- SHA-256 of each code is stored; used_at marks a spent one).
+-- ----------------------------------------------------------
+CREATE TABLE admin_recovery_codes (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    code_hash CHAR(64) NOT NULL COMMENT 'SHA-256 of the normalised code',
+    used_at TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_admin_recovery_user FOREIGN KEY (user_id)
+        REFERENCES admin_users(id) ON DELETE CASCADE,
+    INDEX idx_admin_recovery_lookup (user_id, code_hash)
 ) ENGINE=InnoDB;
 
 -- ----------------------------------------------------------

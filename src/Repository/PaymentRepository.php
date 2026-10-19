@@ -37,6 +37,18 @@ final class PaymentRepository extends Repository
         ', ['order_id' => $orderId, 'provider' => $provider, 'status' => $status, 'track_id' => $reference]) !== false;
     }
 
+    /** The provider id (track_id) of the order's latest "paid" event for that provider, or null. */
+    public function paidReference(int $orderId, string $provider): ?string
+    {
+        $value = $this->value("
+            SELECT track_id FROM payments
+            WHERE order_id = :order_id AND provider = :provider AND status = 'paid' AND track_id IS NOT NULL AND track_id <> ''
+            ORDER BY id DESC LIMIT 1
+        ", ['order_id' => $orderId, 'provider' => $provider]);
+
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
     /** @return list<array<string, mixed>> the order's payment events, oldest first (admin) */
     public function forOrder(int $orderId): array
     {

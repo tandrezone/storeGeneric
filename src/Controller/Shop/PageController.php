@@ -43,4 +43,9 @@ final class PageController
     {
         return $this->responder->view($request, 'shop/pages/terms.html.twig');
     }
+
+    public function privacy(ServerRequestInterface $request): ResponseInterface
+    {
+        return $this->responder->view($request, 'shop/pages/privacy.html.twig');
+    }
 }

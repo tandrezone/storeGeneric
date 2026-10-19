@@ -7,7 +7,7 @@ namespace App\Infrastructure;
 use RuntimeException;
 
 /** Small cURL wrapper for JSON/form calls to payment providers and other APIs. */
-final class HttpClient
+class HttpClient
 {
     /**
      * @param list<string>             $headers "Name: value" lines

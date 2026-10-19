@@ -1,0 +1,58 @@
+{% extends 'layout/shop.html.twig' %}
+
+{% set title = 'Privacy Policy'|trans %}
+
+{% block content %}
+{% set mail = '<a href="mailto:' ~ store.email|e ~ '">' ~ store.email|e ~ '</a>' %}
+<section class="content-page">
+    <h1>{{ 'Privacy Policy'|trans }}</h1>
+    <p class="page-subtitle">{{ 'How we collect, use and protect your personal data.'|trans }}</p>
+
+    <h2>1. {{ 'Who is responsible'|trans }}</h2>
+    <p>{{ 'The store operating this website is the controller of the personal data described here. You can reach us at {email}.'|trans({email: mail})|raw }}</p>
+
+    <h2>2. {{ 'What data we collect'|trans }}</h2>
+    <ul>
+        <li>{{ 'Account data: your name, email address, password (stored only as a one-way hash) and preferred language.'|trans }}</li>
+        <li>{{ 'Order data: the items you buy, amounts, order status, payment method and the payment reference given by the payment provider. We do not store card numbers.'|trans }}</li>
+        <li>{{ 'Address data: billing and shipping names, addresses, country and phone number where provided.'|trans }}</li>
+        <li>{{ 'Emails: the transactional messages we send you (order confirmation, shipping, account verification, password reset) and your messages to our support.'|trans }}</li>
+    </ul>
+
+    <h2>3. {{ 'Cookies and similar technologies'|trans }}</h2>
+    <p>{{ 'We use a session cookie that keeps your cart, sign-in and security tokens working; it is strictly necessary and expires with the session. We also set a store_lang cookie that remembers your chosen language. We do not use advertising or third-party tracking cookies.'|trans }}</p>
+
+    <h2>4. {{ 'Anonymous analytics'|trans }}</h2>
+    <p>{{ 'To understand which pages are visited, we record page views against a random session identifier only. This data is not linked to your name, email or account.'|trans }}</p>
+
+    <h2>5. {{ 'Why we use your data'|trans }}</h2>
+    <p>{{ 'To create and manage your account, process and deliver your orders, take payments and issue refunds, send order-related emails, answer your requests, prevent fraud and abuse, keep the site secure, meet legal obligations (such as accounting and tax) and improve the site through anonymous statistics. Our legal bases are performance of a contract, legal obligation, our legitimate interests, and consent where required.'|trans }}</p>
+
+    <h2>6. {{ 'Who we share data with'|trans }}</h2>
+    <p>{{ 'We do not sell your data. We share what is necessary with service providers that process it on our behalf or as independent controllers:'|trans }}</p>
+    <ul>
+        <li>{{ 'Payment providers, depending on the method you choose: Stripe, PayPal, Revolut and OxaPay (crypto). They receive the order amount and the details needed to complete and verify the payment, and handle your payment details under their own privacy policies.'|trans }}</li>
+        <li>{{ 'Our email provider, which delivers the transactional emails we send you.'|trans }}</li>
+        <li>{{ 'Google Gemini, used only by store administrators for AI-assisted writing and translation of product content. Customer personal data is not sent to it.'|trans }}</li>
+        <li>{{ 'Shipping carriers receive your name, address and phone number to deliver your order. We may also disclose data where the law requires it.'|trans }}</li>
+    </ul>
+    <p>{{ 'Some of these providers may process data outside the European Economic Area, in which case appropriate safeguards (such as standard contractual clauses) apply.'|trans }}</p>
+
+    <h2>7. {{ 'How long we keep data'|trans }}</h2>
+    <p>{{ 'Account data is kept while your account exists and is deleted or anonymised after you ask us to close it. Order and invoice data is kept for as long as accounting and tax law require. Anonymous page-view statistics are kept only as long as they are useful and are not linked to you. Support emails are kept as long as needed to handle your request and any follow-up.'|trans }}</p>
+
+    <h2>8. {{ 'Your rights'|trans }}</h2>
+    <p>{{ 'Under the GDPR you have the right to access your data, have it corrected or erased, restrict or object to its processing, receive it in a portable format, and withdraw consent at any time where processing is based on consent. You can also lodge a complaint with your local data protection authority. To exercise any of these rights, write to {email}; we will reply within one month.'|trans({email: mail})|raw }}</p>
+
+    <h2>9. {{ 'Security'|trans }}</h2>
+    <p>{{ 'We protect your data with measures such as hashed passwords, protected sessions and encrypted connections. No system is completely secure, so please keep your password private.'|trans }}</p>
+
+    <h2>10. {{ 'Changes to this policy'|trans }}</h2>
+    <p>{{ 'We may update this policy from time to time. The date below shows the latest revision.'|trans }}</p>
+
+    <h2>11. {{ 'Contact'|trans }}</h2>
+    <p>{{ 'Questions about this policy or your data can be sent to {email}.'|trans({email: mail})|raw }}</p>
+
+    <p class="updated-note">{{ 'Last updated October 2026.'|trans }}</p>
+</section>
+{% endblock %}

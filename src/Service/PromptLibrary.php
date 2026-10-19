@@ -19,6 +19,14 @@ final class PromptLibrary
     public const EXTENSIONS = ['md', 'txt'];
     public const MAX_BYTES = 512 * 1024;
 
+    /** Reserved base names (.md or .txt) that replace a built-in prompt: name => placeholders. */
+    public const MAGIC_EDIT = 'magic-edit';
+    public const TRANSLATE_PRODUCT = 'translate-product';
+    public const RESERVED = [
+        self::MAGIC_EDIT => ['{instruction}', '{name}', '{short_description}', '{long_description}', '{field_json}'],
+        self::TRANSLATE_PRODUCT => ['{language}', '{locale}', '{from}', '{from_locale}', '{name}', '{short_description}', '{long_description}', '{field_json}'],
+    ];
+
     public function __construct(
         private readonly Paths $paths,
         private readonly Translator $translator,
@@ -56,6 +64,40 @@ final class PromptLibrary
         $file = $this->path($name);
 
         return $file === null ? null : (string) file_get_contents($file);
+    }
+
+    /**
+     * The uploaded override for a built-in prompt ("magic-edit" or
+     * "translate-product", as .md or .txt) with its {placeholders} filled in
+     * from $vars, or null when there is none (or it is blank) so the caller
+     * uses its hard-coded prompt. Unknown placeholders are left as typed.
+     *
+     * @param array<string, string> $vars placeholder name (without braces) => value
+     */
+    public function override(string $reserved, array $vars): ?string
+    {
+        if (!isset(self::RESERVED[$reserved])) {
+            return null;
+        }
+        foreach (self::EXTENSIONS as $ext) {
+            $text = $this->contents($reserved . '.' . $ext);
+            if ($text !== null && trim($text) !== '') {
+                return self::fill($text, $vars);
+            }
+        }
+
+        return null;
+    }
+
+    /** Replaces {key} with its value in one pass (values are never re-scanned for placeholders). */
+    public static function fill(string $template, array $vars): string
+    {
+        $map = [];
+        foreach ($vars as $key => $value) {
+            $map['{' . $key . '}'] = (string) $value;
+        }
+
+        return strtr($template, $map);
     }
 
     /**

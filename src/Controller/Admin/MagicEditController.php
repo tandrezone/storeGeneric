@@ -9,6 +9,7 @@ use App\I18n\Translator;
 use App\Infrastructure\GeminiClient;
 use App\Repository\ProductRepository;
 use App\Security\HtmlSanitizer;
+use App\Service\PromptLibrary;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
@@ -26,6 +27,7 @@ final class MagicEditController
         private readonly GeminiClient $gemini,
         private readonly HtmlSanitizer $sanitizer,
         private readonly Translator $translator,
+        private readonly PromptLibrary $prompts,
     ) {
     }
 
@@ -44,7 +46,17 @@ final class MagicEditController
             return $this->responder->json(['success' => false, 'error' => $this->translator->trans('Product not found.')], 404);
         }
 
-        $prompt = <<<PROMPT
+        $prompt = $this->prompts->override(PromptLibrary::MAGIC_EDIT, [
+            'instruction' => $instruction,
+            'name' => (string) $product['name'],
+            'short_description' => (string) $product['short_description'],
+            'long_description' => (string) $product['long_description'],
+            'field_json' => (string) json_encode([
+                'name' => (string) $product['name'],
+                'short_description' => (string) $product['short_description'],
+                'long_description' => (string) $product['long_description'],
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]) ?? <<<PROMPT
             You are editing a product in an online store catalog.
 
             Current product:

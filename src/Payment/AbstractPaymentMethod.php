@@ -57,6 +57,16 @@ abstract class AbstractPaymentMethod implements PaymentMethod
         return false;
     }
 
+    public function supportsRefund(): bool
+    {
+        return false;
+    }
+
+    public function refund(string $reference, float $amount, string $idempotencyKey): string
+    {
+        throw new \RuntimeException($this->id() . ': refunds through the provider are not supported — refund the money manually.');
+    }
+
     public function instructions(array $order): string
     {
         return '';

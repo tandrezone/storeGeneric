@@ -72,6 +72,27 @@ final class PromptLibraryTest extends TestCase
         $this->assertNull($this->prompts->path('.htaccess'));
     }
 
+    public function testOverrideIsNullWithoutAFileOrWhenBlank(): void
+    {
+        $this->assertNull($this->prompts->override(PromptLibrary::MAGIC_EDIT, ['instruction' => 'x']));
+        $this->prompts->store($this->upload('magic-edit.md', "  \n"));
+        $this->assertNull($this->prompts->override(PromptLibrary::MAGIC_EDIT, ['instruction' => 'x']));
+        $this->assertNull($this->prompts->override('not-reserved', []));
+    }
+
+    public function testOverrideFillsPlaceholdersInOnePass(): void
+    {
+        $this->prompts->store($this->upload('translate-product.md', 'To {language} ({locale}): {name} / {unknown}'));
+        $out = $this->prompts->override(PromptLibrary::TRANSLATE_PRODUCT, ['language' => 'Português', 'locale' => 'pt', 'name' => '{language}']);
+        $this->assertSame('To Português (pt): {language} / {unknown}', $out);
+    }
+
+    public function testOverrideFallsBackToTxtFile(): void
+    {
+        $this->prompts->store($this->upload('magic-edit.txt', 'Do: {instruction}'));
+        $this->assertSame('Do: shorten', $this->prompts->override(PromptLibrary::MAGIC_EDIT, ['instruction' => 'shorten']));
+    }
+
     private function upload(string $name, string $contents): UploadedFile
     {
         return new UploadedFile(Stream::create($contents), strlen($contents), UPLOAD_ERR_OK, $name);

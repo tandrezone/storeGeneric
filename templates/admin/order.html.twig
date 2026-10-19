@@ -115,13 +115,22 @@
                 </form>
             {% endif %}
             {% if can.refund %}
-                <form method="post" action="{{ path('admin.order.submit', {id: order.id}) }}" data-confirm="{{ 'Mark this order as refunded? Refund the money at the payment provider (or by bank) yourself — this only records it.'|trans }}" style="margin-top: 12px;">
+                <form method="post" action="{{ path('admin.order.submit', {id: order.id}) }}" data-confirm="{{ 'Mark this order as refunded? Unless "Refund the money at the provider" is ticked, return the money yourself (provider or bank) — this only records it.'|trans }}" style="margin-top: 12px;">
                     {{ csrf_field() }}
                     <input type="hidden" name="action" value="refund">
                     <label style="display: block; margin-bottom: 8px;">
                         <input type="checkbox" name="restock" value="1" {{ order.stock_reserved ? 'checked' : 'disabled' }}>
                         {{ 'Put the items back in stock'|trans }}
                     </label>
+                    {% if can.provider_refund %}
+                        <label style="display: block; margin-bottom: 8px;">
+                            <input type="checkbox" name="provider_refund" value="1">
+                            {{ 'Refund the money at the provider'|trans }}
+                        </label>
+                        <p class="field-hint">{{ 'Sends a full refund of the order total to {provider} first. If it fails, the order stays unchanged.'|trans({provider: payment_label}) }}</p>
+                    {% else %}
+                        <p class="field-hint">{{ 'This payment method can\'t be refunded from here — return the money manually (bank / provider dashboard); marking the order only records it.'|trans }}</p>
+                    {% endif %}
                     <button type="submit" class="btn-secondary">{{ 'Mark as refunded'|trans }}</button>
                     <p class="field-hint">{{ 'The customer gets a refund email.'|trans }}</p>
                 </form>

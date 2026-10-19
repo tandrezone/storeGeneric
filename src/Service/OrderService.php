@@ -165,29 +165,62 @@ final class OrderService
         });
     }
 
-    /** Marks a paid order refunded (money is returned at the provider), optionally restocking it. */
-    public function refund(int $id, bool $restock): void
+    /**
+     * @param array<string, mixed> $order
+     * @return bool true when the order's payment method can refund through its provider's API
+     */
+    public function canRefundAtProvider(array $order): bool
     {
-        $this->db->transaction(function () use ($id, $restock): void {
+        return $this->methods->get((string) $order['payment_method'])?->supportsRefund() ?? false;
+    }
+
+    /**
+     * Marks a paid order refunded, optionally restocking it. With $viaProvider
+     * the full order total is first refunded through the payment provider's API
+     * (idempotency key = order number); if that fails nothing changes and the
+     * exception message is shown to the admin. Without it the admin returns the
+     * money manually and this only records it.
+     */
+    public function refund(int $id, bool $restock, bool $viaProvider = false): void
+    {
+        $this->db->transaction(function () use ($id, $restock, $viaProvider): void {
             $order = $this->lock($id);
             if (!$this->canRefund($order)) {
                 throw new RuntimeException($this->translator->trans('Only paid orders can be refunded.'));
             }
+            $currency = strtoupper($this->config->get('STORE_CURRENCY', 'EUR'));
+            $provider = 'manual';
+            $reference = 'admin';
+            $note = $restock ? 'restocked' : 'not restocked';
+
+            if ($viaProvider) {
+                $method = $this->methods->get((string) $order['payment_method']);
+                if ($method === null || !$method->supportsRefund()) {
+                    throw new RuntimeException($this->translator->trans('This payment method can\'t be refunded through the provider — refund the money manually.'));
+                }
+                $paidReference = $this->payments->paidReference($id, $method->id());
+                if ($paidReference === null) {
+                    throw new RuntimeException($this->translator->trans('No provider payment id is stored for this order — refund it at the provider yourself.'));
+                }
+                try {
+                    // The row lock stays held, so a double click can't start two refunds.
+                    $reference = $method->refund($paidReference, (float) $order['total'], (string) $order['order_number']);
+                } catch (\Throwable $e) {
+                    $this->logger->error('Provider refund failed', ['order_id' => $id, 'provider' => $method->id(), 'error' => $e->getMessage()]);
+                    throw new RuntimeException($this->translator->trans('The provider refused the refund: {error} The order was not changed.', ['error' => $e->getMessage()]), 0, $e);
+                }
+                $provider = $method->id();
+                $note = json_encode(['refund_of' => $paidReference, 'restock' => $restock]) ?: $note;
+                $this->logger->info('Provider refund created', ['order_id' => $id, 'provider' => $provider, 'refund' => $reference]);
+            }
+
             $this->orders->setStatuses($id, 'refunded', 'refunded');
-            $this->payments->record(
-                $id,
-                'manual',
-                'refunded',
-                'admin',
-                (float) $order['total'],
-                strtoupper($this->config->get('STORE_CURRENCY', 'EUR')),
-                $restock ? 'restocked' : 'not restocked'
-            );
+            $this->payments->record($id, $provider, 'refunded', $reference, (float) $order['total'], $currency, $note);
             if ($restock) {
                 $this->stock->release($order);
             }
         });
-        $this->logger->info('Order refunded by admin', ['order_id' => $id, 'restock' => $restock]);
+        $this->logger->info('Order refunded by admin', ['order_id' => $id, 'restock' => $restock, 'provider' => $viaProvider]);
         $this->notifier->orderRefunded($id);
     }
 

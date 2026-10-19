@@ -26,6 +26,22 @@ final class OrderServiceTest extends IntegrationTestCase
         $this->assertSame(5, $this->stockOf($ids['variant']), 'a second cancel gives nothing back');
     }
 
+    public function testProviderRefundUnsupportedLeavesTheOrderUnchanged(): void
+    {
+        $ids = $this->makeProduct($this->sku(), 10.0, 5);
+        $order = $this->placeOrder($ids['variant'], 1, 10.0); // bank transfer: refunds stay manual
+        $service = $this->get(OrderService::class);
+        $service->markPaid($order['id']);
+
+        $this->assertFalse($service->canRefundAtProvider($this->orderRow($order['id'])));
+        $this->assertThrows(RuntimeException::class, fn () => $service->refund($order['id'], true, true), 'manually');
+
+        $row = $this->orderRow($order['id']);
+        $this->assertSame('paid', $row['payment_status']);
+        $this->assertSame('paid', $row['status']);
+        $this->assertSame(4, $this->stockOf($ids['variant']), 'not restocked');
+    }
+
     public function testRefundWithRestockAfterPayment(): void
     {
         $ids = $this->makeProduct($this->sku(), 10.0, 5);

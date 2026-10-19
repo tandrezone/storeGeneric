@@ -17,7 +17,7 @@ use Psr\Http\Message\ServerRequestInterface;
 final class SeoController
 {
     /** Info pages listed in the sitemap (route names). */
-    private const PAGES = ['page.about', 'page.info', 'page.support', 'page.terms'];
+    private const PAGES = ['page.about', 'page.info', 'page.support', 'page.terms', 'page.privacy'];
 
     public function __construct(
         private readonly Responder $responder,

@@ -32,6 +32,9 @@ final class AdminAuthenticator
 
     private const SESSION_USER = 'admin_user_id';
     private const SESSION_FINGERPRINT = 'admin_password_fp';
+    /** Password accepted, second factor (TOTP / recovery code) still to come: [user id, fingerprint, expiry time]. */
+    private const SESSION_PENDING = 'admin_2fa_pending';
+    private const PENDING_SECONDS = 300;
     private const MAX_ATTEMPTS = 5;
     /** Higher than per IP: someone guessing from many addresses can lock the account out for everyone. */
     private const MAX_USERNAME_ATTEMPTS = 20;
@@ -42,6 +45,7 @@ final class AdminAuthenticator
     private bool $loaded = false;
     private bool $revoked = false;
     private ?string $lastFailure = null;
+    private ?string $lastFactor = null;
     private bool $bootstrapped = false;
 
     public function __construct(
@@ -89,7 +93,7 @@ final class AdminAuthenticator
             return null;
         }
 
-        unset($row['password_hash']);
+        unset($row['password_hash'], $row['totp_secret'], $row['totp_last_step']);
 
         return $this->user = $row;
     }
@@ -128,11 +132,7 @@ final class AdminAuthenticator
     public function attempt(string $username, string $password, string $ip): bool
     {
         $this->lastFailure = null;
-        $this->attempts->record($ip, $username);
-        if (
-            $this->attempts->countRecent($ip, self::LOCKOUT_MINUTES) > self::MAX_ATTEMPTS
-            || ($username !== '' && $this->attempts->countRecentForUsername($username, self::LOCKOUT_MINUTES) > self::MAX_USERNAME_ATTEMPTS)
-        ) {
+        if ($this->throttled($ip, $username)) {
             $this->lastFailure = 'locked';
 
             return false;
@@ -147,18 +147,158 @@ final class AdminAuthenticator
             return false;
         }
 
+        // Two-factor users are not logged in yet: remember that the password
+        // was right and wait for the code (completeSecondFactor()). The
+        // attempts stay counted until the code is accepted. Returns false,
+        // with lastFailure() 'second_factor'.
+        if ((bool) $user['totp_enabled'] && (string) $user['totp_secret'] !== '') {
+            $this->session->set(self::SESSION_PENDING, [
+                (int) $user['id'], self::fingerprint((string) $user['password_hash']), time() + self::PENDING_SECONDS,
+            ]);
+            $this->lastFailure = 'second_factor';
+
+            return false;
+        }
+
         $this->attempts->clear($ip, $username);
-        $this->users->touchLastLogin((int) $user['id']);
-        $this->session->regenerate();
-        $this->csrf->regenerate();
-        $this->session->set(self::SESSION_USER, (int) $user['id']);
-        $this->session->set(self::SESSION_FINGERPRINT, self::fingerprint((string) $user['password_hash']));
-        $this->loaded = false;
+        $this->startSession($user);
 
         return true;
     }
 
-    /** 'locked' or 'invalid' after a failed attempt(), else null. */
+    /**
+     * The user whose password was accepted and who must still enter a
+     * two-factor code (id, username), or null.
+     *
+     * @return array{id: int, username: string}|null
+     */
+    public function pendingSecondFactor(): ?array
+    {
+        $pending = $this->session->get(self::SESSION_PENDING);
+        if (!is_array($pending) || count($pending) !== 3 || !is_int($pending[0]) || (int) $pending[2] < time()) {
+            $this->session->remove(self::SESSION_PENDING);
+
+            return null;
+        }
+        $row = $this->users->find($pending[0]);
+        if (
+            $row === null || !(bool) $row['active'] || !(bool) $row['totp_enabled']
+            || !hash_equals(self::fingerprint((string) $row['password_hash']), (string) $pending[1])
+        ) {
+            $this->session->remove(self::SESSION_PENDING);
+
+            return null;
+        }
+
+        return ['id' => (int) $row['id'], 'username' => (string) $row['username']];
+    }
+
+    public function cancelSecondFactor(): void
+    {
+        $this->session->remove(self::SESSION_PENDING);
+    }
+
+    /**
+     * Second login step: logs in when $code is a valid authenticator code or
+     * an unused recovery code. Counts as a login attempt (same per IP and per
+     * username limits as the password), so codes can't be guessed. On failure
+     * lastFailure() is 'locked', 'invalid' or 'expired'; on success
+     * lastFactor() says 'totp' or 'recovery'.
+     */
+    public function completeSecondFactor(string $code, string $ip): bool
+    {
+        $this->lastFailure = null;
+        $this->lastFactor = null;
+        $pending = $this->pendingSecondFactor();
+        if ($pending === null) {
+            $this->lastFailure = 'expired';
+
+            return false;
+        }
+
+        $factor = $this->verifySecondFactor($pending['id'], $code, $ip);
+        if ($factor === null) {
+            return false;
+        }
+
+        $user = $this->users->find($pending['id']);
+        if ($user === null) {
+            $this->lastFailure = 'invalid';
+
+            return false;
+        }
+        $this->session->remove(self::SESSION_PENDING);
+        $this->attempts->clear($ip, (string) $user['username']);
+        $this->startSession($user);
+        $this->lastFactor = $factor;
+
+        return true;
+    }
+
+    /**
+     * Checks a code for a user outside the login (e.g. to turn 2FA off):
+     * 'totp' or 'recovery' when it was valid (and is now used up), else null
+     * with lastFailure() 'locked' or 'invalid'. Rate limited like logins.
+     */
+    public function verifySecondFactor(int $userId, string $code, string $ip): ?string
+    {
+        $this->lastFailure = null;
+        $row = $this->users->find($userId);
+        if ($row === null || !(bool) $row['totp_enabled']) {
+            $this->lastFailure = 'invalid';
+
+            return null;
+        }
+        if ($this->throttled($ip, (string) $row['username'])) {
+            $this->lastFailure = 'locked';
+
+            return null;
+        }
+
+        $factor = $this->checkCode($row, $code);
+        if ($factor === null) {
+            $this->lastFailure = 'invalid';
+        }
+
+        return $factor;
+    }
+
+    /**
+     * Turns 2FA on for $userId when $code is valid for $secret (the one shown
+     * during setup). Returns the new recovery codes (shown once, only their
+     * hashes are kept), or null when the code is wrong.
+     *
+     * @return list<string>|null
+     */
+    public function enableTwoFactor(int $userId, string $secret, string $code): ?array
+    {
+        $step = Totp::verify($secret, $code, time());
+        if ($step === null) {
+            return null;
+        }
+
+        $codes = Totp::generateRecoveryCodes();
+        $this->users->enableTotp($userId, $secret, $step, array_map(
+            static fn (string $c): string => Totp::hashRecoveryCode((string) Totp::normalizeRecoveryCode($c)),
+            $codes
+        ));
+
+        return $codes;
+    }
+
+    /** Turns 2FA off for $userId (secret and recovery codes are deleted). */
+    public function disableTwoFactor(int $userId): void
+    {
+        $this->users->clearTotp($userId);
+    }
+
+    /** 'totp' or 'recovery' after a successful completeSecondFactor(). */
+    public function lastFactor(): ?string
+    {
+        return $this->lastFactor;
+    }
+
+    /** 'locked', 'invalid', 'second_factor' (password fine, code needed) or 'expired' after a failed attempt, else null. */
     public function lastFailure(): ?string
     {
         return $this->lastFailure;
@@ -215,10 +355,57 @@ final class AdminAuthenticator
     {
         $this->session->remove(self::SESSION_USER);
         $this->session->remove(self::SESSION_FINGERPRINT);
+        $this->session->remove(self::SESSION_PENDING);
         $this->session->regenerate();
         $this->csrf->regenerate();
         $this->user = null;
         $this->loaded = true;
+    }
+
+    /**
+     * Records a login attempt (before anything is checked, so parallel
+     * requests can't all slip in under the limit) and says whether the IP or
+     * username is over its limit.
+     */
+    private function throttled(string $ip, string $username): bool
+    {
+        $this->attempts->record($ip, $username);
+
+        return $this->attempts->countRecent($ip, self::LOCKOUT_MINUTES) > self::MAX_ATTEMPTS
+            || ($username !== '' && $this->attempts->countRecentForUsername($username, self::LOCKOUT_MINUTES) > self::MAX_USERNAME_ATTEMPTS);
+    }
+
+    /**
+     * Accepts an authenticator code (once per time step) or an unused
+     * recovery code. $row must include the TOTP columns.
+     *
+     * @param array<string, mixed> $row
+     */
+    private function checkCode(array $row, string $code): ?string
+    {
+        $id = (int) $row['id'];
+        $secret = (string) ($row['totp_secret'] ?? '');
+        $last = $row['totp_last_step'] === null ? null : (int) $row['totp_last_step'];
+
+        $step = $secret === '' ? null : Totp::verify($secret, $code, time(), $last);
+        if ($step !== null) {
+            return $this->users->claimTotpStep($id, $step) ? 'totp' : null;
+        }
+
+        $recovery = Totp::normalizeRecoveryCode($code);
+
+        return $recovery !== null && $this->users->consumeRecoveryCode($id, Totp::hashRecoveryCode($recovery)) ? 'recovery' : null;
+    }
+
+    /** @param array<string, mixed> $user */
+    private function startSession(array $user): void
+    {
+        $this->users->touchLastLogin((int) $user['id']);
+        $this->session->regenerate();
+        $this->csrf->regenerate();
+        $this->session->set(self::SESSION_USER, (int) $user['id']);
+        $this->session->set(self::SESSION_FINGERPRINT, self::fingerprint((string) $user['password_hash']));
+        $this->loaded = false;
     }
 
     /** @return array<string, mixed>|null the matching active user row */

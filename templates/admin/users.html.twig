@@ -61,7 +61,10 @@
                     {% if user.email %}<br><span class="field-hint">{{ user.email }}</span>{% endif %}
                 </td>
                 <td><span class="status-badge" data-status="{{ user.role }}">{{ user.role|capitalize|trans }}</span></td>
-                <td><span class="status-badge" data-status="{{ user.active ? 'paid' : 'cancelled' }}">{{ user.active ? 'Active'|trans : 'Inactive'|trans }}</span></td>
+                <td>
+                    <span class="status-badge" data-status="{{ user.active ? 'paid' : 'cancelled' }}">{{ user.active ? 'Active'|trans : 'Inactive'|trans }}</span>
+                    {% if user.totp_enabled %}<span class="status-badge" data-status="paid">{{ '2FA'|trans }}</span>{% endif %}
+                </td>
                 <td class="field-hint">{{ user.last_login_at ?: 'never'|trans }}</td>
                 <td>
                     <div class="table-actions">
@@ -118,6 +121,15 @@
                             </div>
                             <button type="submit" class="btn-secondary">{{ 'Reset password'|trans }}</button>
                         </form>
+                        {% if user.totp_enabled %}
+                            <form method="post" action="{{ path('admin.users.submit') }}" class="inline-form" style="margin-top: 16px;"
+                                  data-confirm="{{ 'Turn off two-factor login for {username}?'|trans({username: user.username}) }}">
+                                {{ csrf_field() }}
+                                <input type="hidden" name="action" value="reset_2fa">
+                                <input type="hidden" name="id" value="{{ user.id }}">
+                                <button type="submit" class="btn-danger">{{ 'Reset two-factor login'|trans }}</button>
+                            </form>
+                        {% endif %}
                     {% else %}
                         <p class="field-hint">{{ 'Change your own password in {link}.'|trans({link: '<a href="' ~ path('admin.account') ~ '">' ~ 'My account'|trans|e ~ '</a>'})|raw }}</p>
                     {% endif %}

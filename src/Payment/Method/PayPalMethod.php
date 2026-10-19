@@ -101,6 +101,35 @@ final class PayPalMethod extends AbstractPaymentMethod
         throw new RuntimeException('PayPal: ' . $error);
     }
 
+    public function supportsRefund(): bool
+    {
+        return true;
+    }
+
+    /** Refunds a capture in full. Docs: https://developer.paypal.com/docs/api/payments/v2/#captures_refund */
+    public function refund(string $reference, float $amount, string $idempotencyKey): string
+    {
+        $response = $this->http->request(
+            'POST',
+            $this->baseUrl() . '/v2/payments/captures/' . rawurlencode($reference) . '/refund',
+            ['Authorization: Bearer ' . $this->accessToken(), 'PayPal-Request-Id: refund-' . $idempotencyKey],
+            ['amount' => [
+                'value'         => number_format($amount, Money::exponent($this->currency()), '.', ''),
+                'currency_code' => $this->currency(),
+            ], 'note_to_payer' => 'Order ' . $idempotencyKey]
+        );
+
+        $id = $response['body']['id'] ?? null;
+        $status = strtoupper((string) ($response['body']['status'] ?? ''));
+        if ($response['status'] < 200 || $response['status'] >= 300 || !is_string($id) || $id === ''
+            || !in_array($status, ['COMPLETED', 'PENDING'], true)) {
+            $error = $response['body']['message'] ?? ($status !== '' ? 'refund ' . strtolower($status) : 'HTTP ' . $response['status']);
+            throw new RuntimeException('PayPal: ' . $error);
+        }
+
+        return $id;
+    }
+
     /**
      * Captures an approved PayPal order. Returns the decoded capture response.
      *

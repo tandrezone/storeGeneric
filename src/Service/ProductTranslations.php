@@ -31,6 +31,7 @@ final class ProductTranslations
         private readonly ProductTranslationRepository $translations,
         private readonly HtmlSanitizer $sanitizer,
         private readonly GeminiClient $gemini,
+        private readonly PromptLibrary $prompts,
     ) {
     }
 
@@ -127,7 +128,20 @@ final class ProductTranslations
         }
         $from = $this->translator->languages()[$this->baseLocale()] ?? $this->baseLocale();
 
-        $prompt = <<<PROMPT
+        $prompt = $this->prompts->override(PromptLibrary::TRANSLATE_PRODUCT, [
+            'language' => $language,
+            'locale' => $locale,
+            'from' => $from,
+            'from_locale' => $this->baseLocale(),
+            'name' => (string) $product['name'],
+            'short_description' => (string) $product['short_description'],
+            'long_description' => (string) $product['long_description'],
+            'field_json' => (string) json_encode([
+                'name' => (string) $product['name'],
+                'short_description' => (string) $product['short_description'],
+                'long_description' => (string) $product['long_description'],
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]) ?? <<<PROMPT
             You translate product text for an online store.
 
             Translate the fields below from {$from} ({$this->baseLocale()}) into {$language} ({$locale}).

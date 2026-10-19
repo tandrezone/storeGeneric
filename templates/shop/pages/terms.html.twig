@@ -33,11 +33,26 @@
     </p>
 
     <h2>6. {{ 'Returns & refunds'|trans }}</h2>
-    <p>
-        {{ 'If an order arrives damaged, incorrect, or doesn\'t arrive at all, contact {support} with your order number so we can look into it. Refunds or replacements are handled case-by-case at our discretion.'|trans({
-            support: '<a href="' ~ path('page.support')|e ~ '">' ~ 'Support'|trans|e ~ '</a>',
-        })|raw }}
-    </p>
+    {% set support_link = '<a href="' ~ path('page.support')|e ~ '">' ~ 'Support'|trans|e ~ '</a>' %}
+    {% set mail = '<a href="mailto:' ~ store.email|e ~ '">' ~ store.email|e ~ '</a>' %}
+
+    <h3>{{ 'Right of withdrawal (14 days)'|trans }}</h3>
+    <p>{{ 'If you are a consumer in the European Union, you have the right to withdraw from a purchase within 14 days, without giving a reason. The 14 days start on the day you (or a person you name, other than the carrier) receive the goods; for an order with several items delivered separately, they start when the last item is received.'|trans }}</p>
+
+    <h3>{{ 'How to withdraw'|trans }}</h3>
+    <p>{{ 'To exercise this right, tell us clearly that you wish to withdraw, by email to {email} or through {support}, quoting your order number. You may use any clear statement; a specific form is not required. It is enough to send your notice before the 14 days end. Then send the goods back, unused and in their original packaging where possible, within 14 days of telling us.'|trans({email: mail, support: support_link})|raw }}</p>
+
+    <h3>{{ 'Refunds'|trans }}</h3>
+    <p>{{ 'We will refund all payments received for the goods, including the standard delivery cost, without undue delay and at the latest within 14 days of the day we are told of your decision to withdraw. We may wait until we have received the goods back, or until you show proof that you have sent them, whichever is earlier. The refund is made with the same payment method you used, unless you agree otherwise. We are not liable for extra delivery costs if you chose a delivery option other than our cheapest standard one.'|trans }}</p>
+
+    <h3>{{ 'Return shipping'|trans }}</h3>
+    <p>{{ 'Unless we state otherwise before you order, you bear the direct cost of returning the goods. You are only liable for any loss in value of the goods resulting from handling beyond what is needed to establish their nature, characteristics and functioning.'|trans }}</p>
+
+    <h3>{{ 'Perishable goods and live plants (no withdrawal)'|trans }}</h3>
+    <p>{{ 'The right of withdrawal does not apply to goods that are liable to deteriorate or expire rapidly. This includes live plants, cuttings, seeds and other living or perishable items, which cannot be returned for a change of mind once delivered. It also does not apply to goods made to your specifications or clearly personalised, or to sealed goods that are not suitable for return for health or hygiene reasons once unsealed. Your statutory rights remain unaffected.'|trans }}</p>
+
+    <h3>{{ 'Damaged, incorrect or missing orders'|trans }}</h3>
+    <p>{{ 'If an order arrives damaged, dead on arrival, incorrect, or doesn\'t arrive at all, contact {support} with your order number and, where possible, photos, as soon as you can after delivery so we can look into it. Where the law gives you a remedy (repair, replacement, price reduction or refund), we will honour it, and this applies to perishable goods too.'|trans({support: support_link})|raw }}</p>
 
     <h2>7. {{ 'Prohibited use'|trans }}</h2>
     <p>

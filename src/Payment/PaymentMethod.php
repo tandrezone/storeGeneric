@@ -39,6 +39,19 @@ interface PaymentMethod
      */
     public function start(array $order): ?string;
 
+    /** True when refund() can return money through the provider's API. */
+    public function supportsRefund(): bool;
+
+    /**
+     * Refunds a payment through the provider (full amount, in the store currency).
+     *
+     * @param string $reference      provider id stored with the "paid" payment (payments.track_id)
+     * @param string $idempotencyKey same key for the same refund (the order number), so a retry never refunds twice
+     * @return string the provider's refund id
+     * @throws \RuntimeException when unsupported or the provider refuses / can't be reached
+     */
+    public function refund(string $reference, float $amount, string $idempotencyKey): string;
+
     /**
      * HTML shown on the confirmation page while the order is unpaid ('' for none).
      *

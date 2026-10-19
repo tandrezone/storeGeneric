@@ -55,4 +55,47 @@
         <button type="submit" class="btn-primary">{{ 'Change password'|trans }}</button>
     </form>
 </div>
+
+<div class="panel">
+    <h2>{{ 'Two-factor login'|trans }}</h2>
+    {% if recovery_codes %}
+        <p class="msg">{{ 'Two-factor login is on. Save these recovery codes now — they are shown only once. Each one works a single time if you lose your authenticator app.'|trans }}</p>
+        <pre class="field-hint" style="font-size: 1.1rem; user-select: all;">{% for code in recovery_codes %}{{ code }}
+{% endfor %}</pre>
+    {% elseif totp_enabled %}
+        <p>{{ 'Two-factor login is on: after your password you enter a code from your authenticator app.'|trans }}</p>
+        <form method="post" action="{{ path('admin.account.submit') }}" autocomplete="off" data-no-ajax>
+            {{ csrf_field() }}
+            <input type="hidden" name="action" value="2fa_disable">
+            <div class="form-row">
+                <label>{{ 'Current password'|trans }}
+                    <input type="password" name="current_password" required autocomplete="current-password">
+                </label>
+                <label>{{ 'Code or recovery code'|trans }}
+                    <input type="text" name="totp_code" required autocomplete="one-time-code" inputmode="text">
+                </label>
+            </div>
+            <button type="submit" class="btn-danger">{{ 'Turn off two-factor login'|trans }}</button>
+        </form>
+    {% elseif totp_secret %}
+        <p>{{ 'Add this account to an authenticator app (Google Authenticator, Authy, 1Password, …) by entering the key, or by opening the otpauth link, then type the 6-digit code it shows.'|trans }}</p>
+        <p><strong>{{ 'Key'|trans }}:</strong> <code style="user-select: all;">{{ totp_secret }}</code></p>
+        <p class="field-hint">{{ 'Link'|trans }}: <code style="user-select: all; word-break: break-all;">{{ totp_uri }}</code></p>
+        <form method="post" action="{{ path('admin.account.submit') }}" autocomplete="off" data-no-ajax>
+            {{ csrf_field() }}
+            <input type="hidden" name="action" value="2fa_enable">
+            <label>{{ 'Code from the app'|trans }}
+                <input type="text" name="totp_code" required inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" autocomplete="one-time-code">
+            </label>
+            <button type="submit" class="btn-primary">{{ 'Confirm and turn on'|trans }}</button>
+        </form>
+    {% else %}
+        <p>{{ 'Protect your account with a code from an authenticator app, asked after your password.'|trans }}</p>
+        <form method="post" action="{{ path('admin.account.submit') }}" data-no-ajax>
+            {{ csrf_field() }}
+            <input type="hidden" name="action" value="2fa_start">
+            <button type="submit" class="btn-primary">{{ 'Set up two-factor login'|trans }}</button>
+        </form>
+    {% endif %}
+</div>
 {% endblock %}

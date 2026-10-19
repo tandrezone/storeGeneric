@@ -59,6 +59,10 @@ final class UserController
                     $this->setActive($request, $me, $this->target($body), !empty($body['active']));
                     break;
 
+                case 'reset_2fa':
+                    $this->resetTwoFactor($request, $me, $this->target($body));
+                    break;
+
                 case 'reset_password':
                     $this->resetPassword($request, $me, $this->target($body), $body);
                     break;
@@ -172,6 +176,22 @@ final class UserController
         $this->auth->changePassword((int) $user['id'], $password);
         $this->audit->record($request, $me, 'user.reset_password', 'admin_user', (int) $user['id'], "Reset the password of {$user['username']}");
         $this->session->flash('success', $this->translator->trans('Password of {username} changed — their open sessions end on their next request.', ['username' => $user['username']]));
+    }
+
+    /**
+     * Owner recovery for a user who lost their authenticator and recovery codes.
+     *
+     * @param array<string, mixed> $me
+     * @param array<string, mixed> $user
+     */
+    private function resetTwoFactor(ServerRequestInterface $request, array $me, array $user): void
+    {
+        if ((int) $user['id'] === (int) $me['id']) {
+            throw new RuntimeException($this->translator->trans('Turn off your own two-factor login in My account (it asks for your password and a code).'));
+        }
+        $this->users->clearTotp((int) $user['id']);
+        $this->audit->record($request, $me, 'user.reset_2fa', 'admin_user', (int) $user['id'], "Reset two-factor login of {$user['username']}");
+        $this->session->flash('success', $this->translator->trans('Two-factor login of {username} turned off — they can set it up again in My account.', ['username' => $user['username']]));
     }
 
     /**

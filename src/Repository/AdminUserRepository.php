@@ -7,7 +7,7 @@ namespace App\Repository;
 /** Admin accounts (Admin → Users). Usernames are unique, compared case-insensitively. */
 final class AdminUserRepository extends Repository
 {
-    private const COLUMNS = 'id, username, email, password_hash, role, active, last_login_at, created_at, locale';
+    private const COLUMNS = 'id, username, email, password_hash, role, active, last_login_at, created_at, locale, totp_secret, totp_enabled, totp_last_step';
 
     public function count(): int
     {
@@ -30,7 +30,7 @@ final class AdminUserRepository extends Repository
     public function findAll(): array
     {
         return $this->all("
-            SELECT id, username, email, role, active, last_login_at, created_at
+            SELECT id, username, email, role, active, last_login_at, created_at, totp_enabled
             FROM admin_users
             ORDER BY FIELD(role, 'owner', 'manager', 'staff'), username
         ");
@@ -77,5 +77,60 @@ final class AdminUserRepository extends Repository
     public function touchLastLogin(int $id): void
     {
         $this->run('UPDATE admin_users SET last_login_at = NOW() WHERE id = :id', ['id' => $id]);
+    }
+
+    /**
+     * Turns two-factor login on: stores the secret, the confirmed time step and fresh recovery-code hashes.
+     *
+     * @param list<string> $recoveryHashes
+     */
+    public function enableTotp(int $id, string $secret, int $step, array $recoveryHashes): void
+    {
+        $this->run('UPDATE admin_users SET totp_secret = :secret, totp_enabled = 1, totp_last_step = :step WHERE id = :id', [
+            'id' => $id, 'secret' => $secret, 'step' => $step,
+        ]);
+        $this->replaceRecoveryCodes($id, $recoveryHashes);
+    }
+
+    /** Turns two-factor login off and forgets the secret and every recovery code. */
+    public function clearTotp(int $id): void
+    {
+        $this->run('UPDATE admin_users SET totp_secret = NULL, totp_enabled = 0, totp_last_step = NULL WHERE id = :id', ['id' => $id]);
+        $this->replaceRecoveryCodes($id, []);
+    }
+
+    /**
+     * Records $step as used, only when it is newer than the last accepted one
+     * (atomic, so two parallel requests can't both use the same code).
+     */
+    public function claimTotpStep(int $id, int $step): bool
+    {
+        return $this->run(
+            'UPDATE admin_users SET totp_last_step = :step WHERE id = :id AND (totp_last_step IS NULL OR totp_last_step < :step2)',
+            ['id' => $id, 'step' => $step, 'step2' => $step]
+        )->rowCount() === 1;
+    }
+
+    /** @param list<string> $hashes */
+    public function replaceRecoveryCodes(int $id, array $hashes): void
+    {
+        $this->run('DELETE FROM admin_recovery_codes WHERE user_id = :id', ['id' => $id]);
+        foreach ($hashes as $hash) {
+            $this->run('INSERT INTO admin_recovery_codes (user_id, code_hash) VALUES (:id, :hash)', ['id' => $id, 'hash' => $hash]);
+        }
+    }
+
+    /** Spends a recovery code; false when it doesn't exist or was used already. */
+    public function consumeRecoveryCode(int $id, string $hash): bool
+    {
+        return $this->run(
+            'UPDATE admin_recovery_codes SET used_at = NOW() WHERE user_id = :id AND code_hash = :hash AND used_at IS NULL LIMIT 1',
+            ['id' => $id, 'hash' => $hash]
+        )->rowCount() === 1;
+    }
+
+    public function countUnusedRecoveryCodes(int $id): int
+    {
+        return (int) $this->value('SELECT COUNT(*) FROM admin_recovery_codes WHERE user_id = :id AND used_at IS NULL', ['id' => $id]);
     }
 }

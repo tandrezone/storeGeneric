@@ -22,7 +22,7 @@ use Throwable;
 final class AuditLog
 {
     /** Form fields never written to the log (matched as substrings, case-insensitive). */
-    private const SECRET_FIELDS = ['password', 'passwd', 'csrf', 'token', 'secret', 'api_key', 'apikey', 'private_key', 'hash'];
+    private const SECRET_FIELDS = ['password', 'passwd', 'csrf', 'token', 'secret', 'api_key', 'apikey', 'private_key', 'hash', 'totp', 'recovery'];
     private const MAX_STRING = 200;
     private const MAX_ITEMS = 50;
 

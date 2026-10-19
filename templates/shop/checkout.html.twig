@@ -127,6 +127,11 @@
                 {% endfor %}
             </div>
 
+            <p class="field-hint">{{ 'By placing your order you accept our {terms} and {privacy}.'|trans({
+                terms: '<a href="' ~ path('page.terms')|e ~ '" target="_blank" rel="noopener">' ~ 'Terms & Conditions'|trans|e ~ '</a>',
+                privacy: '<a href="' ~ path('page.privacy')|e ~ '" target="_blank" rel="noopener">' ~ 'Privacy Policy'|trans|e ~ '</a>',
+            })|raw }}</p>
+
             <button type="submit" class="btn-primary" {{ payment_methods is empty or shipping_methods is empty ? 'disabled' }}>{{ 'Place order'|trans }}</button>
         </form>
 

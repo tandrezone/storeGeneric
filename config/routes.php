@@ -62,6 +62,7 @@ return static function (RouteCollection $r): void {
     $r->get('/info', [Shop\PageController::class, 'info'], 'page.info')->tracked();
     $r->get('/support', [Shop\PageController::class, 'support'], 'page.support')->tracked();
     $r->get('/terms', [Shop\PageController::class, 'terms'], 'page.terms')->tracked();
+    $r->get('/privacy', [Shop\PageController::class, 'privacy'], 'page.privacy')->tracked();
 
     // Cart API used by assets/js/app.js. No form token: the session cookie is
     // SameSite=Lax, so other sites can't make the browser POST here with it.
@@ -87,6 +88,8 @@ return static function (RouteCollection $r): void {
     // ---- admin -------------------------------------------------------------
     $r->get('/admin/login', [Admin\AuthController::class, 'showLogin'], 'admin.login');
     $r->post('/admin/login', [Admin\AuthController::class, 'login'], 'admin.login.submit');
+    $r->get('/admin/login/code', [Admin\AuthController::class, 'showCode'], 'admin.login.code');
+    $r->post('/admin/login/code', [Admin\AuthController::class, 'submitCode'], 'admin.login.code.submit');
     $r->post('/admin/logout', [Admin\AuthController::class, 'logout'], 'admin.logout');
 
     $r->group('/admin', static function (RouteCollection $r): void {

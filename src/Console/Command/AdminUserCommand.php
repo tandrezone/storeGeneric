@@ -14,7 +14,7 @@ use App\Security\AdminRole;
 
 /**
  * Recovery: creates an admin user, or resets an existing one (new password,
- * reactivated, login lockout cleared; role and email only when given).
+ * reactivated, login lockout and two-factor login cleared; role and email only when given).
  * Without --password a strong one is generated and printed once.
  */
 final class AdminUserCommand implements Command
@@ -34,7 +34,7 @@ final class AdminUserCommand implements Command
 
     public function description(): string
     {
-        return 'Create an admin user, or reset one (new password, reactivated, unlocked)';
+        return 'Create an admin user, or reset one (new password, reactivated, unlocked, 2FA off)';
     }
 
     public function usage(): string
@@ -100,6 +100,10 @@ final class AdminUserCommand implements Command
             }
             $this->users->setPasswordHash($id, $hash);
             $this->users->setActive($id, true);
+            if ((bool) ($user['totp_enabled'] ?? false)) {
+                $this->users->clearTotp($id);
+                $output->line("Two-factor login of {$username} was turned off (the user can set it up again in My account).");
+            }
             $output->line("Reset {$username} (" . ($role->value ?? (string) $user['role']) . '): new password, active; open sessions end on their next request.');
         }
         $this->attempts->clearUsername($username);

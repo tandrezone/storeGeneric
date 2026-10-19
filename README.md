@@ -122,6 +122,7 @@ bin/console images:regenerate [--force]            placeholder images for produc
 bin/console db:migrate [--status] [--dry-run] [--baseline=NNN]   apply the migrations that haven't run yet
 bin/console db:reimport --force                    DEV ONLY: drop all tables, rebuild from schema + migrations
 bin/console orders:expire [--hours=48]             cancel unpaid online orders and restock them (run from cron)
+bin/console maintenance:prune [--dry-run] [--page-views-days=180] [--audit-days=365] [--carts-days=60] [--attempts-days=7]   delete old analytics / audit / cart / token / attempt rows (run from cron)
 bin/console products:export [--output=path] [--status=approved] [--embed-images]   products + variants + translations + images as JSON
 bin/console products:import <file> [--dry-run] [--create-categories] [--no-update] [--no-images]   import such a file, fetching missing images
 bin/console db:backup [--output=path] [--gzip] [--with-uploads] [--keep=N]   back up to var/backups/
@@ -203,12 +204,14 @@ and `tearDown()`.
 - **Unit** — `Money`, `Slug`, `HtmlSanitizer`, `ShippingService`, `TaxCalculator` / coupon
   discounts, `Csv` (escaping, BOM, parsing), the CSV import parser, `SqlSplitter`, `Router::url()`
   with optional segments, the theme-upload file filter, `ClientIp`, customer password / return-path rules,
-  the `Translator` (fallbacks, placeholders, plurals) and the catalogs (same keys and placeholders in every language).
+  provider refund requests (Stripe / PayPal / Revolut, with a fake HTTP client), the `Translator` (fallbacks, placeholders, plurals) and the catalogs (same keys and placeholders in every language).
+- **Unit** (cont.) — `Totp` against the RFC 6238 test vectors, window, replay and recovery-code rules.
 - **Integration** — against a real MariaDB/MySQL database: checkout places the order, reserves stock
   and refuses to oversell; `PaymentRecorder` ignores duplicate events and refuses wrong amounts or
   currencies; cancelling restocks exactly once; CSV import/export; backup + restore round trip;
-  customer accounts (registration, login lockout, reset tokens single-use / expiring, guest orders
-  linked only after verification, order ownership, account deletion, saved addresses).
+  admin two-factor login (enable, code step, replay, recovery codes, rate limit, reset); customer accounts (registration, login lockout, reset tokens single-use / expiring, guest orders
+  linked only after verification, order ownership, account deletion, saved addresses); `maintenance:prune`
+  deletes only old rows (and nothing on `--dry-run`).
   They are skipped unless `TEST_DB_NAME` is set. The database is **wiped and rebuilt** from
   `schema.sql` + migrations on every run, so its name must contain `test`:
 
@@ -308,7 +311,7 @@ var/                             cache/, log/, tmp/, backups/ (not in git)
 | Track your order | `/order/track` (order number + email) | `order.track`, `order.lookup` |
 | Customer account | `/account`, `/account/orders[/{number}]`, `/account/addresses`, `/account/profile` | `account`, `account.*` |
 | Sign in / register | `/account/login`, `/account/register`, `/account/logout` (POST), `/account/forgot-password`, `/account/reset-password?token=…`, `/account/verify?token=…` | `account.login`, `account.register`, … |
-| Info pages | `/about`, `/info`, `/support`, `/terms` | `page.*` |
+| Info pages | `/about`, `/info`, `/support`, `/terms`, `/privacy` | `page.*` |
 | Cart API | `/api/cart` | `api.cart` |
 | Checkout totals (JSON) | `/api/checkout/quote` | `api.checkout.quote` |
 | Admin | `/admin` (dashboard), `/admin/login`, `/admin/products`, `/admin/orders/{id}`, `/admin/customers/{id}`, `/admin/users`, `/admin/account`, `/admin/activity`, … | `admin.*` |
@@ -335,6 +338,21 @@ To add a page: add a route in `config/routes.php`, a controller method, and a te
   commented stylesheet, the default Twig templates and a README listing every variable), edit it,
   zip it and upload it. PHP files are never installed; templates are checked in the Twig sandbox
   on upload and rejected if they use anything that isn't allowed.
+
+- **AI prompts** — upload `.md` / `.txt` prompt files (up to 512 KB each); they are stored privately
+  in `var/prompts/` (never in `public/`), and can be opened, downloaded or deleted from the list.
+  Two **reserved names** are used by the AI features instead of the built-in prompt; any other
+  file is only stored. Without an override (or if it is blank) the built-in prompt is used.
+  `{placeholders}` are replaced with the product's values; unknown ones are left as typed.
+
+  | File | Used by | Placeholders |
+  |---|---|---|
+  | `magic-edit.md` (or `.txt`) | AI edit of a product | `{instruction}` `{name}` `{short_description}` `{long_description}` `{field_json}` |
+  | `translate-product.md` (or `.txt`) | AI product translation | `{language}` `{locale}` `{from}` `{from_locale}` `{name}` `{short_description}` `{long_description}` `{field_json}` |
+
+  `{field_json}` is the three product fields as one JSON object. Keep the reply instructions in
+  your prompt (a JSON object with `name`, `short_description`, `long_description`, no code fences),
+  since the answer is parsed the same way as with the built-in prompt.
 
 Uploads need the PHP `zip` extension and write access to `public/themes/`,
 `public/assets/images/branding/` and `var/` (all handled by `setup-apache.sh`). Files with a
@@ -428,6 +446,7 @@ For moving a whole catalog — products **with their images** — between shops,
 - Failed logins are limited per client IP (5 per 15 minutes) and per username (20 per 15 minutes).
   Behind a reverse proxy set `TRUSTED_PROXIES`, otherwise every visitor shares the proxy's IP.
   Unknown usernames take as long to reject as wrong passwords.
+- Optional **two-factor login** (TOTP, RFC 6238), per user — see [Two-factor login](#admin-two-factor-login).
 
 ### Admin users and roles
 
@@ -449,13 +468,42 @@ as the first **Owner**; after that the `.env` values are ignored. Add the other 
   demote or deactivate themselves, and the last active owner can't be demoted or deactivated.
 - **My account** (everyone): change your own password (needs the current one). Passwords: at least
   10 characters (at most 72 bytes — bcrypt's limit), stored with `password_hash()`.
+- **My account** also holds the optional [two-factor login](#admin-two-factor-login); owners can reset
+  another user's in **Users** (**Reset two-factor login**).
 - The session keeps the user id; the user is re-read on every request, so a deactivated user, or one
   whose password was reset, is logged out on their next request. Role changes apply immediately.
 - Locked out of every owner account? On the server, `bin/console admin:user <username> --role=owner`
   creates that user or resets it (new password, reactivated, lockout cleared; `--email=` sets the
   email). Without `--password=…` (which would land in your shell history) it generates a strong
   password and prints it once. `bin/console admin:unlock <username> [--ip=address]` only clears the
-  failed-login lockout.
+  failed-login lockout. Resetting a user with `admin:user` also turns their two-factor login off.
+
+#### Admin two-factor login
+
+Migration `029` adds `totp_secret`, `totp_enabled` and `totp_last_step` to `admin_users` and the
+`admin_recovery_codes` table. It is optional and per user; nothing changes for users who don't turn it on.
+No extra Composer packages: `App\Security\Totp` implements RFC 6238 with `hash_hmac()` (SHA-1, 6 digits,
+30-second steps, a window of one step either side, constant-time comparison).
+
+- **Turn on** (Admin → My account → *Set up two-factor login*): the page shows a secret and an `otpauth://`
+  link as text (no QR code is generated — type the key into the app). The secret is kept in the session
+  and only saved once you confirm with a code from the app. Then 8 one-time **recovery codes** are shown
+  **once**; only their SHA-256 hashes are stored.
+- **Log in**: after the correct password a second page asks for an authenticator code or a recovery code;
+  the session is not authenticated until it is accepted (the half-finished login expires after 5 minutes).
+  Each code works once: the last accepted time step is stored (`totp_last_step`, updated atomically) and the
+  same or an older step is refused. The code step counts as a login attempt, so the existing limits
+  (5 per IP, 20 per username, per 15 minutes) apply to it too.
+- **Turn off**: needs your password and a current code (or recovery code). Turning it off deletes the secret
+  and the recovery codes; turning it on again makes new ones.
+- **Lost the phone and the recovery codes?** An owner uses **Users → Edit → Reset two-factor login**, or on the
+  server `bin/console admin:user <username>` (which also resets the password). Owners can't reset their own
+  here, so there is always someone else who can; the last owner uses `admin:user`.
+- The activity log records enabling, disabling, resets, recovery-code logins and failed code attempts
+  (`account.2fa_enable`, `account.2fa_disable`, `user.reset_2fa`, `account.2fa_recovery_used`, `login.failed`),
+  never the secret, codes or recovery codes (fields containing `totp` or `recovery` are dropped as well).
+- The TOTP secret is stored in the database as plain base32 (the server must be able to compute codes), so
+  protect database backups like the password hashes.
 
 ### Admin → Activity log
 
@@ -591,6 +639,13 @@ once its required keys are filled in (see `.env.example`). Methods: `STRIPE`, `P
 | OxaPay | Signed callback | Callback URL is sent with each invoice |
 | Bank transfer / Cash on delivery | Admin clicks **Mark as paid** on the order | — |
 
+**Refunds through the provider.** `PaymentMethod::supportsRefund()` / `refund($reference, $amount, $idempotencyKey)`
+(default in `AbstractPaymentMethod`: unsupported). Stripe (`POST /v1/refunds` with the `payment_intent`
+stored in `payments.track_id`), PayPal (capture refund, the capture id is the stored reference) and Revolut
+(`POST /orders/{id}/refund`, the stored Revolut order id) implement it; OxaPay (crypto), bank transfer and
+cash on delivery stay manual, and the order page says so. Only the full order total is refunded; the
+idempotency key is the order number. See *Orders, stock and emails*.
+
 To add a method, implement `App\Payment\PaymentMethod` (or extend `AbstractPaymentMethod`), add it to
 `PaymentRegistry`'s constructor, and add a webhook route in `config/routes.php` if it needs one.
 
@@ -630,8 +685,21 @@ To add a method, implement `App\Payment\PaymentMethod` (or extend `AbstractPayme
   match the order total and `STORE_CURRENCY` (otherwise it is logged as `amount_mismatch` and the order
   stays unpaid), and once paid an order is never moved back by later events.
 - **Admin → Orders**: search by order number / email / name, date range, pagination. On an order:
-  mark paid, cancel (unpaid orders; restocks), mark refunded (paid orders; optional restock — refund
-  the money at the provider yourself), mark shipped with carrier + tracking number, edit tracking.
+  mark paid, cancel (unpaid orders; restocks), mark refunded (paid orders; optional restock),
+  mark shipped with carrier + tracking number, edit tracking.
+- **Refunds**: for Stripe, PayPal and Revolut orders the refund form has a **Refund the money at the
+  provider** checkbox. Ticked, the full order total is sent to the provider's refund API first (idempotency
+  key = order number, with the order row locked) and the order is only marked refunded when the provider
+  accepts; on an error the admin sees it as a flash message and nothing changes. The provider's refund id
+  is logged in `payments` (provider = the method, status `refunded`) and in the application log. Unticked,
+  or for OxaPay / bank transfer / cash on delivery, the admin returns the money by hand and the click only
+  records it (provider `manual`). Partial refunds aren't supported.
+- **Maintenance**: `bin/console maintenance:prune` deletes `page_views` older than 180 days,
+  `admin_audit_log` older than 365 days, carts (and their items) not updated for 60 days, expired
+  `customer_tokens`, and login / order-lookup / customer-auth attempt rows older than 7 days
+  (`--page-views-days`, `--audit-days`, `--carts-days`, `--attempts-days` change the durations).
+  `--dry-run` only prints what would go. Orders, payments and customers are never touched. Daily from cron:
+  `15 4 * * * cd /var/www/store && bin/console maintenance:prune >> var/log/prune.log 2>&1`
 - **Emails** (`templates/email/`, HTML + text, sent by `App\Infrastructure\Mailer` — see `MAIL_*`):
   order confirmation (bank transfer / cash on delivery: when placed, with payment instructions;
   online methods: when paid), payment received (manual methods), shipped (with tracking),
@@ -706,7 +774,7 @@ with the providers don't need to change.
 
 ## 6. Pre-Deployment Checklist
 
-- [ ] **Change the default admin password** — see [Default Admin Credentials](#default-admin-credentials)
+- [ ] **Change the default admin password** — see [Admin users and roles](#admin-users-and-roles) (generate the hash with `bin/console admin:hash-password`)
 - [ ] **Protect `/admin`** — e.g. restrict by IP with a `<Location /admin>` block (see the comment in the generated vhost)
 - [ ] **Test each enabled payment method in sandbox mode** — provider APIs change; the integrations live in `src/Payment/Method/` and `src/Controller/Payment/`
 - [ ] **Run `bin/console db:migrate`** on existing databases (back up first), then set up VAT in **Admin → Settings → Tax** (off by default), pick the store language in **Admin → Settings**, and log in once with the `.env` account (it becomes the first Owner) before adding admins in **Admin → Users**
@@ -715,6 +783,7 @@ with the providers don't need to change.
 - [ ] **Set `APP_DEBUG=false`** and check that `var/` is writable by the web server
 - [ ] **Set up email**: `MAIL_TRANSPORT=smtp` + `MAIL_*`, `ADMIN_NOTIFY_EMAIL`, and set `APP_SECRET` and `APP_URL` (emailed verify / reset links point at it)
 - [ ] **Add the cron job** for `bin/console orders:expire` (releases stock held by abandoned online payments)
+- [ ] **Add the cron job** for `bin/console maintenance:prune` (keeps analytics, audit, cart and attempt tables small)
 - [ ] **Schedule backups** — `bin/console db:backup --gzip --with-uploads --keep=14` from cron (see [Backups](#backups)), copy them off the server, and test a restore once
 
 ---
