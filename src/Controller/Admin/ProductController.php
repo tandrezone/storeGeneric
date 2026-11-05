@@ -34,9 +34,9 @@ final class ProductController
     private const PER_PAGE = 50;
 
     /** Column sizes from database/schema.sql. */
-    private const MAX_NAME = 180;
-    private const MAX_SHORT_DESCRIPTION = 280;
-    private const MAX_LONG_DESCRIPTION_BYTES = 65535;
+    public const MAX_NAME = 180;
+    public const MAX_SHORT_DESCRIPTION = 280;
+    public const MAX_LONG_DESCRIPTION_BYTES = 65535;
     private const MAX_VARIANT_FIELD = 64;
 
     /** MySQL/MariaDB driver error codes (PDOException::$errorInfo[1]). */
@@ -398,7 +398,7 @@ final class ProductController
      */
     private function variantInput(array $body): array
     {
-        return [
+        $data = [
             'sku'       => trim((string) ($body['sku'] ?? '')),
             'label'     => trim((string) ($body['label'] ?? '')) ?: null,
             'unit'      => trim((string) ($body['unit'] ?? '')) ?: null,
@@ -406,6 +406,32 @@ final class ProductController
             'stock'     => max(0, (int) ($body['stock'] ?? 0)),
             'is_active' => empty($body['is_active']) ? 0 : 1,
         ];
+        if (array_key_exists('weight_grams', $body)) {
+            $data['weight_grams'] = min(4294967295, max(0, (int) $body['weight_grams']));
+        }
+        // Sale fields only when the form has them (the "new variant" row doesn't).
+        if (array_key_exists('sale_price', $body)) {
+            $sale = trim((string) $body['sale_price']);
+            $data['sale_price'] = $sale === '' ? null : round(max(0.0, (float) $sale), 2);
+            $data['sale_starts_at'] = $this->dateTime($body['sale_starts_at'] ?? '');
+            $data['sale_ends_at'] = $this->dateTime($body['sale_ends_at'] ?? '');
+        }
+
+        return $data;
+    }
+
+    /** "2026-12-01T09:30" (datetime-local) or "2026-12-01 09:30" → "Y-m-d H:i:s"; null when empty or invalid. */
+    private function dateTime(mixed $value): ?string
+    {
+        $value = str_replace('T', ' ', trim((string) $value));
+        foreach (['!Y-m-d H:i', '!Y-m-d H:i:s', '!Y-m-d'] as $format) {
+            $date = \DateTimeImmutable::createFromFormat($format, $value);
+            if ($date !== false) {
+                return $date->format('Y-m-d H:i:s');
+            }
+        }
+
+        return null;
     }
 
     /** @param array{sku: string, label: ?string, unit: ?string, price: float, stock: int} $data */
@@ -417,6 +443,10 @@ final class ProductController
             mb_strlen((string) $data['label']) > self::MAX_VARIANT_FIELD,
             mb_strlen((string) $data['unit']) > self::MAX_VARIANT_FIELD        => $this->t('Label and unit can be at most {max} characters.', ['max' => self::MAX_VARIANT_FIELD]),
             $data['price'] > VariantRepository::MAX_PRICE                      => $this->t('That price is too high.'),
+            ($data['sale_price'] ?? null) !== null && ($data['sale_price'] <= 0 || $data['sale_price'] >= $data['price'])
+                                                                               => $this->t('The sale price must be above 0 and lower than the regular price.'),
+            ($data['sale_ends_at'] ?? null) !== null && ($data['sale_starts_at'] ?? null) !== null && $data['sale_ends_at'] <= $data['sale_starts_at']
+                                                                               => $this->t('The sale must end after it starts.'),
             $data['stock'] > 4294967295                                        => $this->t('That stock level is too high.'),
             default                                                            => null,
         };

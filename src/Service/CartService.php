@@ -6,6 +6,8 @@ namespace App\Service;
 
 use App\Http\Session;
 use App\Repository\CartRepository;
+use App\Security\CustomerAuthenticator;
+use Throwable;
 
 /** The current visitor's cart (stored in the database, keyed by session). */
 final class CartService
@@ -16,12 +18,30 @@ final class CartService
         private readonly CartRepository $carts,
         private readonly Session $session,
         private readonly ProductTranslations $translations,
+        private readonly CustomerAuthenticator $auth,
     ) {
     }
 
     public function add(int $variantId, int $quantity): void
     {
         $this->carts->addItem($this->id(), $variantId, max(1, $quantity));
+        $this->stampCustomer();
+    }
+
+    /**
+     * Puts the still-buyable lines of another cart into this one (abandoned-cart recovery link).
+     *
+     * @return int lines copied
+     */
+    public function copyFrom(int $otherCartId): int
+    {
+        $copied = 0;
+        foreach ($this->carts->items($otherCartId) as $line) {
+            $this->add((int) $line['variant_id'], (int) $line['quantity']);
+            $copied++;
+        }
+
+        return $copied;
     }
 
     /** Sets a line's quantity; 0 or less removes it. */
@@ -33,6 +53,7 @@ final class CartService
             return;
         }
         $this->carts->setQuantity($this->id(), $variantId, $quantity);
+        $this->stampCustomer();
     }
 
     public function remove(int $variantId): void
@@ -73,6 +94,17 @@ final class CartService
         return round($total, 2);
     }
 
+    /** Total weight in grams (variants without a weight count as 0). @param list<array<string, mixed>>|null $items */
+    public function weight(?array $items = null): int
+    {
+        $grams = 0;
+        foreach ($items ?? $this->items() as $item) {
+            $grams += (int) ($item['weight_grams'] ?? 0) * (int) $item['quantity'];
+        }
+
+        return $grams;
+    }
+
     /** @param list<array<string, mixed>>|null $items */
     public function count(?array $items = null): int
     {
@@ -82,6 +114,19 @@ final class CartService
     public function clear(): void
     {
         $this->carts->clear($this->id());
+    }
+
+    /** Signed-in customers' carts remember their owner (abandoned-cart reminders). Never breaks the cart. */
+    private function stampCustomer(): void
+    {
+        try {
+            $customerId = $this->auth->id();
+            if ($customerId !== null) {
+                $this->carts->attachCustomer($this->id(), $customerId);
+            }
+        } catch (Throwable) {
+            // store not migrated yet
+        }
     }
 
     private function id(): int

@@ -30,22 +30,38 @@ final class ShippingService
      *
      * @return array<string, mixed>|null
      */
-    public function available(string $code, string $country): ?array
+    public function available(string $code, string $country, int $weightGrams = 0): ?array
     {
         $method = $this->methods->findByCode($code);
 
-        return $method !== null && $method['is_active'] && $this->servesCountry($method, $country) ? $method : null;
+        return $method !== null && $method['is_active']
+            && $this->servesCountry($method, $country) && $this->servesWeight($method, $weightGrams) ? $method : null;
     }
 
-    /** @param array<string, mixed> $method */
-    public function priceFor(array $method, float $subtotal): float
+    /**
+     * Flat cost plus the per-kg charge for $weightGrams, or 0 above the
+     * "free over" subtotal.
+     *
+     * @param array<string, mixed> $method
+     */
+    public function priceFor(array $method, float $subtotal, int $weightGrams = 0): float
     {
         $freeOver = $method['free_over'] ?? null;
         if ($freeOver !== null && $freeOver !== '' && $subtotal >= (float) $freeOver) {
             return 0.0;
         }
 
-        return round((float) $method['cost'], 2);
+        return round((float) $method['cost'] + (float) ($method['cost_per_kg'] ?? 0) * max(0, $weightGrams) / 1000, 2);
+    }
+
+    /** Whether the method is offered for an order of this weight (min/max weight limits). @param array<string, mixed> $method */
+    public function servesWeight(array $method, int $weightGrams): bool
+    {
+        $min = $method['min_weight_grams'] ?? null;
+        $max = $method['max_weight_grams'] ?? null;
+
+        return ($min === null || $min === '' || $weightGrams >= (int) $min)
+            && ($max === null || $max === '' || $weightGrams <= (int) $max);
     }
 
     /**
@@ -79,7 +95,7 @@ final class ShippingService
      * Validates the admin form.
      *
      * @param array<string, mixed> $input
-     * @return array{0: array{name: string, description: ?string, cost: float, free_over: ?float, countries: ?string, is_active: int}, 1: list<string>}
+     * @return array{0: array{name: string, description: ?string, cost: float, cost_per_kg: float, free_over: ?float, countries: ?string, min_weight_grams: ?int, max_weight_grams: ?int, is_active: int}, 1: list<string>}
      */
     public function validate(array $input): array
     {
@@ -87,6 +103,9 @@ final class ShippingService
         $name = trim((string) ($input['name'] ?? ''));
         $cost = str_replace(',', '.', trim((string) ($input['cost'] ?? '0')));
         $freeOver = str_replace(',', '.', trim((string) ($input['free_over'] ?? '')));
+        $perKg = str_replace(',', '.', trim((string) ($input['cost_per_kg'] ?? '0'))) ?: '0';
+        $minWeight = trim((string) ($input['min_weight_grams'] ?? ''));
+        $maxWeight = trim((string) ($input['max_weight_grams'] ?? ''));
 
         if ($name === '') {
             $errors[] = $this->translator->trans('Name is required.');
@@ -100,6 +119,19 @@ final class ShippingService
             $errors[] = $this->translator->trans('"Free over" must be empty or a positive amount.');
         }
 
+        if (!is_numeric($perKg) || (float) $perKg < 0) {
+            $errors[] = $this->translator->trans('The cost per kg must be 0 or more.');
+        }
+        foreach ([$minWeight, $maxWeight] as $w) {
+            if ($w !== '' && (!ctype_digit($w) || (int) $w > 4294967295)) {
+                $errors[] = $this->translator->trans('Weight limits must be whole numbers of grams, or empty.');
+                break;
+            }
+        }
+        if ($minWeight !== '' && $maxWeight !== '' && ctype_digit($minWeight) && ctype_digit($maxWeight) && (int) $minWeight > (int) $maxWeight) {
+            $errors[] = $this->translator->trans('The minimum weight can\'t be above the maximum weight.');
+        }
+
         $countries = implode(', ', array_unique(array_filter(
             array_map('trim', explode(',', (string) ($input['countries'] ?? ''))),
             static fn (string $c) => $c !== ''
@@ -109,8 +141,11 @@ final class ShippingService
             'name'        => $name,
             'description' => mb_substr(trim((string) ($input['description'] ?? '')), 0, 255) ?: null,
             'cost'        => round((float) $cost, 2),
+            'cost_per_kg' => round((float) $perKg, 2),
             'free_over'   => $freeOver === '' ? null : round((float) $freeOver, 2),
             'countries'   => $countries !== '' ? mb_substr($countries, 0, 500) : null,
+            'min_weight_grams' => ctype_digit($minWeight) ? (int) $minWeight : null,
+            'max_weight_grams' => ctype_digit($maxWeight) ? (int) $maxWeight : null,
             'is_active'   => !empty($input['is_active']) ? 1 : 0,
         ], $errors];
     }

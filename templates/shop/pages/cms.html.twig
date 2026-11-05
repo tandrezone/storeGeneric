@@ -1,0 +1,11 @@
+{% extends 'layout/shop.html.twig' %}
+
+{% set title = page.title %}
+{% set meta_description = page.body|striptags|slice(0, 155) %}
+
+{% block content %}
+<section class="content-page">
+    <h1>{{ page.title }}</h1>
+    {{ page.body|raw }}{# sanitized by HtmlSanitizer::cleanPage() when saved #}
+</section>
+{% endblock %}

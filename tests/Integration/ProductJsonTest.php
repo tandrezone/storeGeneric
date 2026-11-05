@@ -195,6 +195,58 @@ final class ProductJsonTest extends IntegrationTestCase
     }
 
     /** @return array<string, mixed> one product's entry of the export */
+    public function testSaleAndWeightRoundTripAndPartialFiles(): void
+    {
+        $ids = $this->makeProduct($this->sku('W'), 20.0, 5, 'Weighty');
+        $importer = $this->get(ProductJsonImporter::class);
+        $row = fn (): array => $this->pdo()->query('SELECT sale_price, sale_starts_at, sale_ends_at, weight_grams FROM product_variants WHERE id = ' . (int) $ids['variant'])->fetch();
+
+        $product = $this->exported($ids['product'], false);
+        $this->assertNull($product['variants'][0]['sale_price']);
+        $this->assertSame(0, $product['variants'][0]['weight_grams']);
+
+        $product['variants'][0]['sale_price'] = '14.50';
+        $product['variants'][0]['sale_ends_at'] = '2026-12-31 20:00:00';
+        $product['variants'][0]['weight_grams'] = 640;
+        $report = $importer->run($this->parse([$product]), [], true);
+        $this->assertSame('update', $report['rows'][0]['action'], implode('; ', $report['rows'][0]['errors'] ?? []));
+        $this->assertEquals(14.5, $row()['sale_price']);
+        $this->assertSame('2026-12-31 20:00:00', $row()['sale_ends_at']);
+        $this->assertEquals(640, $row()['weight_grams']);
+
+        // Re-importing that export changes nothing.
+        $again = $importer->run($this->parse([$this->exported($ids['product'], false)]), [], true);
+        $this->assertSame('unchanged', $again['rows'][0]['action']);
+
+        // A file without the new keys leaves them alone; null clears the sale.
+        $old = $this->exported($ids['product'], false);
+        unset($old['variants'][0]['sale_price'], $old['variants'][0]['sale_starts_at'], $old['variants'][0]['sale_ends_at'], $old['variants'][0]['weight_grams']);
+        $old['variants'][0]['price'] = '21.00';
+        $importer->run($this->parse([$old]), [], true);
+        $this->assertEquals(14.5, $row()['sale_price']);
+        $this->assertEquals(640, $row()['weight_grams']);
+
+        $clear = $this->exported($ids['product'], false);
+        $clear['variants'][0]['sale_price'] = null;
+        $clear['variants'][0]['sale_ends_at'] = null;
+        $importer->run($this->parse([$clear]), [], true);
+        $this->assertNull($row()['sale_price']);
+        $this->assertNull($row()['sale_ends_at']);
+    }
+
+    public function testBadSaleValuesAreReported(): void
+    {
+        $ids = $this->makeProduct($this->sku('B'), 20.0, 5, 'Bad sale');
+        $product = $this->exported($ids['product'], false);
+        foreach ([['sale_price', '25.00', 'lower'], ['sale_starts_at', 'garbage', 'not a date'], ['weight_grams', -5, 'whole number']] as [$key, $value, $needle]) {
+            $copy = $product;
+            $copy['variants'][0][$key] = $value;
+            $report = $this->get(ProductJsonImporter::class)->run($this->parse([$copy]), [], true);
+            $this->assertSame('error', $report['rows'][0]['action'], $key);
+            $this->assertStringContainsString($needle, implode(' ', $report['rows'][0]['errors']), $key);
+        }
+    }
+
     private function exported(int $productId, bool $embed): array
     {
         $handle = fopen('php://temp', 'w+');

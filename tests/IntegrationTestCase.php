@@ -142,6 +142,7 @@ abstract class IntegrationTestCase extends TestCase
             'APP_SECRET'      => 'test-secret-test-secret-test-secret',
             'APP_URL'         => 'http://localhost',
             'APP_DEBUG'       => 'false',
+            'CACHE_ENABLED'   => 'false', // most tests change data directly in the database; cache tests switch it on
         ];
         foreach ($env as $key => $value) {
             putenv("{$key}={$value}");

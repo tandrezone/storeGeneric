@@ -2,5 +2,17 @@
     "name": "Warm",
     "description": "Earthy boutique look: cream paper, terracotta and olive, serif headings.",
     "author": "storeGeneric",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#fffaf3",
+            "#efe2cf"
+        ],
+        "text": "#3b2a1e",
+        "accent": "#a94f2a",
+        "accent2": "#5f6d2f",
+        "surface": "#fffaf3",
+        "font": "serif",
+        "motif": "corners"
+    }
 }

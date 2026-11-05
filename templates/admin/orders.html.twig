@@ -43,9 +43,27 @@
     </p>
 {% endif %}
 
+<form method="post" action="{{ path('admin.orders.bulk') }}" id="bulk-orders" class="panel bulk-bar" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;">
+    {{ csrf_field() }}
+    <input type="hidden" name="filter_status" value="{{ status_filter }}">
+    <label>{{ 'With the ticked orders'|trans }}
+        <select name="bulk_action">
+            <option value="processing">{{ 'Mark as processing'|trans }}</option>
+            <option value="ship">{{ 'Mark as shipped'|trans }}</option>
+            <option value="completed">{{ 'Mark as completed'|trans }}</option>
+        </select>
+    </label>
+    <label>{{ 'Carrier (when shipping, optional)'|trans }}
+        <input type="text" name="carrier" maxlength="100" placeholder="CTT, DHL…">
+    </label>
+    <button type="submit" class="btn-primary" data-confirm="{{ 'Apply this to all ticked orders? Customers are emailed when an order is marked as shipped.'|trans }}">{{ 'Apply'|trans }}</button>
+    <button type="submit" formaction="{{ path('admin.orders.packing') }}" formmethod="get" class="btn-secondary" formnovalidate>{{ 'Print packing slips'|trans }}</button>
+</form>
+
 <table class="cart-table">
     <thead>
         <tr>
+            <th><input type="checkbox" data-select-all="orders" aria-label="{{ 'Select all orders on this page'|trans }}" style="width: auto;"></th>
             <th>{{ 'Order #'|trans }}</th>
             <th>{{ 'Customer'|trans }}</th>
             <th>{{ 'Status'|trans }}</th>
@@ -59,6 +77,7 @@
     <tbody>
         {% for order in orders %}
             <tr>
+                <td><input type="checkbox" form="bulk-orders" name="ids[]" value="{{ order.id }}" data-select="orders" aria-label="{{ 'Select order {number}'|trans({number: order.order_number}) }}" style="width: auto;"></td>
                 <td>{{ order.order_number }}</td>
                 <td>
                     {{ order.ship_name }}<br>
@@ -72,7 +91,7 @@
                 <td><a href="{{ path('admin.order', {id: order.id}) }}" class="btn-secondary">{{ 'Open'|trans }}</a></td>
             </tr>
         {% else %}
-            <tr><td colspan="8" style="color: var(--color-muted);">{{ 'No orders found.'|trans }}</td></tr>
+            <tr><td colspan="9" style="color: var(--color-muted);">{{ 'No orders found.'|trans }}</td></tr>
         {% endfor %}
     </tbody>
 </table>

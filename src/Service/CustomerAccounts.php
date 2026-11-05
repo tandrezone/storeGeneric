@@ -250,6 +250,14 @@ final class CustomerAccounts
         $this->tokens->invalidateAll($customerId, CustomerTokenRepository::RESET);
     }
 
+    /** @throws RuntimeException when the password is wrong (for actions that need the customer to prove who they are) */
+    public function requirePassword(int $customerId, string $password): void
+    {
+        if (!$this->auth->verifyPassword($customerId, $password)) {
+            throw new RuntimeException($this->translator->trans('Your current password is not correct.'));
+        }
+    }
+
     /** Deletes (anonymises) the account; its orders are kept. Needs the current password. */
     public function deleteAccount(int $customerId, string $password): void
     {

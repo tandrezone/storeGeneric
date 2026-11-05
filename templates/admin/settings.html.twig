@@ -74,6 +74,130 @@
 </section>
 
 <section class="panel">
+    <h2>{{ 'Marketplace orders'|trans }}</h2>
+    <p class="field-hint">{{ 'Let a connector for a marketplace or delivery app (Glovo, Bolt Food, Uber Eats, Wolt, Just Eat…) post its orders to this store. They appear in Orders as paid, with the marketplace as source, and take stock. Nothing is emailed to the customer.'|trans }}</p>
+    {% if marketplace.new_key %}
+        <p class="msg success">{{ 'Your new API key (copy it now, it is not shown again):'|trans }}<br><code style="user-select: all; word-break: break-all;">{{ marketplace.new_key }}</code></p>
+    {% endif %}
+    <p>{{ 'Endpoint'|trans }}: <code>POST {{ marketplace.endpoint }}</code> — <code>Authorization: Bearer &lt;key&gt;</code></p>
+    <form method="post" action="{{ path('admin.settings.submit') }}" class="inline-form" {% if marketplace.has_key %}data-confirm="{{ 'Create a new key? The old one stops working immediately.'|trans }}"{% endif %}>
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="marketplace_key">
+        <button type="submit" class="btn-primary">{{ marketplace.has_key ? 'Replace the API key'|trans : 'Create an API key'|trans }}</button>
+    </form>
+    {% if marketplace.has_key %}
+        <form method="post" action="{{ path('admin.settings.submit') }}" class="inline-form" data-confirm="{{ 'Revoke the key? Imports stop until you create a new one.'|trans }}">
+            {{ csrf_field() }}
+            <input type="hidden" name="action" value="marketplace_key">
+            <input type="hidden" name="do" value="revoke">
+            <button type="submit" class="btn-secondary">{{ 'Revoke the key'|trans }}</button>
+        </form>
+    {% endif %}
+</section>
+
+<section class="panel">
+    <h2>{{ 'Currencies'|trans }}</h2>
+    <form method="post" action="{{ path('admin.settings.submit') }}">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="save_currencies">
+        <label>{{ 'Show approximate prices in (1 {base} = …)'|trans({base: currencies.base}) }}
+            <input type="text" name="currency_rates" value="{{ currencies.rates }}" maxlength="500" placeholder="USD=1.10, GBP=0.85">
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="currency_rates_auto" value="1" style="width: auto;" {{ currencies.auto ? 'checked' }}>
+            {{ 'Refresh these rates daily from the European Central Bank (cron: currency:update)'|trans }}
+        </label>
+        <p class="field-hint">
+            {{ 'Visitors can pick one of these currencies to see "≈" prices next to the catalogue prices. It is display only: the cart, checkout and every order are in {base}, and customers always pay in {base}.'|trans({base: currencies.base}) }}
+            {% if currencies.date %}{{ 'ECB rates of {date}.'|trans({date: currencies.date}) }}{% endif %}
+        </p>
+        <button type="submit" class="btn-primary">{{ 'Save currency settings'|trans }}</button>
+        {% if currencies.base == 'EUR' %}<button type="submit" name="do" value="update_now" class="btn-secondary">{{ 'Save and update the rates now'|trans }}</button>{% endif %}
+    </form>
+</section>
+
+<section class="panel">
+    <h2>{{ 'Abandoned carts'|trans }}</h2>
+    <form method="post" action="{{ path('admin.settings.submit') }}">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="save_carts">
+        <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="abandoned_cart_enabled" value="1" style="width: auto;" {{ cart_reminders.enabled ? 'checked' }}>
+            {{ 'Email a reminder to signed-in customers who leave items in their cart'|trans }}
+        </label>
+        <label>{{ 'Send it after this many hours without activity'|trans }}
+            <input type="number" name="abandoned_cart_hours" value="{{ cart_reminders.hours }}" min="1" max="168" step="1" required>
+        </label>
+        <p class="field-hint">{{ 'One reminder per cart, only to customers with a verified account who haven\'t ordered since. Needs the cron jobs "bin/console carts:remind" and "bin/console mail:process".'|trans }}</p>
+        <button type="submit" class="btn-primary">{{ 'Save cart reminder settings'|trans }}</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>{{ 'Returns'|trans }}</h2>
+    <form method="post" action="{{ path('admin.settings.submit') }}">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="save_returns">
+        <label>{{ 'Return window (days after shipping)'|trans }}
+            <input type="number" name="return_window_days" value="{{ return_window_days }}" min="0" max="365" step="1" required>
+        </label>
+        <p class="field-hint">{{ 'Customers can request a return of shipped orders within this many days. Use 0 to turn returns off.'|trans }}</p>
+        <button type="submit" class="btn-primary">{{ 'Save return settings'|trans }}</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>{{ 'Invoices'|trans }}</h2>
+    <form method="post" action="{{ path('admin.settings.submit') }}">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="save_invoice">
+        <div class="form-row">
+            <label>{{ 'Company name'|trans }}
+                <input type="text" name="company_name" value="{{ seller.name }}" maxlength="120">
+            </label>
+            <label>{{ 'VAT number'|trans }}
+                <input type="text" name="company_vat_id" value="{{ seller.vat_id }}" maxlength="40" placeholder="PT123456789">
+            </label>
+        </div>
+        <label>{{ 'Your country (EU, for VAT numbers)'|trans }}
+            <input type="text" name="company_country" value="{{ seller.country }}" maxlength="40" placeholder="PT">
+        </label>
+        <p class="field-hint">{{ 'With VAT switched on (Tax) and your country set, EU business customers can enter a VAT number at checkout; it is checked in VIES, and VAT is not charged when they are in another EU country and the goods go there (reverse charge). Leave empty to switch this off.'|trans }}</p>
+        <label>{{ 'Company address'|trans }}
+            <textarea name="company_address" rows="3" maxlength="500">{{ seller.address }}</textarea>
+        </label>
+        <label>{{ 'Note at the bottom of invoices (optional)'|trans }}
+            <textarea name="invoice_note" rows="2" maxlength="600">{{ seller.note }}</textarea>
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="invoice_attach" value="1" style="width: auto;" {{ seller.attach ? 'checked' }}>
+            {{ 'Attach the invoice PDF to the payment email and the credit note to the refund email'|trans }}
+        </label>
+        <p class="field-hint">{{ 'Printed on the PDF invoices and credit notes that customers and staff can download for paid and refunded orders.'|trans }}</p>
+        <button type="submit" class="btn-primary">{{ 'Save invoice details'|trans }}</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>{{ 'Privacy and cookies'|trans }}</h2>
+    <form method="post" action="{{ path('admin.settings.submit') }}">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="save_privacy">
+        <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="cookie_notice" value="1" style="width: auto;" {{ privacy.notice ? 'checked' }}>
+            {{ 'Show the cookie notice'|trans }}
+        </label>
+        <label>{{ 'Tracking snippet (loaded only after the visitor accepts)'|trans }}
+            <textarea name="tracking_snippet" rows="5" maxlength="10000" placeholder="<script async src=&quot;https://…&quot;></script>" style="font-family: monospace;">{{ privacy.snippet }}</textarea>
+        </label>
+        <p class="field-hint">
+            {{ 'The store itself only sets essential cookies. Paste an analytics or advertising snippet here and it is loaded only for visitors who click Accept; the notice then offers Accept and Decline, and is always shown.'|trans }}
+        </p>
+        <button type="submit" class="btn-primary">{{ 'Save privacy settings'|trans }}</button>
+    </form>
+</section>
+
+<section class="panel">
     <h2>{{ 'Tax'|trans }}</h2>
     <form method="post" action="{{ path('admin.settings.submit') }}">
         {{ csrf_field() }}
@@ -114,9 +238,11 @@
     <p class="field-hint" style="margin-bottom: 14px;">{{ 'Keep the prompts you use to write product content here. They are stored privately on the server, not in the public site.'|trans }}</p>
 
     <p class="field-hint" style="margin-bottom: 14px;">
-        {{ 'Two reserved names replace the built-in AI prompts (.md or .txt):'|trans }}
+        {{ 'Reserved names replace the built-in AI prompts (.md or .txt):'|trans }}
         <code>magic-edit</code> — {{ 'AI edit of a product. Placeholders:'|trans }} <code>{instruction}</code> <code>{name}</code> <code>{short_description}</code> <code>{long_description}</code> <code>{field_json}</code>;
-        <code>translate-product</code> — {{ 'product translation. Placeholders:'|trans }} <code>{language}</code> <code>{locale}</code> <code>{from}</code> <code>{from_locale}</code> <code>{name}</code> <code>{short_description}</code> <code>{long_description}</code> <code>{field_json}</code>.
+        <code>translate-product</code> — {{ 'product translation. Placeholders:'|trans }} <code>{language}</code> <code>{locale}</code> <code>{from}</code> <code>{from_locale}</code> <code>{name}</code> <code>{short_description}</code> <code>{long_description}</code> <code>{field_json}</code>;
+        <code>magic-page</code> — {{ 'AI content for a page in Admin → Pages. Placeholders:'|trans }} <code>{page}</code> <code>{slug}</code> <code>{language}</code> <code>{store}</code> <code>{catalog}</code> <code>{instruction}</code> <code>{title}</code> <code>{body}</code>;
+        <code>magic-newsletter</code> — {{ 'AI newsletter campaign. Placeholders:'|trans }} <code>{language}</code> <code>{store}</code> <code>{catalog}</code> <code>{instruction}</code> <code>{subject}</code> <code>{message}</code>.
         {{ 'Other files are just stored. Without an override the built-in prompt is used.'|trans }}
     </p>
 
@@ -182,10 +308,10 @@
                     {% endif %}
                 </div>
                 <div class="product-card-body">
-                    <span class="category-badge">{{ t.builtin ? 'Built-in'|trans : 'Uploaded'|trans }}</span>
+                    <span class="category-badge">{{ t.global ? 'Global'|trans : (t.builtin ? 'Built-in'|trans : 'Uploaded'|trans) }}</span>
                     <h3>{{ t.name }}</h3>
                     {% if t.description %}<p class="short-desc">{{ t.description }}</p>{% endif %}
-                    {% if not t.builtin and (t.author or t.version) %}
+                    {% if not t.builtin and not t.global and (t.author or t.version) %}
                         <p class="field-hint">{{ t.author }}{{ t.author and t.version ? ' · ' }}{{ t.version ? 'v' ~ t.version }}</p>
                     {% endif %}
 
@@ -199,7 +325,7 @@
                                 <input type="hidden" name="theme" value="{{ t.slug }}">
                                 <button type="submit" class="btn-secondary">{{ 'Use this theme'|trans }}</button>
                             </form>
-                            {% if not t.builtin %}
+                            {% if not t.builtin and not t.global %}
                                 <form method="post" action="{{ path('admin.settings.submit') }}" class="inline-form" data-no-ajax
                                       data-confirm="{{ 'Delete the "{name}" theme?'|trans({name: t.name}) }}">
                                     {{ csrf_field() }}

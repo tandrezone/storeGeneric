@@ -15,6 +15,15 @@ DirectoryIndex index.php
     RewriteEngine On
     # Keep Authorization for API clients behind CGI/FastCGI.
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Shared assets: /assets/<file> is served from the store's own public/assets
+    # when it has that file (a local override), otherwise from public/assets/global,
+    # a symlink to the core's public/assets. Per-store images (uploads, thumbnails,
+    # branding) are never taken from the core.
+    RewriteCond %{DOCUMENT_ROOT}/assets/$1 !-f
+    RewriteCond %{DOCUMENT_ROOT}/assets/global/$1 -f
+    RewriteRule ^assets/(?!global/|images/(?:products|generated|branding|thumbs|categories)/)(.+)$ assets/global/$1 [L]
+
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [QSA,L]
 </IfModule>

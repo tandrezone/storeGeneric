@@ -1,0 +1,52 @@
+{% extends 'layout/admin.html.twig' %}
+
+{% set title = 'Admin — {page}'|trans({page: 'Returns'|trans}) %}
+{% set active_nav = 'returns' %}
+
+{% block content %}
+<h1>{{ 'Returns'|trans }}</h1>
+{% if window_days == 0 %}<p class="msg error">{{ 'Returns are switched off (return window 0 days) — change it in Settings.'|trans }}</p>{% endif %}
+
+<p class="filter-tabs">
+    <a href="{{ path('admin.returns') }}" class="{{ status_filter is null ? 'active' }}">{{ 'All'|trans }}</a>
+    {% for s in statuses %}<a href="{{ path('admin.returns', {}, {status: s}) }}" class="{{ status_filter == s ? 'active' }}">{{ s|capitalize|trans }}</a>{% endfor %}
+</p>
+
+{% if requests is empty %}
+    <p class="field-hint">{{ 'No return requests.'|trans }}</p>
+{% endif %}
+
+{% for r in requests %}
+    <section class="panel">
+        <h2>
+            <a href="{{ path('admin.order', {id: r.order_id}) }}">{{ r.order_number }}</a>
+            <span class="status-badge" data-status="{{ r.status }}">{{ r.status|capitalize|trans }}</span>
+        </h2>
+        <p class="field-hint">{{ r.ship_name }} · {{ r.email }} · {{ r.created_at }} · {{ reasons[r.reason]|default(r.reason)|trans }}</p>
+        <ul>{% for item in r['items'] %}<li>{{ item.product_name }}{% if (item.label ~ ' ' ~ item.unit)|trim %} — {{ (item.label ~ ' ' ~ item.unit)|trim }}{% endif %} &times; {{ item.quantity }}</li>{% endfor %}</ul>
+        {% if r.details %}<p style="white-space: pre-wrap;">{{ r.details }}</p>{% endif %}
+        {% if r.admin_response %}<p class="field-hint">{{ 'Your message to the customer'|trans }}: {{ r.admin_response }}</p>{% endif %}
+
+        {% if r.next is not empty %}
+            <form method="post" action="{{ path('admin.returns.submit') }}">
+                {{ csrf_field() }}
+                <input type="hidden" name="id" value="{{ r.id }}">
+                <input type="hidden" name="filter" value="{{ status_filter }}">
+                <label>{{ 'Message to the customer (optional)'|trans }}
+                    <textarea name="response" rows="2" maxlength="2000"></textarea>
+                </label>
+                {% for next in r.next %}
+                    <button type="submit" name="status" value="{{ next }}" class="{{ next == 'rejected' ? 'btn-secondary' : 'btn-primary' }}">{{ ({approved: 'Approve', rejected: 'Reject', received: 'Mark as received', refunded: 'Mark as refunded'})[next]|trans }}</button>
+                {% endfor %}
+            </form>
+            {% if r.status == 'received' %}<p class="field-hint">{{ 'Refund the money from the order page first; this only records it.'|trans }}</p>{% endif %}
+        {% endif %}
+    </section>
+{% endfor %}
+
+{% if total_pages > 1 %}
+    <p class="pagination">
+        {% for p in 1..total_pages %}<a href="{{ path('admin.returns', {}, {status: status_filter, page: p > 1 ? p : null}) }}" class="{{ p == page ? 'active' }}">{{ p }}</a> {% endfor %}
+    </p>
+{% endif %}
+{% endblock %}

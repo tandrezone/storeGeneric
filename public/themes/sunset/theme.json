@@ -1,0 +1,19 @@
+{
+    "name": "Sunset",
+    "description": "Warm peach sky, blazing orange and a dusky purple accent.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#fff1e6",
+            "#ffd2bd"
+        ],
+        "text": "#3b1f2b",
+        "accent": "#e4572e",
+        "accent2": "#8e3b8a",
+        "surface": "#fffaf5",
+        "font": "sans-bold",
+        "motif": "sun",
+        "text_y": 240
+    }
+}

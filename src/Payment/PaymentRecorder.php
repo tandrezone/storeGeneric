@@ -8,6 +8,7 @@ use App\Infrastructure\Database;
 use App\Repository\OrderRepository;
 use App\Repository\PaymentRepository;
 use App\Service\CouponService;
+use App\Service\GiftCardService;
 use App\Service\OrderNotifier;
 use App\Service\OrderStock;
 use App\Support\Config;
@@ -35,6 +36,7 @@ final class PaymentRecorder
         private readonly PaymentRepository $payments,
         private readonly OrderStock $stock,
         private readonly CouponService $coupons,
+        private readonly GiftCardService $giftCards,
         private readonly OrderNotifier $notifier,
         private readonly Config $config,
         private readonly LoggerInterface $logger,
@@ -85,6 +87,7 @@ final class PaymentRecorder
                     $this->orders->setStatuses($orderId, $newStatus, 'paid');
                     $this->stock->reserve($order);
                     $this->coupons->reclaim($order);
+                    $this->giftCards->reclaim($order);
 
                     return ['paid', $orderId];
 
@@ -96,6 +99,7 @@ final class PaymentRecorder
                     $this->orders->setStatuses($orderId, 'cancelled', $status);
                     $this->stock->release($order);
                     $this->coupons->release($order);
+                    $this->giftCards->release($order);
 
                     return ['cancelled', $orderId];
 

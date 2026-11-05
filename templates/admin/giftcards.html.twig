@@ -1,0 +1,93 @@
+{% extends 'layout/admin.html.twig' %}
+
+{% set title = 'Admin — {page}'|trans({page: 'Gift cards'|trans}) %}
+{% set active_nav = 'giftcards' %}
+
+{% block content %}
+<h1>{{ 'Gift cards'|trans }}</h1>
+{% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
+<p class="field-hint">{{ 'Money still on active cards:'|trans }} <strong>{{ liability.outstanding|money }}</strong> ({{ '{count} cards'|trans({count: liability.cards}) }}). {{ 'Customers enter the code at checkout; the card pays what its balance covers and the rest is paid normally.'|trans }}</p>
+
+<section class="panel">
+    <h2>{{ 'Create a gift card'|trans }}</h2>
+    <form method="post" action="{{ path('admin.giftcards.submit') }}">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="create">
+        <div class="form-row">
+            <label>{{ 'Amount'|trans }}
+                <input type="number" name="amount" value="{{ input.amount|default('') }}" step="0.01" min="0.01" required>
+            </label>
+            <label>{{ 'Code (leave empty to generate one)'|trans }}
+                <input type="text" name="code" value="{{ input.code|default('') }}" maxlength="40" autocapitalize="characters" spellcheck="false">
+            </label>
+            <label>{{ 'Expires (optional)'|trans }}
+                <input type="datetime-local" name="expires_at" value="{{ input.expires_at|default('') }}">
+            </label>
+        </div>
+        <div class="form-row">
+            <label>{{ 'Recipient email (optional)'|trans }}
+                <input type="email" name="recipient_email" value="{{ input.recipient_email|default('') }}" maxlength="190">
+            </label>
+            <label>{{ 'Message (optional)'|trans }}
+                <input type="text" name="message" value="{{ input.message|default('') }}" maxlength="500">
+            </label>
+        </div>
+        <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="send_email" value="1" style="width: auto;" checked> {{ 'Email the card to the recipient'|trans }}
+        </label>
+        <button type="submit" class="btn-primary">{{ 'Create gift card'|trans }}</button>
+    </form>
+</section>
+
+{% if open %}
+<section class="panel">
+    <h2>{{ open.code }} <span class="status-badge" data-status="{{ open.is_active ? 'approved' : 'invalid' }}">{{ open.is_active ? 'Active'|trans : 'Inactive'|trans }}</span></h2>
+    <p>{{ 'Balance'|trans }}: <strong>{{ open.balance|money }}</strong> / {{ open.initial_amount|money }}{% if open.expires_at %} · {{ 'Expires'|trans }} {{ open.expires_at }}{% endif %}{% if open.recipient_email %} · {{ open.recipient_email }}{% endif %}</p>
+    <form method="post" action="{{ path('admin.giftcards.submit') }}" class="inline-form" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="adjust">
+        <input type="hidden" name="id" value="{{ open.id }}">
+        <label>{{ 'Add (or subtract with −)'|trans }} <input type="number" name="delta" step="0.01" required></label>
+        <label>{{ 'Note'|trans }} <input type="text" name="note" maxlength="150"></label>
+        <button type="submit" class="btn-secondary">{{ 'Adjust balance'|trans }}</button>
+    </form>
+    <h3>{{ 'History'|trans }}</h3>
+    <table class="data-table">
+        <thead><tr><th>{{ 'When'|trans }}</th><th>{{ 'Type'|trans }}</th><th>{{ 'Amount'|trans }}</th><th>{{ 'Order'|trans }} / {{ 'Note'|trans }}</th></tr></thead>
+        <tbody>
+        {% for t in transactions %}
+            <tr><td>{{ t.created_at }}</td><td>{{ t.type }}</td><td>{{ t.amount > 0 ? '+' : '' }}{{ t.amount|money }}</td>
+                <td>{% if t.order_id %}<a href="{{ path('admin.order', {id: t.order_id}) }}">{{ t.order_number }}</a>{% endif %} {{ t.note }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+
+<section class="panel">
+    <h2>{{ 'All gift cards'|trans }}</h2>
+    {% if cards is empty %}<p class="field-hint">{{ 'No gift cards yet.'|trans }}</p>{% else %}
+    <table class="data-table">
+        <thead><tr><th>{{ 'Code'|trans }}</th><th>{{ 'Balance'|trans }}</th><th>{{ 'Value'|trans }}</th><th>{{ 'Expires'|trans }}</th><th>{{ 'Status'|trans }}</th><th></th></tr></thead>
+        <tbody>
+        {% for c in cards %}
+            <tr>
+                <td><a href="{{ path('admin.giftcards', {}, {card: c.id}) }}">{{ c.code }}</a></td>
+                <td>{{ c.balance|money }}</td><td>{{ c.initial_amount|money }}</td>
+                <td>{{ c.expires_at ? c.expires_at|slice(0, 10) : '—' }}</td>
+                <td>{{ c.is_active ? 'Active'|trans : 'Inactive'|trans }}</td>
+                <td>
+                    <form method="post" action="{{ path('admin.giftcards.submit') }}" class="inline-form">
+                        {{ csrf_field() }}<input type="hidden" name="id" value="{{ c.id }}">
+                        <button type="submit" name="action" value="toggle" class="btn-secondary">{{ c.is_active ? 'Deactivate'|trans : 'Activate'|trans }}</button>
+                        {% if c.recipient_email %}<button type="submit" name="action" value="resend" class="btn-secondary">{{ 'Resend email'|trans }}</button>{% endif %}
+                    </form>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    {% if total_pages > 1 %}<p class="pagination">{% for p in 1..total_pages %}<a href="{{ path('admin.giftcards', {}, {page: p > 1 ? p : null}) }}" class="{{ p == page ? 'active' }}">{{ p }}</a> {% endfor %}</p>{% endif %}
+</section>
+{% endblock %}

@@ -9,6 +9,7 @@ use App\Http\Session;
 use App\I18n\Translator;
 use App\Security\Csrf;
 use App\Service\StoreSettings;
+use App\Support\Paths;
 use App\Theme\Theme;
 use Twig\Extension\AbstractExtension;
 use Twig\Extension\GlobalsInterface;
@@ -19,6 +20,7 @@ use Twig\TwigFunction;
  * Functions and filters available in application views:
  *   path('route.name', {id: 1})     URL of a named route
  *   asset('css/style.css')          URL of a theme asset
+ *   js('admin.js')                  URL of a shared script in public/assets/js, versioned by mtime (cache busting)
  *   theme_part('header', {...})     rendered theme layout part (sandboxed)
  *   csrf_field() / csrf_token()     form protection
  *   flashes()                       one-time messages queued with Session::flash()
@@ -35,6 +37,7 @@ final class ViewExtension extends AbstractExtension implements GlobalsInterface
         private readonly Session $session,
         private readonly StoreSettings $store,
         private readonly Translator $translator,
+        private readonly Paths $paths,
     ) {
     }
 
@@ -43,11 +46,29 @@ final class ViewExtension extends AbstractExtension implements GlobalsInterface
         return [
             new TwigFunction('path', $this->router->url(...)),
             new TwigFunction('asset', $this->theme->asset(...)),
+            new TwigFunction('js', $this->scriptUrl(...)),
             new TwigFunction('theme_part', $this->themePart(...), ['is_safe' => ['html'], 'needs_context' => true]),
             new TwigFunction('csrf_token', $this->csrf->token(...)),
             new TwigFunction('csrf_field', $this->csrfField(...), ['is_safe' => ['html']]),
             new TwigFunction('flashes', $this->session->takeFlashes(...)),
         ];
+    }
+
+    /**
+     * /assets/js/<file>?v=<mtime>: the version changes whenever the file does,
+     * so browsers never keep running an outdated copy. Uses the store's own
+     * override when it has one (the same file the web server serves).
+     */
+    public function scriptUrl(string $file): string
+    {
+        $file = ltrim($file, '/');
+        $url = '/assets/js/' . $file;
+        if (str_contains($file, '..')) {
+            return $url;
+        }
+        $mtime = @filemtime($this->paths->locate('public/assets/js/' . $file));
+
+        return $mtime === false ? $url : $url . '?v=' . $mtime;
     }
 
     public function getFilters(): array

@@ -1,0 +1,16 @@
+{% autoescape false %}
+{{ 'Hi {name},'|trans({name: name}) }}
+
+{{ 'You left these items in your cart:'|trans }}
+{% for item in items %}
+- {{ item.product_name }}{% if (item.label ~ ' ' ~ item.unit)|trim %} — {{ (item.label ~ ' ' ~ item.unit)|trim }}{% endif %} x {{ item.quantity }} — {{ (item.price * item.quantity)|money }}
+{% endfor %}
+
+{{ 'Total'|trans }}: {{ total|money }}
+
+{{ 'Return to your cart'|trans }}: {{ cart_url }}
+
+{{ 'We send this reminder only once. Items and prices may change while they are in your cart.'|trans }}
+
+{{ store_name }} — {{ store_email }}
+{% endautoescape %}

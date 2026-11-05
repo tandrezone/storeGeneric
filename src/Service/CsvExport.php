@@ -77,7 +77,11 @@ final class CsvExport
                 $row['label'],
                 $row['unit'],
                 $row['price'] !== null ? (float) $row['price'] : null,
+                $row['sale_price'] !== null ? (float) $row['sale_price'] : null,
+                $row['sale_starts_at'],
+                $row['sale_ends_at'],
                 $row['stock'],
+                $row['weight_grams'],
                 $row['active'],
             ]);
         }

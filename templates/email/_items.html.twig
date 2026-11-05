@@ -13,6 +13,12 @@
     {% if order.discount_amount|default(0) > 0 %}
         <tr><td style="padding:6px 0;">{{ 'Discount'|trans }}{% if order.coupon_code %} ({{ order.coupon_code }}){% endif %}</td><td align="right">−{{ order.discount_amount|money }}</td></tr>
     {% endif %}
+    {% if order.gift_card_amount|default(0) > 0 %}
+        <tr><td style="padding:6px 0;">{{ 'Gift card ({code})'|trans({code: order.gift_card_code}) }}</td><td align="right">−{{ order.gift_card_amount|money }}</td></tr>
+    {% endif %}
+    {% if order.vat_reverse_charge|default(0) %}
+        <tr><td style="padding:6px 0;" colspan="2">{{ 'VAT reverse charge — no VAT charged'|trans }}{% if order.vat_id %} ({{ order.vat_id }}){% endif %}</td></tr>
+    {% endif %}
     {% if order.tax_amount|default(0) > 0 and not order.prices_include_tax %}
         <tr><td style="padding:6px 0;">{{ 'VAT ({rate}%)'|trans({rate: order.tax_rate * 1}) }}</td><td align="right">{{ order.tax_amount|money }}</td></tr>
     {% endif %}

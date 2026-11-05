@@ -17,11 +17,13 @@ use App\Security\CustomerAuthenticator;
 use App\Service\CartService;
 use App\Service\CheckoutService;
 use App\Service\CouponService;
+use App\Service\GiftCardService;
 use App\Service\OrderLinks;
 use App\Service\OrderNotifier;
 use App\Service\OrderService;
 use App\Service\ShippingService;
 use App\Service\StoreSettings;
+use App\Service\VatIdService;
 use App\Support\Money;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -38,6 +40,7 @@ final class CheckoutController
 {
     private const FIELDS = ['name', 'email', 'phone', 'address1', 'address2', 'city', 'state', 'postal_code', 'country'];
     private const COUPON_KEY = 'checkout_coupon';
+    private const GIFT_KEY = 'checkout_gift_card';
 
     public function __construct(
         private readonly Responder $responder,
@@ -57,6 +60,8 @@ final class CheckoutController
         private readonly CustomerAuthenticator $customerAuth,
         private readonly CustomerAddressRepository $customerAddresses,
         private readonly Translator $translator,
+        private readonly GiftCardService $giftCards,
+        private readonly VatIdService $vatIds,
     ) {
     }
 
@@ -91,14 +96,20 @@ final class CheckoutController
             return $this->couponAction($request, $items, $input, $couponAction);
         }
 
+        $giftAction = (string) ($input['gift_action'] ?? '');
+        if ($giftAction === 'apply' || $giftAction === 'remove') {
+            return $this->giftCardAction($request, $items, $input, $giftAction);
+        }
+
         $customer = [];
         foreach (self::FIELDS as $field) {
             $customer[$field] = trim((string) ($input[$field] ?? ''));
         }
+        $customer['vat_id'] = mb_substr(trim((string) ($input['vat_id'] ?? '')), 0, 30);
         $shippingCode = (string) ($input['shipping_method'] ?? '');
         $paymentMethod = $this->payments->enabledMethod((string) ($input['payment_method'] ?? ''));
 
-        $errors = $this->validate($customer, $shippingCode, $paymentMethod);
+        $errors = $this->validate($customer, $shippingCode, $paymentMethod, $this->cart->weight($items));
         if ($errors !== []) {
             return $this->form($request, $items, $input, $errors, 422);
         }
@@ -107,7 +118,7 @@ final class CheckoutController
         // even when the email matches an account (see CustomerAccounts).
         $customerId = $this->customerAuth->id();
         try {
-            $order = $this->checkout->placeOrder($customer + ['customer_id' => $customerId], $items, $shippingCode, $paymentMethod->id(), $this->couponToUse($input));
+            $order = $this->checkout->placeOrder($customer + ['customer_id' => $customerId], $items, $shippingCode, $paymentMethod->id(), $this->couponToUse($input), $this->giftCardToUse($input));
         } catch (RuntimeException $e) {
             // Show current prices / stock with the error.
             return $this->form($request, $this->cart->items() ?: $items, $input, [$e->getMessage()], 422);
@@ -154,17 +165,22 @@ final class CheckoutController
         $items = $this->cart->items();
 
         $method = null;
+        $weight = $this->cart->weight($items);
         foreach ($this->shipping->activeMethods() as $candidate) {
-            if ($candidate['code'] === $code && ($country === '' || $this->shipping->servesCountry($candidate, $country))) {
+            if ($candidate['code'] === $code && ($country === '' || $this->shipping->servesCountry($candidate, $country)) && $this->shipping->servesWeight($candidate, $weight)) {
                 $method = $candidate;
             }
         }
 
         $lineTotals = $this->lineTotals($items);
         [$coupon] = $this->sessionCoupon(array_sum($lineTotals), '');
-        $totals = $this->checkout->price($lineTotals, $method, $coupon, $country);
+        [$giftCard] = $this->sessionGiftCard();
+        $vat = $this->vatNotice((string) ($query['vat_id'] ?? ''), $country);
+        $totals = $this->checkout->price($lineTotals, $method, $coupon, $country, $weight, $giftCard, $vat['reverse_charge']);
 
-        return $this->responder->json(['success' => true, 'empty' => $items === []] + $this->summary($totals, $coupon));
+        return $this->responder->json(['success' => true, 'empty' => $items === []] + $this->summary($totals, $coupon, $giftCard) + [
+            'reverse_charge' => $vat['reverse_charge'], 'vat_message' => $vat['message'], 'vat_error' => $vat['error'],
+        ]);
     }
 
     /**
@@ -207,6 +223,75 @@ final class CheckoutController
      *
      * @param array<string, mixed> $input
      */
+    /**
+     * What the VAT-number field means for the order right now (VIES lookups are cached).
+     *
+     * @return array{reverse_charge: bool, message: ?string, error: ?string}
+     */
+    private function vatNotice(string $vatId, string $country): array
+    {
+        try {
+            $result = $this->vatIds->forCheckout($vatId, $country);
+
+            return ['reverse_charge' => $result['reverse_charge'], 'message' => $result['reverse_charge'] ? $this->translator->trans('VAT number accepted — no VAT is charged (reverse charge).') : $result['message'], 'error' => null];
+        } catch (RuntimeException $e) {
+            return ['reverse_charge' => false, 'message' => null, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * "Apply" / "Remove" next to the gift card field.
+     *
+     * @param list<array<string, mixed>> $items
+     * @param array<string, mixed>       $input
+     */
+    private function giftCardAction(ServerRequestInterface $request, array $items, array $input, string $action): ResponseInterface
+    {
+        $typed = (string) ($input['gift_code'] ?? '');
+        unset($input['gift_code']);
+        if ($action === 'remove') {
+            $this->session->remove(self::GIFT_KEY);
+
+            return $this->form($request, $items, $input, [], 200, $this->translator->trans('Gift card removed.'));
+        }
+        try {
+            $card = $this->giftCards->usable($typed);
+        } catch (RuntimeException $e) {
+            return $this->form($request, $items, $input, [$e->getMessage()], 422);
+        }
+        $this->session->set(self::GIFT_KEY, (string) $card['code']);
+
+        return $this->form($request, $items, $input, [], 200, $this->translator->trans('Gift card {code} applied.', ['code' => (string) $card['code']]));
+    }
+
+    /** The gift card to pay with: the one applied in this session. */
+    private function giftCardToUse(array $input): string
+    {
+        return (string) $this->session->get(self::GIFT_KEY, '');
+    }
+
+    /**
+     * The gift card applied in this session, if it can still be used.
+     *
+     * @return array{0: ?array<string, mixed>, 1: ?string} card, error to show
+     */
+    private function sessionGiftCard(bool $forget = false): array
+    {
+        $code = (string) $this->session->get(self::GIFT_KEY, '');
+        if ($code === '') {
+            return [null, null];
+        }
+        try {
+            return [$this->giftCards->usable($code), null];
+        } catch (RuntimeException $e) {
+            if ($forget) {
+                $this->session->remove(self::GIFT_KEY);
+            }
+
+            return [null, $e->getMessage()];
+        }
+    }
+
     private function couponToUse(array $input): string
     {
         $typed = CouponService::normalize((string) ($input['coupon_code'] ?? ''));
@@ -311,6 +396,7 @@ final class CheckoutController
     {
         $this->links->rememberPlaced($order['order_number']);
         $this->session->remove(self::COUPON_KEY);
+        $this->session->remove(self::GIFT_KEY);
         $this->cart->clear();
         $this->pageViews->record($this->session->id(), 'checkout_payment', null, $request->getUri()->getPath());
 
@@ -333,7 +419,7 @@ final class CheckoutController
      * @param array<string, mixed>|null $coupon
      * @return array<string, mixed>
      */
-    private function summary(array $totals, ?array $coupon): array
+    private function summary(array $totals, ?array $coupon, ?array $giftCard = null): array
     {
         $rate = (float) $totals['tax_rate'];
         // "23" / "6,5": only the decimals the rate needs, in the visitor's number format.
@@ -352,6 +438,8 @@ final class CheckoutController
             'tax_label'          => $rate > 0.0
                 ? $this->translator->trans($totals['prices_include_tax'] ? 'Includes VAT ({rate}%)' : 'VAT ({rate}%)', ['rate' => $rateText])
                 : null,
+            'gift_card_code'     => $giftCard !== null ? (string) $giftCard['code'] : null,
+            'gift_card_amount'   => (float) ($totals['gift_card'] ?? 0.0),
             'total'              => $totals['total'],
         ];
     }
@@ -360,7 +448,7 @@ final class CheckoutController
      * @param array<string, string> $customer
      * @return list<string>
      */
-    private function validate(array $customer, string $shippingCode, ?PaymentMethod $paymentMethod): array
+    private function validate(array $customer, string $shippingCode, ?PaymentMethod $paymentMethod, int $weight = 0): array
     {
         $errors = [];
         if ($customer['name'] === '') {
@@ -389,6 +477,8 @@ final class CheckoutController
         }
         if ($method === null) {
             $errors[] = $this->translator->trans('Please choose a shipping method.');
+        } elseif (!$this->shipping->servesWeight($method, $weight)) {
+            $errors[] = $this->translator->trans('{method} can\'t ship an order of this weight. Please choose another shipping method.', ['method' => (string) $method['name']]);
         } elseif ($customer['country'] !== '' && !$this->shipping->servesCountry($method, $customer['country'])) {
             $errors[] = $this->translator->trans('{method} doesn\'t deliver to {country}. Please choose another shipping method.', [
                 'method'  => (string) $method['name'],
@@ -411,7 +501,11 @@ final class CheckoutController
     private function form(ServerRequestInterface $request, array $items, array $input, array $errors, int $status = 200, ?string $notice = null): ResponseInterface
     {
         $subtotal = $this->cart->total($items);
-        $methods = $this->shipping->activeMethods();
+        $weight = $this->cart->weight($items);
+        $methods = array_values(array_filter(
+            $this->shipping->activeMethods(),
+            fn (array $m): bool => $this->shipping->servesWeight($m, $weight)
+        ));
         $payments = $this->payments->enabled();
 
         if ($methods === []) {
@@ -441,7 +535,7 @@ final class CheckoutController
         // Priced after the discount, like the order itself (a free-shipping threshold counts the discounted subtotal).
         $selected = null;
         foreach ($methods as &$method) {
-            $method['price'] = $this->checkout->shippingFor($method, $subtotal, $coupon);
+            $method['price'] = $this->checkout->shippingFor($method, $subtotal, $coupon, $weight);
             $method['countries_list'] = $this->shipping->countryList($method);
             if ($method['code'] === $form['shipping_method']) {
                 $selected = $method;
@@ -449,7 +543,13 @@ final class CheckoutController
         }
         unset($method);
 
-        $totals = $this->checkout->price($this->lineTotals($items), $selected, $coupon, $form['country']);
+        $form['vat_id'] = mb_substr(trim((string) ($input['vat_id'] ?? '')), 0, 30);
+        $vat = $this->vatNotice($form['vat_id'], $form['country']);
+        [$giftCard, $giftError] = $this->sessionGiftCard(true);
+        if ($giftError !== null && !in_array($giftError, $errors, true)) {
+            $errors[] = $giftError . ' ' . $this->translator->trans('It has been removed from your order.');
+        }
+        $totals = $this->checkout->price($this->lineTotals($items), $selected, $coupon, $form['country'], $weight, $giftCard, $vat['reverse_charge']);
 
         return $this->responder->view($request, 'shop/checkout.html.twig', [
             'items'                  => $items,
@@ -460,13 +560,14 @@ final class CheckoutController
                 array_values($payments)
             ),
             'selected_shipping_cost' => $totals['shipping'],
-            'summary'                => $this->summary($totals, $coupon),
+            'summary'                => $this->summary($totals, $coupon, $giftCard),
             'form'                   => $form,
             'errors'                 => $errors,
             'notice'                 => $notice,
             'money_format'           => Money::spec($this->store->currency(), $this->translator->intlLocale()),
             'account'                => $account,
             'saved_addresses'        => $savedAddresses,
+            'vat'                    => $vat + ['enabled' => $this->vatIds->enabled()],
         ], $status);
     }
 }

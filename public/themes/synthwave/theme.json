@@ -1,0 +1,22 @@
+{
+    "name": "Synthwave",
+    "description": "Dark violet glass with neon orange, purple and lime glow. Inspired by asklepi0s.cc/shop.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#2a0a52",
+            "#0d0221"
+        ],
+        "text": "#ffffff",
+        "accent": "#ff8a1e",
+        "accent2": "#c77dff",
+        "surface": "#1a0a3a",
+        "font": "sans-bold",
+        "motif": "horizon",
+        "uppercase": true,
+        "effect": "glow",
+        "text_y": 165,
+        "text_width": 600
+    }
+}

@@ -24,6 +24,7 @@ final class PruneCommand implements Command
         'audit-days'      => 365,
         'carts-days'      => 60,
         'attempts-days'   => 7,
+        'mail-days'       => 30,
     ];
 
     private const BATCH = 5000;
@@ -44,7 +45,7 @@ final class PruneCommand implements Command
 
     public function usage(): string
     {
-        return '[--dry-run] [--page-views-days=180] [--audit-days=365] [--carts-days=60] [--attempts-days=7]';
+        return '[--dry-run] [--page-views-days=180] [--audit-days=365] [--carts-days=60] [--attempts-days=7] [--mail-days=30]';
     }
 
     public function run(Input $input, Output $output): int
@@ -76,6 +77,7 @@ final class PruneCommand implements Command
             'expired tokens'         => ['customer_tokens', 'expires_at < NOW()'],
             'login attempts'         => ['login_attempts', $old('created_at', 'attempts-days')],
             'order lookup attempts'  => ['order_lookup_attempts', $old('created_at', 'attempts-days')],
+            'sent emails'            => ['mail_queue', 'sent_at IS NOT NULL AND ' . $old('sent_at', 'mail-days')],
             'customer auth attempts' => ['customer_auth_attempts', $old('created_at', 'attempts-days')],
         ];
 

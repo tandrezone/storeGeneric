@@ -42,6 +42,12 @@
     {% if order.discount_amount|default(0) > 0 %}
         <p class="order-discount"><span>{% if order.coupon_code %}{{ 'Discount ({code})'|trans({code: order.coupon_code}) }}{% else %}{{ 'Discount'|trans }}{% endif %}</span> <span>−{{ order.discount_amount|money }}</span></p>
     {% endif %}
+    {% if order.gift_card_amount|default(0) > 0 %}
+        <p class="order-discount"><span>{{ 'Gift card ({code})'|trans({code: order.gift_card_code}) }}</span> <span>−{{ order.gift_card_amount|money }}</span></p>
+    {% endif %}
+    {% if order.vat_reverse_charge|default(0) %}
+        <p class="order-tax"><span>{{ 'VAT reverse charge — no VAT charged'|trans }}{% if order.vat_id %} ({{ order.vat_id }}){% endif %}</span> <span>✓</span></p>
+    {% endif %}
     {% if order.tax_amount|default(0) > 0 and not order.prices_include_tax %}
         <p class="order-tax"><span>{{ 'VAT ({rate}%)'|trans({rate: tax_rate_text}) }}</span> <span>{{ order.tax_amount|money }}</span></p>
     {% endif %}
@@ -49,4 +55,26 @@
     {% if order.tax_amount|default(0) > 0 and order.prices_include_tax %}
         <p class="order-tax-included"><span>{{ 'Includes VAT ({rate}%)'|trans({rate: tax_rate_text}) }}</span> <span>{{ order.tax_amount|money }}</span></p>
     {% endif %}
+    {% set invoice_link = document_url(order) %}
+    {% if invoice_link %}
+        <p class="order-documents">
+            <a href="{{ invoice_link }}" data-no-ajax>{{ 'Download invoice (PDF)'|trans }}</a>
+            {% set credit_link = document_url(order, 'credit_note') %}
+            {% if credit_link %} · <a href="{{ credit_link }}" data-no-ajax>{{ 'Download credit note (PDF)'|trans }}</a>{% endif %}
+        </p>
+    {% endif %}
+    {% set returns = return_state(order) %}
+    {% if returns.requests is not empty %}
+        <h3>{{ 'Returns'|trans }}</h3>
+        <ul class="order-returns">
+            {% for r in returns.requests %}
+                <li>
+                    <span class="status-badge" data-status="{{ r.status }}">{{ r.status|capitalize|trans }}</span>
+                    {% for item in r['items'] %}{{ item.product_name }} &times; {{ item.quantity }}{{ not loop.last ? ', ' }}{% endfor %}
+                    {% if r.admin_response %}<br><em>{{ r.admin_response }}</em>{% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    {% if returns.can_request %}<p><a href="{{ returns.url }}" data-no-ajax>{{ 'Request a return'|trans }}</a></p>{% endif %}
 </div>

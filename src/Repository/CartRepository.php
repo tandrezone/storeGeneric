@@ -22,6 +22,32 @@ final class CartRepository extends Repository
         return $this->lastId();
     }
 
+    /** Remembers whose cart it is (signed-in customers), for the abandoned-cart reminder. */
+    public function attachCustomer(int $cartId, int $customerId): void
+    {
+        // updated_at is left alone: only cart changes count as activity.
+        $this->run('UPDATE carts SET customer_id = :c, updated_at = updated_at WHERE id = :id AND (customer_id IS NULL OR customer_id <> :c2)', ['c' => $customerId, 'c2' => $customerId, 'id' => $cartId]);
+    }
+
+    /** @return list<array<string, mixed>> carts of customers that sat untouched between $afterHours and $maxDays, not yet reminded, with something in them and no later order */
+    public function abandoned(int $afterHours, int $maxDays, int $limit = 200): array
+    {
+        return $this->all("
+            SELECT c.id, c.customer_id, cu.email, cu.name, cu.locale
+            FROM carts c JOIN customers cu ON cu.id = c.customer_id
+            WHERE c.reminded_at IS NULL AND cu.active = 1 AND cu.deleted_at IS NULL AND cu.email_verified_at IS NOT NULL
+              AND c.updated_at < DATE_SUB(NOW(), INTERVAL " . max(1, $afterHours) . " HOUR)
+              AND c.updated_at > DATE_SUB(NOW(), INTERVAL " . max(1, $maxDays) . " DAY)
+              AND EXISTS (SELECT 1 FROM cart_items ci WHERE ci.cart_id = c.id)
+              AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id AND o.created_at > c.updated_at)
+            ORDER BY c.id LIMIT " . max(1, $limit));
+    }
+
+    public function markReminded(int $cartId): void
+    {
+        $this->run('UPDATE carts SET reminded_at = NOW(), updated_at = updated_at WHERE id = :id', ['id' => $cartId]);
+    }
+
     /** Adds a line, or increases its quantity if the variant is already in the cart. */
     public function addItem(int $cartId, int $variantId, int $quantity): void
     {
@@ -57,7 +83,7 @@ final class CartRepository extends Repository
     {
         return $this->all("
             SELECT ci.variant_id, ci.quantity,
-                   v.sku, v.label, v.unit, v.price, v.stock,
+                   v.sku, v.label, v.unit, " . VariantRepository::EFFECTIVE_PRICE . " AS price, v.price AS regular_price, v.stock, v.weight_grams,
                    p.id AS product_id, p.name AS base_name,
                    COALESCE(NULLIF(pt.name, ''), p.name) AS product_name, p.image_path
             FROM cart_items ci

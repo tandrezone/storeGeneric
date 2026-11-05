@@ -24,6 +24,7 @@ final class OrderNotifier
 {
     public function __construct(
         private readonly Mailer $mailer,
+        private readonly MailQueue $mailQueue,
         private readonly Router $router,
         private readonly View $view,
         private readonly OrderRepository $orders,
@@ -33,6 +34,7 @@ final class OrderNotifier
         private readonly Config $config,
         private readonly LoggerInterface $logger,
         private readonly Translator $translator,
+        private readonly InvoiceService $invoices,
     ) {
     }
 
@@ -69,12 +71,12 @@ final class OrderNotifier
         }
 
         if ((float) $order['total'] > 0.0 && $this->payments->get((string) $order['payment_method'])?->isOffline()) {
-            $this->inOrderLocale($order, fn () => $this->toCustomer($order, 'payment_received', $this->subject('Payment received for order {number}', $order)));
+            $this->inOrderLocale($order, fn () => $this->toCustomer($order, 'payment_received', $this->subject('Payment received for order {number}', $order), [], $this->invoices->attachment($order)));
 
             return;
         }
 
-        $this->inOrderLocale($order, fn () => $this->toCustomer($order, 'order_confirmation', $this->subject('Order {number} confirmed', $order), ['instructions_html' => '', 'instructions_text' => '']));
+        $this->inOrderLocale($order, fn () => $this->toCustomer($order, 'order_confirmation', $this->subject('Order {number} confirmed', $order), ['instructions_html' => '', 'instructions_text' => ''], $this->invoices->attachment($order)));
         $this->toAdmin($order);
     }
 
@@ -98,7 +100,7 @@ final class OrderNotifier
     {
         $order = $this->orders->find($orderId);
         if ($order !== null) {
-            $this->inOrderLocale($order, fn () => $this->toCustomer($order, 'order_cancelled', $this->subject('Order {number} refunded', $order), ['refunded' => true]));
+            $this->inOrderLocale($order, fn () => $this->toCustomer($order, 'order_cancelled', $this->subject('Order {number} refunded', $order), ['refunded' => true], $this->invoices->attachment($order, InvoiceService::CREDIT_NOTE)));
         }
     }
 
@@ -106,13 +108,14 @@ final class OrderNotifier
      * @param array<string, mixed> $order
      * @param array<string, mixed> $vars
      */
-    private function toCustomer(array $order, string $template, string $subject, array $vars = []): void
+    private function toCustomer(array $order, string $template, string $subject, array $vars = [], array $attachments = []): void
     {
         $this->send((string) $order['email'], $template, $subject, $vars + [
             'order'         => $order,
             'payment_label' => $this->payments->label((string) $order['payment_method']),
             'order_url'     => $this->links->trackUrl((string) $order['order_number']),
-        ], $this->store->email());
+            'has_document'  => $attachments !== [],
+        ], $this->store->email(), $attachments);
     }
 
     /** @param array<string, mixed> $order */
@@ -151,14 +154,14 @@ final class OrderNotifier
     }
 
     /** @param array<string, mixed> $vars */
-    private function send(string $to, string $template, string $subject, array $vars, ?string $replyTo): void
+    private function send(string $to, string $template, string $subject, array $vars, ?string $replyTo, array $attachments = []): void
     {
         try {
             $vars += ['store_name' => $this->store->name(), 'store_email' => $this->store->email(), 'base_url' => $this->links->baseUrl()];
             $html = $this->view->render('email/' . $template . '.html.twig', $vars);
             $text = $this->view->render('email/' . $template . '.txt.twig', $vars);
             $subject = $this->store->name() . ' — ' . $subject;
-            $this->mailer->send($to, $subject, $html, $text, $replyTo);
+            $this->mailQueue->deliver($to, $subject, $html, $text, $replyTo, $attachments);
             $this->logger->info('Email sent', ['template' => $template, 'to' => $to, 'transport' => $this->mailer->transport()]);
         } catch (Throwable $e) {
             $this->logger->error('Email failed', ['template' => $template, 'to' => $to, 'error' => $e->getMessage()]);

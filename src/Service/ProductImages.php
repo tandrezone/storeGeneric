@@ -19,18 +19,30 @@ final class ProductImages
     }
 
     /**
-     * Listing pages: sets each product's image_path, using only cached
-     * placeholders so a big listing never generates images inline
-     * (run `bin/console images:regenerate` to pre-generate them).
+     * Cards a listing may draw per request (~0.1 s each). The rest show the
+     * CSS fallback until a later visit, or `bin/console images:regenerate`.
+     */
+    private const LISTING_BUDGET = 8;
+
+    /**
+     * Listing pages: sets each product's image_path, using cached placeholders
+     * and drawing at most LISTING_BUDGET missing ones, so a big listing (or the
+     * first visit after a theme switch) stays fast.
      *
      * @param list<array<string, mixed>> $products
      * @return list<array<string, mixed>>
      */
     public function forListing(array $products): array
     {
+        $budget = self::LISTING_BUDGET;
         foreach ($products as &$product) {
-            $product['image_path'] = $this->existing((string) ($product['image_path'] ?? ''))
+            $path = $this->existing((string) ($product['image_path'] ?? ''))
                 ?? $this->placeholder->cachedPathFor($product);
+            if ($path === '' && $budget > 0) {
+                $budget--;
+                $path = $this->placeholder->pathFor($product);
+            }
+            $product['image_path'] = $path;
         }
 
         return $products;

@@ -28,7 +28,7 @@ use RuntimeException;
  */
 final class ProductCsvImporter
 {
-    public const COLUMNS = ['product_id', 'name', 'category', 'status', 'short_description', 'sku', 'label', 'unit', 'price', 'stock', 'active'];
+    public const COLUMNS = ['product_id', 'name', 'category', 'status', 'short_description', 'sku', 'label', 'unit', 'price', 'sale_price', 'sale_starts', 'sale_ends', 'stock', 'weight_grams', 'active'];
 
     public const MAX_BYTES = 5 * 1024 * 1024;
     public const MAX_ROWS = 5000;
@@ -115,7 +115,7 @@ final class ProductCsvImporter
      * required values) are null = "leave unchanged".
      *
      * @param array<string, string|int> $row
-     * @return array{0: array{product_id: ?int, name: ?string, category: ?string, status: ?string, short_description: ?string, sku: string, label: string|false|null, unit: string|false|null, price: ?float, stock: ?int, is_active: ?int}, 1: list<string>}
+     * @return array{0: array{product_id: ?int, name: ?string, category: ?string, status: ?string, short_description: ?string, sku: string, label: string|false|null, unit: string|false|null, price: ?float, sale_price: float|string|false|null, sale_starts_at: string|false|null, sale_ends_at: string|false|null, stock: ?int, weight_grams: ?int, is_active: ?int}, 1: list<string>}
      *         label/unit: null = column absent, false = empty (clears it)
      */
     public function normalize(array $row): array
@@ -199,6 +199,40 @@ final class ProductCsvImporter
             }
         }
 
+        // Sale: column absent = leave alone; present but empty = clear it. Dates: "2026-12-01" or "2026-12-01 09:30".
+        $salePrice = $this->saleCell($row, 'sale_price', $errors, function (string $raw) use (&$errors): ?float {
+            $number = self::decimal($raw);
+            if ($number === null || $number <= 0 || $number > VariantRepository::MAX_PRICE) {
+                $errors[] = $this->t('Sale price "{value}" is not a valid amount.', ['value' => $raw]);
+
+                return null;
+            }
+
+            return round($number, 2);
+        });
+        $dateCell = function (string $raw, string $column) use (&$errors): ?string {
+            foreach (['!Y-m-d H:i:s', '!Y-m-d H:i', '!Y-m-d'] as $format) {
+                $date = \DateTimeImmutable::createFromFormat($format, str_replace('T', ' ', $raw));
+                if ($date !== false) {
+                    return $date->format('Y-m-d H:i:s');
+                }
+            }
+            $errors[] = $this->t('{column} "{value}" is not a date (use 2026-12-01 or 2026-12-01 09:30).', ['column' => $column, 'value' => $raw]);
+
+            return null;
+        };
+        $saleStarts = $this->saleCell($row, 'sale_starts', $errors, fn (string $raw): ?string => $dateCell($raw, 'sale_starts'));
+        $saleEnds = $this->saleCell($row, 'sale_ends', $errors, fn (string $raw): ?string => $dateCell($raw, 'sale_ends'));
+
+        $weight = null;
+        if (($raw = $text('weight_grams')) !== null) {
+            if (!ctype_digit($raw) || (float) $raw > 4294967295) {
+                $errors[] = $this->t('Weight "{value}" must be a whole number of grams.', ['value' => $raw]);
+            } else {
+                $weight = (int) $raw;
+            }
+        }
+
         $active = null;
         if (($raw = $text('active')) !== null) {
             $lower = strtolower($raw);
@@ -222,9 +256,31 @@ final class ProductCsvImporter
             'label'             => $label,
             'unit'              => $unit,
             'price'             => $price,
+            'sale_price'        => $salePrice,
+            'sale_starts_at'    => $saleStarts,
+            'sale_ends_at'      => $saleEnds,
             'stock'             => $stock,
+            'weight_grams'      => $weight,
             'is_active'         => $active,
         ], $errors];
+    }
+
+    /**
+     * A column that can be cleared: null = column absent (leave alone), false = present but empty (clear),
+     * otherwise what $parse made of the text (null when it was invalid; the error is recorded by $parse).
+     *
+     * @param array<string, string|int> $row
+     * @param list<string>              $errors
+     * @return mixed
+     */
+    private function saleCell(array $row, string $key, array &$errors, callable $parse): mixed
+    {
+        if (!array_key_exists($key, $row)) {
+            return null;
+        }
+        $value = trim((string) $row[$key]);
+
+        return $value === '' ? false : $parse($value);
     }
 
     /**
@@ -355,7 +411,11 @@ final class ProductCsvImporter
             'label'     => $variant['label'] !== null ? (string) $variant['label'] : null,
             'unit'      => $variant['unit'] !== null ? (string) $variant['unit'] : null,
             'price'     => round((float) $variant['price'], 2),
+            'sale_price'     => $variant['sale_price'] !== null ? round((float) $variant['sale_price'], 2) : null,
+            'sale_starts_at' => $variant['sale_starts_at'] !== null ? (string) $variant['sale_starts_at'] : null,
+            'sale_ends_at'   => $variant['sale_ends_at'] !== null ? (string) $variant['sale_ends_at'] : null,
             'stock'     => (int) $variant['stock'],
+            'weight_grams' => (int) $variant['weight_grams'],
             'is_active' => (int) $variant['is_active'],
         ];
         $next = $current;
@@ -364,12 +424,27 @@ final class ProductCsvImporter
                 $next[$field] = $data[$field] === false ? null : $data[$field];
             }
         }
-        foreach (['price', 'stock', 'is_active'] as $field) {
+        foreach (['price', 'stock', 'weight_grams', 'is_active'] as $field) {
             if ($data[$field] !== null) {
                 $next[$field] = $data[$field];
             }
         }
-        $variantChanges = $this->diff($current, $next, ['label', 'unit', 'price', 'stock', 'is_active']);
+        foreach (['sale_price', 'sale_starts_at', 'sale_ends_at'] as $field) {
+            if ($data[$field] !== null) {
+                $next[$field] = $data[$field] === false ? null : $data[$field];
+            }
+        }
+        if ($next['sale_price'] !== null && $next['sale_price'] >= $next['price']) {
+            $entry['errors'][] = $this->t('The sale price must be lower than the regular price.');
+
+            return;
+        }
+        if ($next['sale_starts_at'] !== null && $next['sale_ends_at'] !== null && $next['sale_ends_at'] <= $next['sale_starts_at']) {
+            $entry['errors'][] = $this->t('The sale must end after it starts.');
+
+            return;
+        }
+        $variantChanges = $this->diff($current, $next, ['label', 'unit', 'price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'stock', 'weight_grams', 'is_active']);
 
         $productChanges = $this->productChanges($productId, [
             'name'              => (string) $variant['product_name'],
@@ -467,9 +542,16 @@ final class ProductCsvImporter
             'label'     => is_string($data['label']) ? $data['label'] : null,
             'unit'      => is_string($data['unit']) ? $data['unit'] : null,
             'price'     => (float) $data['price'],
+            'sale_price'     => is_float($data['sale_price']) ? $data['sale_price'] : null,
+            'sale_starts_at' => is_string($data['sale_starts_at']) ? $data['sale_starts_at'] : null,
+            'sale_ends_at'   => is_string($data['sale_ends_at']) ? $data['sale_ends_at'] : null,
             'stock'     => $data['stock'] ?? 0,
+            'weight_grams' => $data['weight_grams'] ?? 0,
             'is_active' => $data['is_active'] ?? 1,
         ];
+        if ($variant['sale_price'] !== null && $variant['sale_price'] >= $variant['price']) {
+            $entry['errors'][] = $this->t('The sale price must be lower than the regular price.');
+        }
 
         // A new variant of an existing product.
         if ($data['product_id'] !== null) {
@@ -562,6 +644,10 @@ final class ProductCsvImporter
                     'label'             => $this->t('label'),
                     'unit'              => $this->t('unit'),
                     'price'             => $this->t('price'),
+                    'sale_price'        => $this->t('sale price'),
+                    'sale_starts_at'    => $this->t('sale start'),
+                    'sale_ends_at'      => $this->t('sale end'),
+                    'weight_grams'      => $this->t('weight'),
                     'stock'             => $this->t('stock'),
                     'is_active'         => $this->t('active'),
                     'name'              => $this->t('name'),

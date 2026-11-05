@@ -31,13 +31,13 @@ final class ShippingMethodRepository extends Repository
         return $this->one('SELECT * FROM shipping_methods WHERE code = :code', ['code' => $code]);
     }
 
-    /** @param array{name: string, description: ?string, cost: float, free_over: ?float, countries: ?string, is_active: int} $data */
+    /** @param array{name: string, description: ?string, cost: float, cost_per_kg: float, free_over: ?float, countries: ?string, min_weight_grams: ?int, max_weight_grams: ?int, is_active: int} $data */
     public function create(array $data): int
     {
         $next = (int) $this->value('SELECT COALESCE(MAX(sort_order), 0) + 1 FROM shipping_methods');
         $this->run('
-            INSERT INTO shipping_methods (code, name, description, cost, free_over, countries, is_active, sort_order)
-            VALUES (:code, :name, :description, :cost, :free_over, :countries, :is_active, :sort_order)
+            INSERT INTO shipping_methods (code, name, description, cost, cost_per_kg, free_over, countries, min_weight_grams, max_weight_grams, is_active, sort_order)
+            VALUES (:code, :name, :description, :cost, :cost_per_kg, :free_over, :countries, :min_weight_grams, :max_weight_grams, :is_active, :sort_order)
         ', $data + ['code' => $this->uniqueCode($data['name']), 'sort_order' => $next]);
 
         return $this->lastId();
@@ -46,14 +46,14 @@ final class ShippingMethodRepository extends Repository
     /**
      * The code never changes after creation, so existing orders keep matching.
      *
-     * @param array{name: string, description: ?string, cost: float, free_over: ?float, countries: ?string, is_active: int} $data
+     * @param array{name: string, description: ?string, cost: float, cost_per_kg: float, free_over: ?float, countries: ?string, min_weight_grams: ?int, max_weight_grams: ?int, is_active: int} $data
      */
     public function update(int $id, array $data): void
     {
         $this->run('
             UPDATE shipping_methods
-            SET name = :name, description = :description, cost = :cost, free_over = :free_over,
-                countries = :countries, is_active = :is_active
+            SET name = :name, description = :description, cost = :cost, cost_per_kg = :cost_per_kg, free_over = :free_over,
+                countries = :countries, min_weight_grams = :min_weight_grams, max_weight_grams = :max_weight_grams, is_active = :is_active
             WHERE id = :id
         ', $data + ['id' => $id]);
     }

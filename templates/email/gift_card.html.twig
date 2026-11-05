@@ -1,0 +1,11 @@
+{% extends 'email/_layout.html.twig' %}
+
+{% block body %}
+<p>{{ 'You have received a gift card for {store}!'|trans({store: '<strong>' ~ store_name|e ~ '</strong>'})|raw }}</p>
+{% if card.message %}<p style="background:#f4f4f5;padding:12px;border-radius:6px;">{{ card.message|nl2br }}</p>{% endif %}
+<p style="font-size:14px;margin-bottom:4px;">{{ 'Value'|trans }}: <strong>{{ card.initial_amount|money }}</strong></p>
+<p style="font-size:22px;letter-spacing:2px;font-family:monospace;margin:8px 0;"><strong>{{ card.code }}</strong></p>
+{% if card.expires_at %}<p style="font-size:13px;color:#6b7280;">{{ 'Valid until {date}.'|trans({date: card.expires_at|slice(0, 10)}) }}</p>{% endif %}
+<p>{{ 'Enter the code at checkout, in the "Gift card" box.'|trans }}</p>
+<p><a href="{{ shop_url }}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;">{{ 'Start shopping'|trans }}</a></p>
+{% endblock %}

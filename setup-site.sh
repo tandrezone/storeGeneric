@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 #
-# setup-apache.sh — full server bootstrap for the store at finderskeep.online
+# setup-site.sh — full bootstrap of a store site: packages, .env, database + user,
+# schema import (creates the tables), Composer, Apache vhost, verification.
 # (override with DOMAIN=other.example to set up a different domain)
+#
+# Run from a store directory (one with a public/ folder, e.g. /var/www/stores/cactistore)
+# to set up that store: public/ is the DocumentRoot and the domain defaults to
+# <folder>.<domain in the parent's .vhost file>, e.g. cactistore.finderskeep.online.
+# The first run saves the complete domain in <store>/.vhost; later runs use it, and
+# if you edit it Apache is switched to the new domain (certbot must be re-run).
 #
 # Run from a fresh `git clone` on Debian/Ubuntu:
 #
-#     sudo ./setup-apache.sh
+#     sudo ./setup-site.sh
 #
 # Works on plain Debian/Ubuntu and on WSL (with or without systemd), whether
 # the clone lives on the Linux filesystem (/var/www, ~/...) or on the Windows
@@ -32,7 +39,7 @@
 #
 # Non-interactive use: export any of the .env keys (plus ADMIN_PASSWORD and,
 # if needed, DB_ROOT_PASS) and run with NONINTERACTIVE=1, e.g.
-#   sudo NONINTERACTIVE=1 DB_PASS=... ADMIN_PASSWORD=... ./setup-apache.sh
+#   sudo NONINTERACTIVE=1 DB_PASS=... ADMIN_PASSWORD=... ./setup-site.sh
 #
 # Other overrides: DOMAIN, APP_ROOT, APACHE_USER, ASSUME_YES=1 (auto-accept
 # package installation), ADD_HOSTS=0 (leave hosts files alone).
@@ -40,23 +47,56 @@
 set -Eeuo pipefail
 
 # ---------------------------------------------------------------- config ----
-DOMAIN="${DOMAIN:-finderskeep.online}"
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-APP_ROOT="${APP_ROOT:-$SCRIPT_DIR}"
+# CORE_DIR: the shared code (vendor/, database/, verify-env.sh) — where this script lives.
+# APP_ROOT: the store being set up. Run from a store directory (one with a public/
+# folder, usually linking to the core via core/) to set up that store; its public/
+# becomes the DocumentRoot. Otherwise the core itself is the store.
+CORE_DIR="$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd -P)"   # follows symlinks (global command)
+if [[ -z "${APP_ROOT:-}" && -d "$PWD/public" ]]; then APP_ROOT="$PWD"; fi
+APP_ROOT="${APP_ROOT:-$CORE_DIR}"
 APP_ROOT="$(cd -- "$APP_ROOT" && pwd -P)"
 DOC_ROOT="${APP_ROOT}/public"
 ENV_FILE="${APP_ROOT}/.env"
-SCHEMA_FILE="${APP_ROOT}/database/schema.sql"
+SCHEMA_FILE="${CORE_DIR}/database/schema.sql"
+
+# Domain, in order of precedence:
+#   1. DOMAIN=... in the environment
+#   2. <store>/.vhost  — the complete domain, written by the first run (edit it and
+#      re-run to move the store to another domain; Apache is updated to match)
+#   3. <folder name>.<base domain>, the base domain being read from the .vhost file
+#      in the parent directory
+#   4. finderskeep.online
+# A bare domain or DOMAIN=example.com is accepted in either .vhost file.
+read_vhost_domain() {
+    [[ -r "$1" ]] || return 0
+    sed -E 's/#.*//; s/^[[:space:]]*(DOMAIN[[:space:]]*=)?[[:space:]]*//; s/[[:space:]\r"'"'"']+$//; s/^["'"'"']//' "$1" | grep -m1 . || true
+}
+STORE_VHOST_FILE="${APP_ROOT}/.vhost"
+HAD_STORE_VHOST=0; [[ -s "$STORE_VHOST_FILE" ]] && HAD_STORE_VHOST=1
+if [[ -z "${DOMAIN:-}" ]]; then
+    DOMAIN="$(read_vhost_domain "$STORE_VHOST_FILE")"
+fi
+if [[ -z "${DOMAIN:-}" ]]; then
+    base_domain="$(read_vhost_domain "$(dirname -- "$APP_ROOT")/.vhost")"
+    if [[ -n "$base_domain" ]]; then
+        label="$(basename -- "$APP_ROOT" | tr 'A-Z_' 'a-z-' | tr -c 'a-z0-9-\n' '-' | sed -E 's/^-+|-+$//g')"
+        DOMAIN="${label}.${base_domain}"
+    else
+        DOMAIN="finderskeep.online"
+    fi
+fi
+[[ "$DOMAIN" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] || { echo "Invalid domain: '$DOMAIN'" >&2; exit 1; }
 APACHE_USER="${APACHE_USER:-www-data}"
 ASSUME_YES="${ASSUME_YES:-0}"
 ADD_HOSTS="${ADD_HOSTS:-1}"
-MIGRATIONS_DIR="${APP_ROOT}/database/migrations"
-VERIFY_SCRIPT="${APP_ROOT}/verify-env.sh"
+MIGRATIONS_DIR="${CORE_DIR}/database/migrations"
+VERIFY_SCRIPT="${CORE_DIR}/verify-env.sh"
 # Directories the app writes to at runtime (relative to the project root):
 # images, uploaded themes, and var/ (Twig cache, logs, temporary uploads).
-WRITABLE_DIRS=(public/assets/images/generated public/assets/images/products public/assets/images/branding public/assets/images/categories
+WRITABLE_DIRS=(public/assets/images/generated public/assets/images/products public/assets/images/branding public/assets/images/categories public/assets/images/thumbs
                public/themes var var/cache var/log var/tmp)
 
+DOMAIN_CHANGED=0
 SITES_AVAILABLE="/etc/apache2/sites-available"
 SITE_NAME="${DOMAIN}.conf"
 VHOST_FILE="${SITES_AVAILABLE}/${SITE_NAME}"
@@ -239,11 +279,24 @@ as_user() {  # as_user USER cmd...
     if command -v runuser >/dev/null 2>&1; then runuser -u "$u" -- "$@"; else sudo -u "$u" -- "$@"; fi
 }
 
+PROBE_SCHEME=http
 http_get() {  # http_get <path> -> prints status; body in $TMP_BODY
     local code
-    code="$(curl -s -o "$TMP_BODY" -w '%{http_code}' --max-time "$VERIFY_TIMEOUT" \
-                 -H "Host: ${DOMAIN}" "http://127.0.0.1${1}" 2>/dev/null)" || true
+    if [[ "$PROBE_SCHEME" == https ]]; then   # site redirects HTTP -> HTTPS (certbot --redirect)
+        code="$(curl -sk -o "$TMP_BODY" -w '%{http_code}' --max-time "$VERIFY_TIMEOUT" \
+                     --resolve "${DOMAIN}:443:127.0.0.1" "https://${DOMAIN}${1}" 2>/dev/null)" || true
+    else
+        code="$(curl -s -o "$TMP_BODY" -w '%{http_code}' --max-time "$VERIFY_TIMEOUT" \
+                     -H "Host: ${DOMAIN}" "http://127.0.0.1${1}" 2>/dev/null)" || true
+    fi
     printf '%s' "${code:-000}"
+}
+# Does plain HTTP for this domain redirect to https://<domain>/ ?
+detect_https_redirect() {
+    local hdr
+    hdr="$(curl -s -o /dev/null -D - --max-time "$VERIFY_TIMEOUT" -H "Host: ${DOMAIN}" "http://127.0.0.1/" 2>/dev/null)" || true
+    grep -Eqi '^HTTP/[0-9.]+ 30[1278]' <<<"$hdr" \
+        && grep -Eqi "^location: https://${DOMAIN//./\\.}(/|:|[[:space:]]*$)" <<<"$hdr"
 }
 
 cleanup() {
@@ -285,6 +338,14 @@ fi
 
 REPO_OWNER="$(stat -c %U "$APP_ROOT")"
 log "Project: $APP_ROOT (owner: $REPO_OWNER, filesystem: ${repo_fstype:-unknown})"
+
+# Remember the complete domain in <store>/.vhost (first run, or DOMAIN= given explicitly).
+if [[ "$(read_vhost_domain "$STORE_VHOST_FILE")" != "$DOMAIN" ]]; then
+    printf '%s\n' "$DOMAIN" > "$STORE_VHOST_FILE"
+    chown "$REPO_OWNER" "$STORE_VHOST_FILE" 2>/dev/null || true
+    chmod 0644 "$STORE_VHOST_FILE"
+    log "Wrote $STORE_VHOST_FILE ($DOMAIN)"
+fi
 if (( IS_WSL )); then
     log "WSL detected$( (( ON_WINFS )) && echo ' — repository is on the Windows drive' )."
     is_systemd || log "systemd is not running; services are managed with 'service'."
@@ -669,7 +730,7 @@ if (( WRITE_ENV )); then
     fi
     tmp_env="$(mktemp "${APP_ROOT}/.env.tmp.XXXXXX")"
     {
-        printf '# Generated by setup-apache.sh on %s\n' "$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+        printf '# Generated by setup-site.sh on %s\n' "$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
         printf 'DB_HOST=%s\nDB_PORT=%s\nDB_NAME=%s\nDB_USER=%s\nDB_PASS=%s\n' \
             "$DB_HOST" "$DB_PORT" "$DB_NAME" "$DB_USER" "$DB_PASS"
         printf 'APP_URL=%s\nAPP_DEBUG=false\n\n' "$APP_URL"
@@ -692,18 +753,30 @@ fi
 chown "${REPO_OWNER}:${APACHE_GROUP}" "$ENV_FILE" 2>/dev/null || (( ON_WINFS )) || die "chown failed on $ENV_FILE"
 chmod 0640 "$ENV_FILE" 2>/dev/null || (( ON_WINFS )) || die "chmod failed on $ENV_FILE"
 
+# Keep APP_URL (payment webhooks / return URLs) on this store's domain: if its host differs
+# from $DOMAIN (e.g. a copied .env still pointing at another store), rewrite the host and
+# keep the scheme, path and everything else. A backup of the old .env is kept.
+cur_app_url="$(sed -n 's/^APP_URL=//p' "$ENV_FILE" | head -n1 | tr -d '\r"'"'"'')"
+if [[ "$cur_app_url" =~ ^(https?://)([^/:]+)(.*)$ && "${BASH_REMATCH[2]}" != "$DOMAIN" ]]; then
+    new_app_url="${BASH_REMATCH[1]}${DOMAIN}${BASH_REMATCH[3]}"
+    cp -p -- "$ENV_FILE" "${ENV_FILE}.bak.$(date +%Y%m%d%H%M%S)"
+    sed -i -E "s#^APP_URL=.*#APP_URL=${new_app_url}#" "$ENV_FILE"
+    APP_URL="$new_app_url"
+    ok "APP_URL updated: ${cur_app_url} -> ${new_app_url}"
+fi
+
 # ============================================================ 4. composer ===
 section "4/7  Composer dependencies"
 
 COMPOSER_ARGS=(install --no-dev --optimize-autoloader --no-interaction --no-progress
-               --working-dir="$APP_ROOT")
+               --working-dir="$CORE_DIR")
 if [[ "$REPO_OWNER" == "root" ]]; then
     COMPOSER_ALLOW_SUPERUSER=1 composer "${COMPOSER_ARGS[@]}"
 else
     owner_home="$(getent passwd "$REPO_OWNER" | cut -d: -f6)"
     as_user "$REPO_OWNER" env HOME="$owner_home" composer "${COMPOSER_ARGS[@]}"
 fi
-[[ -f "$APP_ROOT/vendor/autoload.php" ]] || die "composer install did not produce vendor/autoload.php"
+[[ -f "$CORE_DIR/vendor/autoload.php" ]] || die "composer install did not produce vendor/autoload.php"
 ok "Dependencies installed."
 
 # Directories Apache writes into at runtime (images, themes, var/):
@@ -714,6 +787,12 @@ for d in "${WRITABLE_DIRS[@]}"; do
     if (( ! ON_WINFS )); then
         chown "${REPO_OWNER}:${APACHE_GROUP}" "$dir"
         chmod 2775 "$dir"
+        # Existing contents too (e.g. root-owned Twig cache copied from a template)
+        case "$d" in var/cache|var/log|var/tmp)
+            chown -R "${REPO_OWNER}:${APACHE_GROUP}" "$dir"
+            chmod -R ug+rwX "$dir"
+            find "$dir" -type d -exec chmod g+s {} + ;;
+        esac
     else
         chmod 0777 "$dir" 2>/dev/null || true
     fi
@@ -757,10 +836,34 @@ if (( ON_WINFS )); then
         EnableSendfile Off"
 fi
 
+# Domain changed in .vhost since the last run: retire the VirtualHost(s) this script
+# generated for the old name (HTTP + any certbot -le-ssl copy) that serve this same
+# DocumentRoot. Files are kept as *.old; only done when .vhost already existed, so a
+# first run never touches vhosts it did not create.
+if (( HAD_STORE_VHOST )); then
+    shopt -s nullglob
+    for old in "$SITES_AVAILABLE"/*.conf; do
+        old_name="$(basename -- "$old")"
+        [[ "$old_name" == "${DOMAIN}.conf" || "$old_name" == "${DOMAIN}-le-ssl.conf" ]] && continue
+        grep -qE '^# Managed by setup-(apache|site).sh' "$old" || continue
+        grep -qE "^[[:space:]]*DocumentRoot[[:space:]]+\"?${DOC_ROOT}/?\"?[[:space:]]*$" "$old" || continue
+        old_domain="$(awk '$1=="ServerName"{print $2; exit}' "$old")"
+        log "Domain changed (${old_domain:-?} -> ${DOMAIN}): retiring ${old}"
+        a2dissite -q "${old_name%.conf}" >/dev/null 2>&1 || true
+        mv -f "$old" "${old}.old"
+        if [[ -n "$old_domain" && "$old_domain" != "$DOMAIN" && -f "$ENV_FILE" ]]; then
+            sed -i -E "s#^(APP_URL=https?://)${old_domain//./\\.}(/?)#\\1${DOMAIN}\\2#" "$ENV_FILE"
+        fi
+        DOMAIN_CHANGED=1
+    done
+    shopt -u nullglob
+fi
+
 domain_re="${DOMAIN//./\\.}"
 vhosts_dump="$(apache2ctl -S 2>/dev/null)" || true
 if [[ -e "$VHOST_FILE" ]]; then
     ok "${VHOST_FILE} already exists; leaving it untouched."
+    if (( DOMAIN_CHANGED )); then a2ensite -q "$SITE_NAME" >/dev/null; fi
 elif grep -Eq "(namevhost|alias) ${domain_re}( |$)" <<<"$vhosts_dump"; then
     ok "${DOMAIN} is already served by another enabled VirtualHost; leaving it untouched."
 else
@@ -769,7 +872,7 @@ else
 
     umask 022
     cat > "$VHOST_FILE" <<EOF
-# Managed by setup-apache.sh — generated $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+# Managed by setup-site.sh — generated $(date -u '+%Y-%m-%d %H:%M:%S UTC')
 <VirtualHost *:80>
     ServerName ${DOMAIN}
     ServerAlias www.${DOMAIN}
@@ -828,7 +931,8 @@ PROBE_FILE="${DOC_ROOT}/${PROBE_NAME}"
 printf '%s\n' "$TOKEN" > "$PROBE_FILE"
 chmod 0644 "$PROBE_FILE"
 
-log "Verifying: GET http://127.0.0.1/${PROBE_NAME}  (Host: ${DOMAIN})"
+if detect_https_redirect; then PROBE_SCHEME=https; fi
+log "Verifying: GET ${PROBE_SCHEME}://${DOMAIN}/${PROBE_NAME}  (via 127.0.0.1)"
 code="000"
 for (( i = 1; i <= VERIFY_RETRIES; i++ )); do
     code="$(http_get "/${PROBE_NAME}")"
@@ -872,7 +976,7 @@ else
     if hosts_has_domain /etc/hosts; then
         ok "/etc/hosts already has an entry for ${DOMAIN}."
     else
-        printf '\n# Added by setup-apache.sh\n%s\n' "$HOSTS_LINE" >> /etc/hosts
+        printf '\n# Added by setup-site.sh\n%s\n' "$HOSTS_LINE" >> /etc/hosts
         ok "Added '${HOSTS_LINE}' to /etc/hosts."
     fi
     if (( IS_WSL )) && [[ -e "$WIN_HOSTS" ]]; then
@@ -880,7 +984,7 @@ else
         # the Windows browser only reads the Windows one.
         if hosts_has_domain "$WIN_HOSTS"; then
             ok "Windows hosts file already has an entry for ${DOMAIN}."
-        elif printf '\r\n# Added by setup-apache.sh (WSL)\r\n%s\r\n' "$HOSTS_LINE" >> "$WIN_HOSTS" 2>/dev/null \
+        elif printf '\r\n# Added by setup-site.sh (WSL)\r\n%s\r\n' "$HOSTS_LINE" >> "$WIN_HOSTS" 2>/dev/null \
                 && hosts_has_domain "$WIN_HOSTS"; then
             ok "Added '${HOSTS_LINE}' to the Windows hosts file."
         else
@@ -915,7 +1019,7 @@ cat <<EOF
   Database    : ${DB_NAME}  (user ${DB_USER}@localhost$( (( DB_PASS_GENERATED )) && echo ", generated password in .env"))
   VirtualHost : ${VHOST_FILE}
   Logs        : /var/log/apache2/${DOMAIN}_{access,error}.log
-  Re-check    : sudo ./verify-env.sh
+  Re-check    : cd ${APP_ROOT} && sudo verify-env
 
 Next steps:
 EOF
@@ -928,9 +1032,22 @@ if (( IS_WSL )); then
         echo "    or enable systemd: add  [boot] systemd=true  to /etc/wsl.conf, then  wsl --shutdown"
     fi
 else
-    echo "  * Point DNS A/AAAA records for ${DOMAIN} and www.${DOMAIN} at this server."
-    echo "  * Add HTTPS:  apt-get install -y certbot python3-certbot-apache"
-    echo "                certbot --apache --redirect -m ${STORE_EMAIL:-webmaster@${DOMAIN}} -d ${DOMAIN} -d www.${DOMAIN}"
+    # Only list what is still to do: DNS records that don't point here yet, and HTTPS if not enabled.
+    is_local_ip() { [[ -n "$1" ]] && { [[ "$1" == 127.* || "$1" == "::1" ]] || grep -qwF -- "$1" <<<"$(hostname -I 2>/dev/null)"; }; }
+    dns_todo=(); cert_domains=(-d "$DOMAIN")
+    ip_main="$(getent hosts "$DOMAIN" | awk '{print $1; exit}')" || true
+    ip_www="$(getent hosts "www.${DOMAIN}" | awk '{print $1; exit}')" || true
+    is_local_ip "$ip_main" || dns_todo+=("$DOMAIN")
+    if is_local_ip "$ip_www"; then cert_domains+=(-d "www.${DOMAIN}"); else dns_todo+=("www.${DOMAIN}  (optional)"); fi
+    if (( ${#dns_todo[@]} )); then
+        echo "  * Point DNS A/AAAA records at this server for: ${dns_todo[*]}"
+    fi
+    if [[ "$PROBE_SCHEME" == https ]] || compgen -G "${SITES_AVAILABLE}/${DOMAIN}-le-ssl.conf" >/dev/null; then
+        echo "  * HTTPS is already enabled for ${DOMAIN}."
+    else
+        echo "  * Add HTTPS:  apt-get install -y certbot python3-certbot-apache"
+        echo "                certbot --apache --redirect -m ${STORE_EMAIL:-webmaster@${DOMAIN}} ${cert_domains[*]}"
+    fi
     echo "  * Payment webhooks (only for the methods you enable in .env):"
     echo "      Stripe : ${APP_URL:-https://${DOMAIN}}/payment/stripe"
     echo "      Revolut: ${APP_URL:-https://${DOMAIN}}/payment/revolut"

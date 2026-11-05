@@ -1,0 +1,19 @@
+{
+    "name": "Sakura",
+    "description": "Cherry-blossom pinks with fresh leaf green and serif headings.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#fffafb",
+            "#fde6ec"
+        ],
+        "text": "#4a2630",
+        "accent": "#e98aa4",
+        "accent2": "#7aa874",
+        "surface": "#fffafb",
+        "font": "serif-italic",
+        "motif": "petals",
+        "text_width": 500
+    }
+}

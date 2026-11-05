@@ -82,6 +82,17 @@
         </form>
 
         {# data-no-ajax: deleting the account signs you out (new header and form token). #}
+        <form method="post" action="{{ path('account.profile.submit') }}" class="panel account-form" data-no-ajax>
+            {{ csrf_field() }}
+            <input type="hidden" name="action" value="export">
+            <h2>{{ 'Download my data'|trans }}</h2>
+            {{ form_error(errors, 'export') }}
+            <p class="field-hint">{{ 'Get a copy of the personal data we hold about you (profile, addresses, orders and more) as a JSON file.'|trans }}</p>
+            <label for="profile-export-password">{{ 'Current password'|trans }}</label>
+            <input type="password" id="profile-export-password" name="current_password" required autocomplete="current-password">
+            <button type="submit" class="btn-secondary">{{ 'Download my data'|trans }}</button>
+        </form>
+
         <form method="post" action="{{ path('account.profile.submit') }}" class="panel account-form account-danger" data-no-ajax>
             {{ csrf_field() }}
             <input type="hidden" name="action" value="delete">

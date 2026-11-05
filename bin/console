@@ -11,8 +11,19 @@ if (PHP_SAPI !== 'cli') {
     exit(1);
 }
 
-$root = dirname(__DIR__);
-require $root . '/vendor/autoload.php';
+$core = dirname(__DIR__);
+require $core . '/vendor/autoload.php';
+
+// Which store to run for. Stores share this core (their core/ link points here) but each has its own
+// .env, database and var/, so a command must be told which one: STORE_ROOT=/var/www/stores/shop,
+// or run it from inside the store's folder (the one holding .env and the core/ link). With neither,
+// the core itself is the store (single-store installs).
+$root = $core;
+$requested = getenv('STORE_ROOT') ?: getcwd();
+if (is_string($requested) && $requested !== '' && realpath($requested) !== $core
+    && is_file($requested . '/.env') && is_dir($requested . '/core/src') && realpath($requested . '/core') === $core) {
+    $root = realpath($requested);
+}
 
 $kernel = Kernel::boot($root);
 
@@ -27,8 +38,12 @@ exit((new Application($kernel->container(), [
     Command\HashPasswordCommand::class,
     Command\ImportProductsCommand::class,
     Command\MigrateDatabaseCommand::class,
+    Command\ProcessMailQueueCommand::class,
+    Command\NotifyStockCommand::class,
     Command\PruneCommand::class,
     Command\RegenerateImagesCommand::class,
+    Command\RemindCartsCommand::class,
     Command\ReimportDatabaseCommand::class,
+    Command\UpdateCurrencyRatesCommand::class,
     Command\RestoreDatabaseCommand::class,
 ]))->run($_SERVER['argv'] ?? []));

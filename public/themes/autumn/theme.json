@@ -1,0 +1,19 @@
+{
+    "name": "Autumn",
+    "description": "Fallen-leaf oranges, russet and olive on warm parchment.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#fdf5ea",
+            "#f3dfc6"
+        ],
+        "text": "#3b2314",
+        "accent": "#c4561a",
+        "accent2": "#7a8b2f",
+        "surface": "#fdf5ea",
+        "font": "serif-italic",
+        "motif": "falling-leaves",
+        "effect": "none"
+    }
+}

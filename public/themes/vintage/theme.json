@@ -1,0 +1,21 @@
+{
+    "name": "Vintage",
+    "description": "Aged paper, oxblood red and peacock teal with letterpress shadows.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#f8f0dc",
+            "#e8dabb"
+        ],
+        "text": "#3a2f1c",
+        "accent": "#a63d2f",
+        "accent2": "#2f5d62",
+        "surface": "#f8f0dc",
+        "font": "serif-bold",
+        "motif": "frame",
+        "effect": "letterpress",
+        "uppercase": true,
+        "text_width": 500
+    }
+}

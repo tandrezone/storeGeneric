@@ -1,0 +1,20 @@
+{
+    "name": "Desert",
+    "description": "Sun-baked sand, terracotta and a cool oasis teal.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#fdf6e8",
+            "#f3e0bf"
+        ],
+        "text": "#3d2a14",
+        "accent": "#c0602a",
+        "accent2": "#4e7d79",
+        "surface": "#fdf6e8",
+        "font": "sans",
+        "motif": "dunes",
+        "uppercase": true,
+        "text_y": 290
+    }
+}

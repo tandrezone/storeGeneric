@@ -99,6 +99,9 @@ final class TaxAndCouponTest extends TestCase
             $coupons,
             $this->calculator(['tax_enabled' => '0']),
             $this->translator(),
+            new \App\Service\GiftCardService(new \App\Repository\GiftCardRepository($db), new OrderRepository($db), $this->store([]), $this->translator()),
+            new \App\Service\VatIdService($db, new \App\Infrastructure\HttpClient(), $this->settings([]), new TaxSettings($this->settings([]), $this->translator()), $this->translator()),
+            new \App\Support\FileCache(new Paths(sys_get_temp_dir()), Config::fromArray(['CACHE_ENABLED' => 'false'])),
         );
         $method = ['cost' => '6.00', 'free_over' => '50.00'];
 
@@ -118,6 +121,31 @@ final class TaxAndCouponTest extends TestCase
     private function translator(): \App\I18n\Translator
     {
         return new \App\I18n\Translator(dirname(__DIR__, 3) . '/translations');
+    }
+
+    public function testReverseChargeRemovesVatFromInclusivePrices(): void
+    {
+        $calc = $this->calculator(['tax_enabled' => '1', 'tax_rate' => '23', 'tax_prices_include' => '1', 'tax_shipping' => '1']);
+        $normal = $calc->totals([123.0], 0.0, 12.3, 0.0, 'Spain');
+        $this->assertSame(135.3, $normal['total']);
+        $reverse = $calc->totals([123.0], 0.0, 12.3, 0.0, 'Spain', true);
+        $this->assertSame(110.0, $reverse['total'], '(123 + 12.30) / 1.23');
+        $this->assertSame(0.0, $reverse['tax_amount']);
+        $this->assertSame(0.0, $reverse['tax_rate']);
+        $this->assertSame([0.0], $reverse['item_taxes']);
+    }
+
+    public function testReverseChargeWhenVatIsAddedOnTopJustDropsTheVat(): void
+    {
+        $calc = $this->calculator(['tax_enabled' => '1', 'tax_rate' => '20', 'tax_prices_include' => '0', 'tax_shipping' => '1']);
+        $this->assertSame(120.0, $calc->totals([100.0], 0.0, 0.0, 0.0, 'FR')['total']);
+        $this->assertSame(100.0, $calc->totals([100.0], 0.0, 0.0, 0.0, 'FR', true)['total']);
+    }
+
+    public function testReverseChargeWithADiscount(): void
+    {
+        $calc = $this->calculator(['tax_enabled' => '1', 'tax_rate' => '25', 'tax_prices_include' => '1', 'tax_shipping' => '0']);
+        $this->assertSame(80.0, $calc->totals([125.0], 25.0, 0.0, 0.0, 'SE', true)['total'], '(125 − 25) / 1.25');
     }
 
     /** @param array<string, string> $settings */

@@ -1,0 +1,23 @@
+{
+    "name": "Terminal",
+    "description": "Phosphor green on black, monospace everything.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#0a1f12",
+            "#05110a"
+        ],
+        "text": "#b9ffd0",
+        "accent": "#39ff88",
+        "accent2": "#ffd166",
+        "surface": "#0a1f12",
+        "font": "mono",
+        "motif": "scanlines",
+        "effect": "glow",
+        "prefix": "> ",
+        "suffix": "_",
+        "text_width": 600,
+        "text_y": 315
+    }
+}

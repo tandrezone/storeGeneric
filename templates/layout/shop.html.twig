@@ -7,6 +7,7 @@
   customer_name (signed-in customer, else '') drives the header's Account / Sign in link.
   lang / languages (language switcher links) / alternates (hreflang links to
   the page in every language) follow the active language (?lang=, see LocaleMiddleware).
+  The footer part also gets footer_pages: [{title, url}], the pages that want a footer link (Admin → Pages).
   i18n.js carries the strings scripts need (translations/js-keys.php).
 #}
 {% set current_customer = customer() %}
@@ -31,6 +32,10 @@
     search_query: search|default(''),
     customer_name: current_customer ? current_customer.name : '',
 }) }}
-<script src="/assets/js/i18n.js" data-i18n="{{ i18n_js() }}" data-locale="{{ html_lang() }}"></script>
+<link rel="stylesheet" href="/assets/css/extras.css">
+<script src="{{ js('i18n.js') }}" data-i18n="{{ i18n_js() }}" data-locale="{{ html_lang() }}"></script>
 {% block content %}{% endblock %}
-{{ theme_part('footer') }}
+{% include 'shop/partials/currency-switcher.html.twig' %}
+{% if store.newsletter %}{% include 'shop/partials/newsletter.html.twig' %}{% endif %}
+{% if store.cookie_notice %}{% include 'shop/partials/cookie-notice.html.twig' %}{% endif %}
+{{ theme_part('footer', {footer_pages: footer_pages()}) }}

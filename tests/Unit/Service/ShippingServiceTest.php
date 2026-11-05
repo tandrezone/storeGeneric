@@ -67,4 +67,41 @@ final class ShippingServiceTest extends TestCase
         [, $errors] = $this->shipping->validate(['name' => '', 'cost' => '-1', 'free_over' => 'abc']);
         $this->assertCount(3, $errors);
     }
+
+    public function testPerKgSurchargeAddsToTheFlatCost(): void
+    {
+        $method = ['cost' => '4.00', 'cost_per_kg' => '2.50', 'free_over' => null];
+        $this->assertSame(4.0, $this->shipping->priceFor($method, 10.0), 'no weight, no surcharge');
+        $this->assertSame(6.5, $this->shipping->priceFor($method, 10.0, 1000));
+        $this->assertSame(5.25, $this->shipping->priceFor($method, 10.0, 500));
+        $this->assertSame(0.0, $this->shipping->priceFor(array_replace($method, ['free_over' => '5']), 10.0, 3000), 'free over wins');
+    }
+
+    public function testWeightLimits(): void
+    {
+        $method = ['min_weight_grams' => 500, 'max_weight_grams' => 2000];
+        $this->assertFalse($this->shipping->servesWeight($method, 499));
+        $this->assertTrue($this->shipping->servesWeight($method, 500));
+        $this->assertTrue($this->shipping->servesWeight($method, 2000));
+        $this->assertFalse($this->shipping->servesWeight($method, 2001));
+        $this->assertTrue($this->shipping->servesWeight(['min_weight_grams' => null, 'max_weight_grams' => null], 99999));
+        $this->assertTrue($this->shipping->servesWeight([], 5));
+    }
+
+    public function testValidateWeightFields(): void
+    {
+        [$data, $errors] = $this->shipping->validate(['name' => 'Heavy', 'cost' => '5', 'cost_per_kg' => '1,5', 'min_weight_grams' => '1000', 'max_weight_grams' => '30000']);
+        $this->assertSame([], $errors);
+        $this->assertSame(1.5, $data['cost_per_kg']);
+        $this->assertSame(1000, $data['min_weight_grams']);
+        $this->assertSame(30000, $data['max_weight_grams']);
+
+        [, $errors] = $this->shipping->validate(['name' => 'X', 'cost' => '5', 'min_weight_grams' => '3000', 'max_weight_grams' => '1000']);
+        $this->assertCount(1, $errors);
+        [, $errors] = $this->shipping->validate(['name' => 'X', 'cost' => '5', 'min_weight_grams' => 'abc']);
+        $this->assertCount(1, $errors);
+        [$data] = $this->shipping->validate(['name' => 'X', 'cost' => '5']);
+        $this->assertNull($data['min_weight_grams']);
+        $this->assertSame(0.0, $data['cost_per_kg']);
+    }
 }

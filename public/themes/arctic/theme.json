@@ -1,0 +1,19 @@
+{
+    "name": "Arctic",
+    "description": "Crisp glacier whites and icy blues. Clean, flat and calm.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#ffffff",
+            "#e3eef6"
+        ],
+        "text": "#16283a",
+        "accent": "#3a86c8",
+        "accent2": "#4cb8cc",
+        "surface": "#ffffff",
+        "font": "sans",
+        "motif": "peaks",
+        "text_y": 230
+    }
+}

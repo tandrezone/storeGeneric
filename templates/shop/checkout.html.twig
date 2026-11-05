@@ -88,6 +88,14 @@
                 </div>
             </div>
 
+            {% if vat.enabled %}
+                <div>
+                    <label for="vat_id">{{ 'VAT number (EU businesses, optional)'|trans }}</label>
+                    <input type="text" id="vat_id" name="vat_id" value="{{ form.vat_id }}" maxlength="30" autocomplete="off" spellcheck="false" placeholder="PT123456789">
+                    <p class="field-hint" id="vat-note" role="status">{% if vat.error %}<span class="form-error">{{ vat.error }}</span>{% elseif vat.message %}{{ vat.message }}{% endif %}</p>
+                </div>
+            {% endif %}
+
             {% if account %}
                 <input type="hidden" name="address_id" value="{{ form.address_id }}">
                 <label class="inline-check"><input type="checkbox" name="save_address" value="1" {{ form.save_address ? 'checked' }}> {{ 'Save this address to my account'|trans }}</label>
@@ -151,6 +159,13 @@
                 <span>{% if summary.coupon_code %}{{ 'Discount ({code})'|trans({code: summary.coupon_code}) }}{% else %}{{ 'Discount'|trans }}{% endif %}</span>
                 <span id="checkout-discount">−{{ summary.discount|money }}</span>
             </p>
+            <p class="order-discount" id="checkout-gift-row" {{ summary.gift_card_amount > 0 ? '' : 'hidden' }}>
+                <span>{% if summary.gift_card_code %}{{ 'Gift card ({code})'|trans({code: summary.gift_card_code}) }}{% else %}{{ 'Gift card'|trans }}{% endif %}</span>
+                <span id="checkout-gift">−{{ summary.gift_card_amount|money }}</span>
+            </p>
+            <p class="order-discount" id="checkout-reverse-row" {{ vat.reverse_charge ? '' : 'hidden' }}>
+                <span>{{ 'VAT reverse charge (no VAT)'|trans }}</span><span>✓</span>
+            </p>
             <p class="order-tax" id="checkout-tax-row" {{ summary.tax_label and not summary.prices_include_tax ? '' : 'hidden' }}>
                 <span data-tax-label>{{ summary.tax_label }}</span><span id="checkout-tax">{{ summary.tax_amount|money }}</span>
             </p>
@@ -172,9 +187,21 @@
                     </div>
                 {% endif %}
             </div>
+            <div class="coupon-box gift-box">
+                {% if summary.gift_card_code %}
+                    <p>{{ 'Gift card'|trans }} <strong>{{ summary.gift_card_code }}</strong></p>
+                    <button type="submit" form="checkout-form" name="gift_action" value="remove" class="btn-secondary" formnovalidate>{{ 'Remove gift card'|trans }}</button>
+                {% else %}
+                    <label for="gift_code">{{ 'Gift card'|trans }}</label>
+                    <div class="coupon-row">
+                        <input type="text" id="gift_code" name="gift_code" form="checkout-form" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="GC-XXXX-XXXX-XXXX">
+                        <button type="submit" form="checkout-form" name="gift_action" value="apply" class="btn-secondary" formnovalidate data-gift-apply>{{ 'Apply'|trans }}</button>
+                    </div>
+                {% endif %}
+            </div>
             <p class="payment-note">{{ 'Online payments open on the provider\'s secure page; for bank transfer or cash on delivery you\'ll get instructions after placing the order.'|trans }}</p>
         </aside>
     </div>
 </section>
-<script src="/assets/js/checkout.js"></script>
+<script src="{{ js('checkout.js') }}"></script>
 {% endblock %}

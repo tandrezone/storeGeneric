@@ -54,15 +54,15 @@ return [
 
     RouteCollection::class => static function (Paths $paths): RouteCollection {
         $routes = new RouteCollection();
-        (require $paths->root . '/config/routes.php')($routes);
+        (require $paths->locate('config/routes.php'))($routes);
 
         return $routes;
     },
     Router::class => autowire(),
 
     // Catalogs in translations/<locale>.php; js-keys.php lists the strings scripts need.
-    Translator::class => autowire()->constructorParameter('directory', static fn (Paths $p) => $p->root . '/translations'),
-    TranslationExtension::class => autowire()->constructorParameter('jsKeysFile', static fn (Paths $p) => $p->root . '/translations/js-keys.php'),
+    Translator::class => autowire()->constructorParameter('directory', static fn (Paths $p) => $p->locate('translations')),
+    TranslationExtension::class => autowire()->constructorParameter('jsKeysFile', static fn (Paths $p) => $p->locate('translations/js-keys.php')),
 
     Theme::class => autowire()->constructorParameter('cacheDir', static fn (Paths $p) => $p->var('cache/twig/theme')),
     View::class => autowire()

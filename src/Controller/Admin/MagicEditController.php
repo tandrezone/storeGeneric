@@ -7,17 +7,23 @@ namespace App\Controller\Admin;
 use App\Http\Responder;
 use App\I18n\Translator;
 use App\Infrastructure\GeminiClient;
+use App\Controller\Admin\ProductController;
 use App\Repository\ProductRepository;
 use App\Security\HtmlSanitizer;
 use App\Service\PromptLibrary;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use PDOException;
 use Throwable;
 
 /**
  * "Magic edit" (admin products page): sends a product plus a plain-language
- * instruction to Gemini and returns the suggested fields. Nothing is saved —
- * the admin reviews the suggestion and applies what they want.
+ * instruction to Gemini and returns the suggested fields. suggest() saves
+ * nothing — the admin reviews the suggestion and applies what they want.
+ *
+ * "Magic edit all products" runs suggest() for every id from productIds()
+ * (in the browser, a few at a time), shows the changes for review, then
+ * saves each kept product with apply().
  */
 final class MagicEditController
 {
@@ -77,7 +83,87 @@ final class MagicEditController
             return $this->responder->json(['success' => false, 'error' => $e->getMessage()], 502);
         }
 
-        return $this->responder->json(['success' => true, 'suggestion' => $suggestion, 'fields' => $this->parseFields($suggestion)]);
+        return $this->responder->json([
+            'success'    => true,
+            'suggestion' => $suggestion,
+            'fields'     => $this->parseFields($suggestion),
+            'current'    => [
+                'name'              => (string) $product['name'],
+                'short_description' => (string) $product['short_description'],
+                'long_description'  => (string) $product['long_description'],
+            ],
+        ]);
+    }
+
+    /** Every product id, so the browser can run the magic edit over the whole catalog. */
+    public function productIds(ServerRequestInterface $request): ResponseInterface
+    {
+        return $this->responder->json(['success' => true, 'ids' => $this->products->allIds()]);
+    }
+
+    /**
+     * Saves reviewed magic-edit fields (any of name, short_description,
+     * long_description) on one product, with the same limits as the edit form.
+     */
+    public function apply(ServerRequestInterface $request): ResponseInterface
+    {
+        $body = (array) $request->getParsedBody();
+        $productId = (int) ($body['product_id'] ?? 0);
+        if ($productId <= 0 || $this->products->findForAdmin($productId) === null) {
+            return $this->responder->json(['success' => false, 'error' => $this->translator->trans('Product not found.')], 404);
+        }
+
+        $fields = [];
+        foreach (['name', 'short_description'] as $key) {
+            if (isset($body[$key]) && is_string($body[$key])) {
+                $fields[$key] = trim($body[$key]);
+            }
+        }
+        if (isset($body['long_description']) && is_string($body['long_description'])) {
+            $fields['long_description'] = $this->sanitizer->clean($body['long_description']);
+        }
+
+        $error = $this->validate($fields);
+        if ($error !== null) {
+            return $this->responder->json(['success' => false, 'error' => $error], 422);
+        }
+
+        try {
+            $this->products->update($productId, $fields);
+        } catch (PDOException) {
+            return $this->responder->json(['success' => false, 'error' => $this->translator->trans('Could not save the product because of a database error. Please try again.')], 500);
+        }
+
+        return $this->responder->json(['success' => true]);
+    }
+
+    /** @param array<string, string> $fields */
+    private function validate(array $fields): ?string
+    {
+        if ($fields === []) {
+            return $this->translator->trans('Nothing to save.');
+        }
+        if (isset($fields['name'])) {
+            if ($fields['name'] === '') {
+                return $this->translator->trans('Name is required.');
+            }
+            if (mb_strlen($fields['name']) > ProductController::MAX_NAME) {
+                return $this->translator->trans('Name can be at most {max} characters.', ['max' => ProductController::MAX_NAME]);
+            }
+        }
+        if (isset($fields['short_description'])) {
+            if ($fields['short_description'] === '') {
+                return $this->translator->trans('Short description is required.');
+            }
+            if (mb_strlen($fields['short_description']) > ProductController::MAX_SHORT_DESCRIPTION) {
+                return $this->translator->trans('Short description can be at most {max} characters.', ['max' => ProductController::MAX_SHORT_DESCRIPTION]);
+            }
+        }
+        if (isset($fields['long_description']) && strlen($fields['long_description']) > ProductController::MAX_LONG_DESCRIPTION_BYTES) {
+            return $this->translator->trans('Long description is too long.');
+        }
+
+        return null;
     }
 
     /**

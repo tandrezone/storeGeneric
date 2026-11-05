@@ -25,6 +25,8 @@ final class SeoController
         private readonly SiteUrl $siteUrl,
         private readonly ProductRepository $products,
         private readonly CategoryRepository $categories,
+        private readonly \App\Repository\PageRepository $pages,
+        private readonly \App\Support\FileCache $cache,
     ) {
     }
 
@@ -46,6 +48,16 @@ final class SeoController
 
     public function sitemap(ServerRequestInterface $request): ResponseInterface
     {
+        // The same for everyone and the heaviest page of the site (every product): build it once an hour.
+        $xml = $this->cache->remember('sitemap', 3600, fn (): string => $this->buildSitemap());
+
+        return $this->responder->text($xml)
+            ->withHeader('Content-Type', 'application/xml; charset=utf-8')
+            ->withHeader('Cache-Control', 'public, max-age=3600');
+    }
+
+    private function buildSitemap(): string
+    {
         $urls = [['loc' => $this->router->url('home'), 'lastmod' => null]];
         foreach ($this->categories->findAll() as $category) {
             $urls[] = ['loc' => $this->router->url('home', [], ['category' => (string) $category['slug']]), 'lastmod' => null];
@@ -62,6 +74,13 @@ final class SeoController
         foreach (self::PAGES as $route) {
             $urls[] = ['loc' => $this->router->url($route), 'lastmod' => null];
         }
+        try {
+            foreach ($this->pages->publishedCustom() as $page) {
+                $urls[] = ['loc' => $this->router->url('page.custom', ['slug' => (string) $page['slug']]), 'lastmod' => date('Y-m-d', (int) strtotime((string) $page['updated_at']))];
+            }
+        } catch (\PDOException) {
+            // store not migrated yet
+        }
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
             . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
@@ -72,6 +91,6 @@ final class SeoController
         }
         $xml .= "</urlset>\n";
 
-        return $this->responder->text($xml)->withHeader('Content-Type', 'application/xml; charset=utf-8');
+        return $xml;
     }
 }

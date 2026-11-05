@@ -1,0 +1,125 @@
+/* Theme: Synthwave — dark violet glass with neon orange, purple and lime glow.
+   Builds on the default theme; only the differences live here. */
+@import url('../../../default/assets/css/style.css');
+
+:root {
+    --color-bg: #0d0221;
+    --color-surface: #1a0a3a;
+    --color-surface-hover: #241050;
+    --color-border: #3f1f52;
+    --color-border-strong: #5b2a6e;
+    --color-border-violet: rgba(177, 75, 255, 0.45);
+    --color-text: #efeafd;
+    --color-muted: #b9abdc;
+    --color-accent: #ff8a1e;
+    --color-accent-soft: rgba(255, 138, 30, 0.12);
+    --color-accent-2: #c77dff;
+    --color-accent-2-soft: rgba(177, 75, 255, 0.14);
+    --color-danger: #ff5d73;
+    --color-danger-soft: rgba(255, 93, 115, 0.12);
+    --color-danger-border: rgba(255, 93, 115, 0.45);
+    --color-on-accent: #1a0a00;
+    --color-success: #7dff4d;
+    --chart-teal: #ff8a1e;
+    --chart-violet: #b14bff;
+    --chart-funnel-1: #ff9a3c;
+    --chart-funnel-2: #e0701a;
+    --chart-funnel-3: #a8500f;
+    --radius: 14px;
+    --radius-sm: 10px;
+    --font-display: "Spline Sans", "Inter", var(--font-body);
+    --brand-gradient: linear-gradient(135deg, #ff8a1e, #b14bff);
+    --glow-orange: 0 0 22px rgba(255, 138, 30, 0.4);
+    --glow-purple: 0 0 24px rgba(177, 75, 255, 0.4);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+body {
+    background-color: var(--color-bg);
+    background-image:
+        radial-gradient(1000px 520px at 10% -10%, rgba(255, 138, 30, 0.11), transparent 60%),
+        radial-gradient(900px 600px at 105% 5%, rgba(177, 75, 255, 0.12), transparent 55%),
+        radial-gradient(700px 400px at 50% 110%, rgba(125, 255, 77, 0.05), transparent 60%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+}
+
+h1, h2, h3, .logo, .stat-value { font-family: var(--font-display); letter-spacing: -0.01em; }
+
+.site-header { background: rgba(13, 2, 33, 0.78); backdrop-filter: blur(14px); border-bottom: 1px solid var(--color-border); }
+.logo { font-weight: 800; }
+.logo-text {
+    background: var(--brand-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+.main-nav a { color: var(--color-muted); }
+.main-nav a:hover { color: var(--color-accent); }
+.cart-count { background: var(--color-accent-2); color: #fff; box-shadow: var(--glow-purple); }
+
+.shop-hero {
+    position: relative;
+    overflow: hidden;
+    background:
+        radial-gradient(420px 240px at 90% 100%, rgba(177, 75, 255, 0.35), transparent 70%),
+        radial-gradient(480px 260px at 0% 0%, rgba(255, 138, 30, 0.22), transparent 70%),
+        rgba(26, 10, 58, 0.55);
+    border: 1px solid var(--color-border-strong);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-md);
+    min-height: 230px;
+    justify-content: space-between;
+}
+.shop-hero-inner { position: relative; z-index: 1; }
+.shop-hero h1 {
+    font-size: 2.6rem;
+    font-weight: 800;
+    background: var(--brand-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+.shop-hero p { color: var(--color-muted); }
+.hero-eyebrow { color: #7dff4d; letter-spacing: 0.16em; text-transform: uppercase; }
+.hero-orb {
+    flex: 0 0 auto;
+    width: 200px;
+    height: 200px;
+    margin: 16px 36px 16px 0;
+    align-self: center;
+    filter: drop-shadow(0 0 26px rgba(255, 138, 30, 0.45));
+    animation: orb-float 7s ease-in-out infinite;
+}
+@keyframes orb-float { 0%, 100% { transform: translateY(-4px); } 50% { transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .hero-orb { animation: none; } }
+@media (max-width: 720px) { .hero-orb { display: none; } .shop-hero h1 { font-size: 1.9rem; } }
+
+.filter-pill { background: transparent; border-color: var(--color-border-strong); color: var(--color-muted); }
+.filter-pill:hover { border-color: var(--color-accent); color: var(--color-text); }
+.filter-pill.active { background: var(--brand-gradient); border-color: transparent; color: #fff; box-shadow: var(--glow-orange); }
+
+.product-card { background: rgba(26, 10, 58, 0.7); border-color: var(--color-border); backdrop-filter: blur(8px); transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; }
+.product-card:hover { transform: translateY(-3px); border-color: var(--color-accent); box-shadow: var(--glow-orange), var(--shadow-md); }
+.product-card-image img, .image-placeholder { background: #120630; }
+.category-badge { background: var(--color-accent-2-soft); color: var(--color-accent-2); }
+.price { color: var(--color-accent); font-weight: 700; }
+
+.btn-primary { background: var(--brand-gradient); border: 0; color: #fff; font-weight: 700; box-shadow: var(--glow-orange); }
+.btn-primary:hover { background: linear-gradient(135deg, #ff9a3c, #c77dff); }
+.btn-secondary { background: transparent; border-color: var(--color-border-strong); color: var(--color-text); }
+.btn-secondary:hover { border-color: var(--color-accent-2); }
+form input, form select, form textarea, .wysiwyg { background: #120630; color: var(--color-text); border-color: var(--color-border-strong); }
+form input:focus, form select:focus, form textarea:focus { border-color: var(--color-accent); box-shadow: var(--glow-orange); outline: none; }
+
+.gallery-nav { background: rgba(13, 2, 33, 0.8); color: var(--color-text); }
+.gallery-nav:hover { background: var(--color-surface-hover); }
+.msg { background: var(--color-accent-soft); border-color: rgba(255, 138, 30, 0.35); }
+.status-badge[data-status="approved"], .status-badge[data-status="paid"], .status-badge[data-status="completed"] {
+    color: #7dff4d; background: rgba(125, 255, 77, 0.08); border-color: rgba(125, 255, 77, 0.35);
+}
+.order-summary { border-top: 3px solid var(--color-accent); }
+
+.site-footer { background: rgba(6, 1, 15, 0.85); border-top: 1px solid var(--color-border-strong); color: var(--color-muted); }
+.footer-nav a:hover { color: var(--color-accent); }

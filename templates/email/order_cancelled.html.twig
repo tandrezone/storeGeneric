@@ -8,5 +8,6 @@
     <p>{{ 'Your order {number} has been cancelled. Nothing was charged for it.'|trans({number: '<strong>' ~ order.order_number|e ~ '</strong>'})|raw }}</p>
 {% endif %}
 {{ include('email/_items.html.twig') }}
+{% if has_document|default(false) %}<p>{{ 'Your credit note is attached as a PDF.'|trans }}</p>{% endif %}
 <p>{{ 'If you have any questions, just reply to this email.'|trans }}</p>
 {% endblock %}

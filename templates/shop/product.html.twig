@@ -5,6 +5,7 @@
 {% set in_stock = for_sale|filter(v => v.stock > 0) %}
 {% set total_stock = in_stock|reduce((sum, v) => sum + v.stock, 0) %}
 {% set lowest_price = for_sale is empty ? null : min(for_sale|map(v => v.price + 0)) %}
+{% set sale_variants = for_sale|filter(v => v.price < v.regular_price) %}
 {% set meta_description = (product.short_description ?: product.long_description|striptags)|slice(0, 155) %}
 {% set canonical = absolute_url(product_url(product)) %}
 {% set og_type = 'product' %}
@@ -35,6 +36,19 @@
     url: canonical,
     brand: {'@type': 'Brand', name: store.name},
     offers: offers,
+    aggregateRating: reviews.summary.count > 0 ? {
+        '@type': 'AggregateRating',
+        ratingValue: reviews.summary.average|number_format(1, '.', ''),
+        reviewCount: reviews.summary.count,
+    } : null,
+    review: reviews.list|slice(0, 5)|map(r => {
+        '@type': 'Review',
+        author: {'@type': 'Person', name: r.author ?: 'Anonymous'},
+        datePublished: r.created_at|slice(0, 10),
+        name: r.title,
+        reviewBody: r.body,
+        reviewRating: {'@type': 'Rating', ratingValue: r.rating, bestRating: 5},
+    }),
 }) }}
 
 <section class="product-detail">
@@ -70,7 +84,13 @@
 
     <div class="product-detail-info">
         <span class="category-badge"><a href="{{ path('home', {}, {category: product.category_slug}) }}">{{ product.category_name }}</a></span>
-        <h1>{{ product.name }}</h1>
+        <h1>{{ product.name }}{% if sale_variants is not empty %} <span class="sale-badge">{{ 'Sale'|trans }}</span>{% endif %}</h1>
+        {% if reviews.summary.count > 0 %}
+            <p class="rating-summary">
+                <span class="stars" role="img" aria-label="{{ '{rating} out of 5 stars'|trans({rating: reviews.summary.average}) }}"><span style="width: {{ reviews.summary.average * 20 }}%"></span></span>
+                <a href="#reviews">{{ '{rating} ({count} reviews)'|trans({rating: reviews.summary.average|local_number(1), count: reviews.summary.count}) }}</a>
+            </p>
+        {% endif %}
         <p class="short-desc">{{ product.short_description }}</p>
 
         {% if in_stock is empty %}
@@ -81,6 +101,11 @@
             <p class="stock-status is-in">{{ 'In stock'|trans }}</p>
         {% endif %}
 
+        {% if sale_variants is not empty %}
+            {% set ends = sale_variants|filter(v => v.sale_ends_at)|map(v => v.sale_ends_at)|sort|first %}
+            {% if ends %}<p class="sale-ends">{{ 'Sale ends {date}'|trans({date: ends|slice(0, 16)}) }}</p>{% endif %}
+        {% endif %}
+
         <form id="add-to-cart-form" data-no-ajax data-product-id="{{ product.id }}">
             <label for="variant-select">{{ 'Choose an option'|trans }}</label>
             {% set first_available = in_stock is empty ? null : (in_stock|first).id %}
@@ -88,7 +113,7 @@
                 {% for variant in variants %}
                     <option value="{{ variant.id }}" data-price="{{ variant.price }}"
                             {{ variant.stock <= 0 ? 'disabled' }} {{ variant.id == first_available ? 'selected' }}>
-                        {{ (variant.label ~ ' ' ~ variant.unit)|trim }}{{ variant.price > 0 ? ' — ' ~ variant.price|money }}
+                        {{ (variant.label ~ ' ' ~ variant.unit)|trim }}{{ variant.price > 0 ? ' — ' ~ variant.price|money ~ (approx_price(variant.price) ? ' (' ~ approx_price(variant.price) ~ ')') }}{{ variant.price > 0 and variant.price < variant.regular_price ? ' (' ~ 'was {price}'|trans({price: variant.regular_price|money}) ~ ')' }}
                         {% if variant.stock <= 0 %}({{ 'out of stock'|trans }}){% elseif variant.stock <= low_stock_threshold %}({{ 'only {count} left'|trans_plural(variant.stock) }}){% endif %}
                     </option>
                 {% endfor %}
@@ -102,12 +127,33 @@
             <p id="add-to-cart-message" class="form-message" role="status" aria-live="polite"></p>
         </form>
 
+        <div class="product-actions">
+            <form method="post" action="{{ path('account.wishlist.submit') }}" data-no-ajax style="display:inline">
+                {{ csrf_field() }}
+                <input type="hidden" name="product_id" value="{{ product.id }}">
+                <input type="hidden" name="back" value="{{ current_path }}">
+                <button type="submit" class="wishlist-btn" aria-pressed="{{ in_wishlist ? 'true' : 'false' }}">{{ in_wishlist ? '♥ ' ~ 'Saved'|trans : '♡ ' ~ 'Save for later'|trans }}</button>
+            </form>
+        </div>
+
+        {% if in_stock is empty %}
+            <form method="post" action="{{ path('product.notify', {id: product.id}) }}" class="inline-signup" data-no-ajax>
+                {{ csrf_field() }}
+                <label for="notify-email" class="visually-hidden">{{ 'Email'|trans }}</label>
+                <input type="email" id="notify-email" name="email" required placeholder="{{ 'Your email'|trans }}" autocomplete="email">
+                <input type="text" name="website" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true">
+                <button type="submit" class="btn-secondary">{{ 'Email me when it is back'|trans }}</button>
+            </form>
+        {% endif %}
+
         <div class="long-description">
             <h2>{{ 'Description'|trans }}</h2>
             {{ description_html|raw }}{# sanitized by HtmlSanitizer in the controller #}
         </div>
     </div>
 </section>
+
+{% if reviews.enabled %}{{ include('shop/partials/reviews.html.twig') }}{% endif %}
 
 {% if related is not empty %}
     <section class="related-products" aria-labelledby="related-heading">

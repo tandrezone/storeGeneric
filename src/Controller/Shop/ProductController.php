@@ -9,7 +9,9 @@ use App\Http\Responder;
 use App\Http\Session;
 use App\Repository\PageViewRepository;
 use App\Repository\ProductRepository;
+use App\Repository\ReviewRepository;
 use App\Repository\VariantRepository;
+use App\Security\CustomerAuthenticator;
 use App\Security\HtmlSanitizer;
 use App\Service\ProductImages;
 use App\Service\ProductTranslations;
@@ -29,6 +31,9 @@ final class ProductController
         private readonly PageViewRepository $pageViews,
         private readonly Session $session,
         private readonly ProductTranslations $translations,
+        private readonly ReviewRepository $reviews,
+        private readonly CustomerAuthenticator $auth,
+        private readonly \App\Repository\WishlistRepository $wishlist,
     ) {
     }
 
@@ -48,12 +53,36 @@ final class ProductController
 
         $this->pageViews->record($this->session->id(), 'product_view', $id, $request->getUri()->getPath());
 
+        $customer = $this->auth->customer();
+        try {
+            $reviews = [
+                'summary' => $this->reviews->summary($id),
+                'list'    => $this->reviews->approvedFor($id, 20),
+                'mine'    => $customer !== null ? $this->reviews->findByCustomer($id, (int) $customer['id']) : null,
+                'enabled' => true,
+            ];
+        } catch (\PDOException) { // store not migrated yet
+            $reviews = ['summary' => ['count' => 0, 'average' => 0.0, 'distribution' => []], 'list' => [], 'mine' => null, 'enabled' => false];
+        }
+
         return $this->responder->view($request, 'shop/product.html.twig', [
+            'reviews'          => $reviews,
+            'signed_in'        => $customer !== null,
+            'in_wishlist'      => $customer !== null && $this->wishlistHas((int) $customer['id'], $id),
             'product'          => $product,
             'images'           => $this->images->gallery($product),
             'variants'         => $this->variants->findAvailableForProduct($id),
             'description_html' => $this->sanitizer->clean((string) $product['long_description']),
             'related'          => $this->images->forListing($this->products->findRelated($id, (int) $product['category_id'], 4, $locale)),
         ]);
+    }
+
+    private function wishlistHas(int $customerId, int $productId): bool
+    {
+        try {
+            return $this->wishlist->has($customerId, $productId);
+        } catch (\PDOException) { // store not migrated yet
+            return false;
+        }
     }
 }

@@ -1,0 +1,19 @@
+{
+    "name": "Blueprint",
+    "description": "Drafting-table blue with a ruled grid and highlighter yellow.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#144a82",
+            "#0f3a68"
+        ],
+        "text": "#eaf4ff",
+        "accent": "#ffd24a",
+        "accent2": "#7fe0ff",
+        "surface": "#144a82",
+        "font": "mono-bold",
+        "motif": "grid",
+        "uppercase": true
+    }
+}

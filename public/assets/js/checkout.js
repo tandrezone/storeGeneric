@@ -19,6 +19,13 @@
     var taxEl = document.getElementById('checkout-tax');
     var taxIncludedRow = document.getElementById('checkout-tax-included-row');
     var taxIncludedEl = document.getElementById('checkout-tax-included');
+    var giftRow = document.getElementById('checkout-gift-row');
+    var giftEl = document.getElementById('checkout-gift');
+    var giftInput = document.getElementById('gift_code');
+    var giftApply = document.querySelector('[data-gift-apply]');
+    var vatInput = document.getElementById('vat_id');
+    var vatNote = document.getElementById('vat-note');
+    var reverseRow = document.getElementById('checkout-reverse-row');
     var couponInput = document.getElementById('coupon_code');
     var couponApply = document.querySelector('[data-coupon-apply]');
     var quoteTimer = null;
@@ -52,6 +59,7 @@
         if (subtotalEl) subtotalEl.textContent = formatMoney(q.subtotal);
         shippingEl.textContent = formatMoney(q.shipping);
         setRow(discountRow, discountEl, q.discount > 0, '−' + formatMoney(q.discount));
+        setRow(giftRow, giftEl, q.gift_card_amount > 0, '−' + formatMoney(q.gift_card_amount || 0));
         var label = q.tax_label || '';
         [taxRow, taxIncludedRow].forEach(function (row) {
             if (!row) return;
@@ -61,6 +69,11 @@
         setRow(taxRow, taxEl, !!label && !q.prices_include_tax, formatMoney(q.tax_amount));
         setRow(taxIncludedRow, taxIncludedEl, !!label && q.prices_include_tax, formatMoney(q.tax_amount));
         totalEl.textContent = formatMoney(q.total);
+        if (reverseRow) reverseRow.hidden = !q.reverse_charge;
+        if (vatNote) {
+            vatNote.textContent = q.vat_error || q.vat_message || '';
+            vatNote.className = 'field-hint' + (q.vat_error ? ' form-error' : '');
+        }
     }
 
     // Immediate estimate from the radio's cost, then the server's exact quote.
@@ -68,7 +81,7 @@
         var checked = radios.filter(function (r) { return r.checked && !r.disabled; })[0];
         var cost = checked ? parseFloat(checked.dataset.cost) || 0 : 0;
         shippingEl.textContent = formatMoney(cost);
-        if (taxRow && taxRow.hidden) {
+        if (taxRow && taxRow.hidden && (!giftRow || giftRow.hidden)) {
             totalEl.textContent = formatMoney(Math.max(0, subtotal - discount + cost));
         }
         requestQuote(checked ? checked.value : '');
@@ -80,7 +93,8 @@
         quoteTimer = setTimeout(function () {
             var seq = ++quoteSeq;
             var params = 'country=' + encodeURIComponent((countryInput && countryInput.value || '').trim())
-                + '&shipping_method=' + encodeURIComponent(method);
+                + '&shipping_method=' + encodeURIComponent(method)
+                + (vatInput ? '&vat_id=' + encodeURIComponent((vatInput.value || '').trim()) : '');
             fetch(quoteUrl + '?' + params, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
                 .then(function (r) { return r.ok ? r.json() : null; })
                 .then(function (q) { if (q && q.success && seq === quoteSeq) showQuote(q); })
@@ -94,6 +108,22 @@
             if (e.key === 'Enter') {
                 e.preventDefault();
                 couponApply.click();
+            }
+        });
+    }
+
+    // A new VAT number (or country) asks the server for a fresh quote: it checks the number and removes the VAT when it may.
+    if (vatInput) {
+        vatInput.addEventListener('change', updateTotals);
+        if (countryInput) countryInput.addEventListener('change', updateTotals);
+    }
+
+    // Enter in the gift card field applies the card.
+    if (giftInput && giftApply) {
+        giftInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                giftApply.click();
             }
         });
     }

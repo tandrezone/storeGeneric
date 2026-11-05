@@ -32,7 +32,7 @@
                     <tr data-variant-id="{{ item.variant_id }}">
                         <td><a href="{{ path('product.show', {id: item.product_id, slug: item.base_name|slug}) }}">{{ item.product_name }}</a></td>
                         <td>{{ (item.label ~ ' ' ~ item.unit)|trim }}</td>
-                        <td>{{ item.price|money }}</td>
+                        <td>{{ item.price|money }}{% if item.price < item.regular_price|default(item.price) %} <span class="price-was">{{ item.regular_price|money }}</span>{% endif %}</td>
                         <td>
                             <input type="number" class="cart-qty-input" min="1" value="{{ item.quantity }}" data-variant-id="{{ item.variant_id }}" aria-label="{{ 'Quantity of {name}'|trans({name: item.product_name}) }}">
                         </td>

@@ -1,0 +1,19 @@
+{
+    "name": "Coffee",
+    "description": "Espresso browns on latte cream, with caramel highlights.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#faf4ed",
+            "#eadccd"
+        ],
+        "text": "#2e1d12",
+        "accent": "#6f4228",
+        "accent2": "#c18b4e",
+        "surface": "#faf4ed",
+        "font": "serif-italic",
+        "motif": "beans",
+        "text_width": 480
+    }
+}

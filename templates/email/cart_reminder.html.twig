@@ -1,0 +1,14 @@
+{% extends 'email/_layout.html.twig' %}
+
+{% block body %}
+<p>{{ 'Hi {name},'|trans({name: name}) }}</p>
+<p>{{ 'You left these items in your cart:'|trans }}</p>
+<ul>
+    {% for item in items %}
+        <li>{{ item.product_name }}{% if (item.label ~ ' ' ~ item.unit)|trim %} — {{ (item.label ~ ' ' ~ item.unit)|trim }}{% endif %} &times; {{ item.quantity }} — {{ (item.price * item.quantity)|money }}</li>
+    {% endfor %}
+</ul>
+<p><strong>{{ 'Total'|trans }}: {{ total|money }}</strong></p>
+<p><a href="{{ cart_url }}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;">{{ 'Return to your cart'|trans }}</a></p>
+<p style="font-size:12px;color:#6b7280;">{{ 'We send this reminder only once. Items and prices may change while they are in your cart.'|trans }}</p>
+{% endblock %}

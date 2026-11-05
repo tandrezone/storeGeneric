@@ -1,0 +1,28 @@
+{
+    "name": "Candy",
+    "description": "Bubblegum pink and sky blue with chunky hard shadows.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#fff7fc",
+            "#ffe0f3"
+        ],
+        "text": "#43163a",
+        "accent": "#e8318a",
+        "accent2": "#1fa8c9",
+        "surface": "#ffffff",
+        "font": "round-bold",
+        "motif": "dots",
+        "text_width": 520,
+        "label": {
+            "fill": "#ffffff",
+            "border": "#43163a",
+            "border_width": 4,
+            "shadow": "#e8318a",
+            "shadow_offset": 10,
+            "radius": 28,
+            "padding": 34
+        }
+    }
+}

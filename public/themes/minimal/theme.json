@@ -2,5 +2,19 @@
     "name": "Minimal",
     "description": "Monochrome, hairline rules, sharp corners and lots of whitespace.",
     "author": "storeGeneric",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#ffffff",
+            "#ffffff"
+        ],
+        "text": "#111111",
+        "accent": "#111111",
+        "accent2": "#555555",
+        "surface": "#ffffff",
+        "font": "sans",
+        "motif": "rule",
+        "uppercase": true,
+        "text_width": 520
+    }
 }

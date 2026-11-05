@@ -28,6 +28,9 @@ final class CheckoutService
         private readonly CouponService $coupons,
         private readonly TaxCalculator $tax,
         private readonly Translator $translator,
+        private readonly GiftCardService $giftCards,
+        private readonly VatIdService $vat,
+        private readonly \App\Support\FileCache $cache,
     ) {
     }
 
@@ -39,15 +42,20 @@ final class CheckoutService
      * @param list<float>               $lineTotals
      * @param array<string, mixed>|null $method shipping method (null = none chosen yet)
      * @param array<string, mixed>|null $coupon
-     * @return array{subtotal: float, discount: float, shipping: float, prices_include_tax: bool, tax_rate: float, tax_amount: float, item_taxes: list<float>, shipping_tax: float, total: float}
+     * @param array<string, mixed>|null $giftCard the card applied (null = none): `total` is then what is left after it,
+     *                                            `gift_card` the amount it covers, `total_before_gift` the order's full value
+     * @return array{subtotal: float, discount: float, shipping: float, prices_include_tax: bool, tax_rate: float, tax_amount: float, item_taxes: list<float>, shipping_tax: float, total: float, total_before_gift: float, gift_card: float}
      */
-    public function price(array $lineTotals, ?array $method, ?array $coupon, string $country): array
+    public function price(array $lineTotals, ?array $method, ?array $coupon, string $country, int $weightGrams = 0, ?array $giftCard = null, bool $reverseCharge = false): array
     {
         $subtotal = round(array_sum($lineTotals), 2);
-        $shipping = $method !== null ? $this->shippingFor($method, $subtotal, $coupon) : 0.0;
+        $shipping = $method !== null ? $this->shippingFor($method, $subtotal, $coupon, $weightGrams) : 0.0;
         $discount = $coupon !== null ? $this->coupons->discount($coupon, $subtotal, $shipping) : ['items' => 0.0, 'shipping' => 0.0];
 
-        return $this->tax->totals($lineTotals, $discount['items'], $shipping, $discount['shipping'], $country);
+        $totals = $this->tax->totals($lineTotals, $discount['items'], $shipping, $discount['shipping'], $country, $reverseCharge);
+        $gift = $giftCard !== null ? $this->giftCards->amountFor($giftCard, $totals['total']) : 0.0;
+
+        return array_replace($totals, ['total_before_gift' => $totals['total'], 'gift_card' => $gift, 'total' => round($totals['total'] - $gift, 2)]);
     }
 
     /**
@@ -59,11 +67,11 @@ final class CheckoutService
      * @param array<string, mixed>      $method
      * @param array<string, mixed>|null $coupon
      */
-    public function shippingFor(array $method, float $subtotal, ?array $coupon): float
+    public function shippingFor(array $method, float $subtotal, ?array $coupon, int $weightGrams = 0): float
     {
         $itemsDiscount = $coupon !== null ? $this->coupons->discount($coupon, $subtotal, 0.0)['items'] : 0.0;
 
-        return $this->shipping->priceFor($method, round($subtotal - $itemsDiscount, 2));
+        return $this->shipping->priceFor($method, round($subtotal - $itemsDiscount, 2), $weightGrams);
     }
 
     /**
@@ -71,23 +79,32 @@ final class CheckoutService
      *        customer_id: the signed-in customer account (omitted / null = guest checkout)
      * @param list<array<string, mixed>> $items cart lines (CartService::items())
      * @param string                     $couponCode discount code ('' = none)
+     * @param string                     $giftCardCode gift card to pay with ('' = none); the order total is what the card leaves over
      * @return array{id: int, order_number: string, total: float, email: string}
      * @throws RuntimeException with a message safe to show the customer
      */
-    public function placeOrder(array $customer, array $items, string $shippingCode, string $paymentMethod, string $couponCode = ''): array
+    public function placeOrder(array $customer, array $items, string $shippingCode, string $paymentMethod, string $couponCode = '', string $giftCardCode = ''): array
     {
         if ($items === []) {
             throw new RuntimeException($this->translator->trans('Your cart is empty.'));
         }
 
-        $method = $this->shipping->available($shippingCode, $customer['country'])
-            ?? throw new RuntimeException($this->translator->trans('That shipping method is not available for your country.'));
+        // A VAT number from an EU business: checked (cached) and, if the rule applies, no VAT. Throws when it can't be used.
+        $vat = $this->vat->forCheckout((string) ($customer['vat_id'] ?? ''), (string) $customer['country']);
+
+        $cartWeight = 0;
+        foreach ($items as $item) {
+            $cartWeight += (int) ($item['weight_grams'] ?? 0) * (int) $item['quantity'];
+        }
+        $method = $this->shipping->available($shippingCode, $customer['country'], $cartWeight)
+            ?? throw new RuntimeException($this->translator->trans('That shipping method is not available for your country or order weight.'));
 
         // Lock in a fixed order so two checkouts with the same items can't deadlock.
         usort($items, static fn (array $a, array $b) => (int) $a['variant_id'] <=> (int) $b['variant_id']);
 
-        return $this->db->transaction(function () use ($customer, $items, $method, $paymentMethod, $couponCode): array {
+        $placed = $this->db->transaction(function () use ($customer, $items, $method, $paymentMethod, $couponCode, $giftCardCode, $vat): array {
             $subtotal = 0.0;
+            $weight = 0;
             $lines = [];
             foreach ($items as $item) {
                 $quantity = (int) $item['quantity'];
@@ -108,6 +125,7 @@ final class CheckoutService
 
                 $lineTotal = round($price * $quantity, 2);
                 $subtotal += $lineTotal;
+                $weight += (int) $row['weight_grams'] * $quantity;
                 $lines[] = [
                     'variant_id'   => (int) $item['variant_id'],
                     'product_name' => (string) $row['product_name'],
@@ -122,11 +140,14 @@ final class CheckoutService
             $subtotal = round($subtotal, 2);
             // Variant rows first, then the coupon row (same lock order as OrderService / PaymentRecorder).
             $coupon = $couponCode !== '' ? $this->coupons->claim($couponCode, $subtotal, $customer['email']) : null;
-            $totals = $this->price(array_column($lines, 'line_total'), $method, $coupon, $customer['country']);
+            $totals = $this->price(array_column($lines, 'line_total'), $method, $coupon, $customer['country'], $weight, null, $vat['reverse_charge']);
             foreach ($lines as $i => $line) {
                 $lines[$i]['tax_amount'] = $totals['item_taxes'][$i] ?? 0.0;
             }
-            $total = $totals['total'];
+            // The gift card is spent last (after variants and the coupon): it covers what it can, the rest is paid normally.
+            $gift = $giftCardCode !== '' ? $this->giftCards->claim($giftCardCode, $totals['total']) : null;
+            $giftAmount = $gift !== null ? $gift['amount'] : 0.0;
+            $total = round($totals['total'] - $giftAmount, 2);
             $orderNumber = 'ORD-' . date('Ymd') . '-' . strtoupper(bin2hex(random_bytes(3)));
 
             $orderId = $this->orders->insert([
@@ -147,16 +168,25 @@ final class CheckoutService
                 'payment_method'     => $paymentMethod,
                 'subtotal'           => $totals['subtotal'],
                 'shipping_cost'      => $totals['shipping'],
+                'weight_grams'       => $weight,
                 'coupon_code'        => $coupon !== null ? (string) $coupon['code'] : null,
                 'discount_amount'    => $totals['discount'],
                 'prices_include_tax' => $totals['prices_include_tax'] ? 1 : 0,
                 'tax_rate'           => $totals['tax_rate'],
                 'tax_amount'         => $totals['tax_amount'],
+                'vat_id'             => $vat['vat_id'] !== '' ? $vat['vat_id'] : null,
+                'vat_reverse_charge' => $vat['reverse_charge'] ? 1 : 0,
+                'gift_card_code'     => $giftAmount > 0.0 ? (string) $gift['card']['code'] : null,
+                'gift_card_amount'   => $giftAmount,
+                'gift_card_counted'  => $giftAmount > 0.0 ? 1 : 0,
                 'total'              => $total,
                 'stock_reserved'     => 1,
                 'coupon_counted'     => $coupon !== null ? 1 : 0,
             ]);
 
+            if ($gift !== null) {
+                $this->giftCards->recordRedemption((int) $gift['card']['id'], $orderId, $giftAmount, $orderNumber);
+            }
             foreach ($lines as $line) {
                 $this->orders->addItem($orderId, $line);
                 $this->variants->decrementStock($line['variant_id'], $line['quantity']);
@@ -164,5 +194,8 @@ final class CheckoutService
 
             return ['id' => $orderId, 'order_number' => $orderNumber, 'total' => $total, 'email' => $customer['email']];
         });
+        $this->cache->bump(); // stock changed: listings must not keep showing the old stock
+
+        return $placed;
     }
 }

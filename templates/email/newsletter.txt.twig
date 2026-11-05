@@ -1,0 +1,12 @@
+{% autoescape false %}
+{{ subject }}
+
+{% for paragraph in paragraphs %}
+{{ paragraph }}
+
+{% endfor %}
+--
+{{ 'You receive this because you subscribed to our newsletter.'|trans }}
+{{ 'Unsubscribe'|trans }}: {{ unsubscribe_url }}
+{{ store_name }} — {{ store_email }}
+{% endautoescape %}

@@ -4,7 +4,9 @@
 {{ 'We\'ve received your payment of {total} for order {number}. Thank you!'|trans({total: order.total|money, number: order.order_number}) }}
 
 {{ include('email/_items.txt.twig') }}
-{{ 'View your order'|trans }}: {{ order_url }}
+{% if has_document|default(false) %}{{ 'Your invoice is attached as a PDF.'|trans }}
+
+{% endif %}{{ 'View your order'|trans }}: {{ order_url }}
 
 {{ store_name }} — {{ store_email }}
 {% endautoescape %}

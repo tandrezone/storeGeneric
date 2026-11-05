@@ -1,0 +1,53 @@
+/* Shared styles for features that are not part of any theme (sale badges, reviews, cookie notice, wishlist…).
+   Uses the theme's CSS variables when it defines them, with neutral fallbacks. Served to every store from the core. */
+:root {
+    --extras-accent: var(--color-primary, var(--color-accent, #2f6f4e));
+    --extras-text: var(--color-text, #1f2933);
+    --extras-muted: var(--color-muted, #6b7280);
+    --extras-bg: var(--color-surface, var(--color-bg, #ffffff));
+    --extras-border: var(--color-border, #e2e5e9);
+    --extras-sale: #c0392b;
+}
+.sale-badge { display: inline-block; background: var(--extras-sale); color: #fff; font-size: .75rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; padding: .15rem .5rem; border-radius: 999px; }
+.product-card-image .sale-badge { position: absolute; top: .5rem; left: .5rem; z-index: 2; }
+.product-card-image { position: relative; }
+.price-was { color: var(--extras-muted); text-decoration: line-through; font-weight: 400; margin-left: .35em; }
+.price-now.is-sale { color: var(--extras-sale); }
+.sale-ends { color: var(--extras-muted); font-size: .85rem; margin: .25rem 0 .75rem; }
+
+/* Stars and reviews */
+.stars { display: inline-block; position: relative; font-size: 1rem; line-height: 1; letter-spacing: .1em; color: #d4d7dc; white-space: nowrap; }
+.stars::before { content: "★★★★★"; }
+.stars > span { position: absolute; inset: 0 auto 0 0; overflow: hidden; color: #e6a700; white-space: nowrap; }
+.stars > span::before { content: "★★★★★"; }
+.rating-summary { display: flex; align-items: center; gap: .5rem; margin: .25rem 0 .75rem; color: var(--extras-muted); font-size: .9rem; }
+.reviews { margin-top: 2.5rem; }
+.review { border-top: 1px solid var(--extras-border); padding: 1rem 0; }
+.review-head { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: baseline; }
+.review-meta { color: var(--extras-muted); font-size: .85rem; }
+.review-badge { font-size: .75rem; color: var(--extras-accent); font-weight: 600; }
+.review-form { display: grid; gap: .6rem; max-width: 36rem; margin-top: 1rem; }
+.review-form label { font-weight: 600; }
+.review-form input, .review-form select, .review-form textarea { width: 100%; }
+
+/* Wishlist */
+.wishlist-btn { background: none; border: 1px solid var(--extras-border); border-radius: 999px; padding: .4rem .9rem; cursor: pointer; color: var(--extras-text); font: inherit; }
+.wishlist-btn[aria-pressed="true"] { color: var(--extras-sale); border-color: var(--extras-sale); }
+.wishlist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem; }
+
+/* Cookie notice */
+.cookie-notice { position: fixed; z-index: 9999; left: 1rem; right: 1rem; bottom: 1rem; max-width: 42rem; margin: 0 auto; background: var(--extras-bg); color: var(--extras-text); border: 1px solid var(--extras-border); border-radius: 12px; padding: 1rem 1.25rem; box-shadow: 0 8px 30px rgba(0,0,0,.18); }
+.cookie-notice p { margin: 0 0 .75rem; font-size: .92rem; }
+.cookie-notice-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.cookie-notice[hidden] { display: none; }
+
+/* Newsletter / notify-me boxes */
+.inline-signup { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: 1rem 0; }
+.inline-signup input[type="email"] { flex: 1 1 14rem; }
+.footer-newsletter { margin: 1rem 0; }
+.honeypot { position: absolute !important; left: -9999px !important; width: 1px; height: 1px; overflow: hidden; }
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.product-actions { margin: .75rem 0; }
+.price-approx { color: var(--extras-muted); font-weight: 400; margin-left: .35em; }
+.currency-switcher { display: flex; flex-wrap: wrap; gap: .5rem .9rem; align-items: center; margin: 1rem auto; font-size: .9rem; }
+.currency-switcher a.active { font-weight: 700; text-decoration: none; }

@@ -16,5 +16,6 @@
 <p style="font-size:14px;">{{ 'Payment method'|trans }}: {{ payment_label }}</p>
 {{ include('email/_address.html.twig') }}
 
+{% if has_document|default(false) %}<p>{{ 'Your invoice is attached as a PDF.'|trans }}</p>{% endif %}
 <p><a href="{{ order_url }}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;">{{ 'View your order'|trans }}</a></p>
 {% endblock %}

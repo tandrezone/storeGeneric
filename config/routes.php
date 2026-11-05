@@ -15,6 +15,7 @@
 declare(strict_types=1);
 
 use App\Controller\Admin;
+use App\Controller\Api;
 use App\Controller\Api\CartApiController;
 use App\Controller\Payment;
 use App\Controller\Shop;
@@ -27,14 +28,25 @@ return static function (RouteCollection $r): void {
     // Canonical form is /product/12-green-tea (product_url(product) in views);
     // /product/12 and outdated slugs answer with a 301 to it.
     $r->get('/product/{id:\d+}[-{slug:[^/]+}]', [Shop\ProductController::class, 'show'], 'product.show')->tracked();
+    $r->post('/product/{id:\d+}/review', [Shop\ReviewController::class, 'submit'], 'product.review');
+    $r->post('/product/{id:\d+}/notify', [Shop\StockAlertController::class, 'subscribe'], 'product.notify');
+    $r->get('/stock-alert/cancel', [Shop\StockAlertController::class, 'cancel'], 'stock-alert.cancel');
+    $r->post('/newsletter/subscribe', [Shop\NewsletterController::class, 'subscribe'], 'newsletter.subscribe');
+    $r->get('/newsletter/confirm', [Shop\NewsletterController::class, 'confirm'], 'newsletter.confirm');
+    $r->get('/newsletter/unsubscribe', [Shop\NewsletterController::class, 'unsubscribe'], 'newsletter.unsubscribe');
+    $r->get('/currency', [Shop\CurrencyController::class, 'select'], 'currency.select');
     $r->get('/robots.txt', [Shop\SeoController::class, 'robots'], 'robots');
     $r->get('/sitemap.xml', [Shop\SeoController::class, 'sitemap'], 'sitemap');
     // Only reached while a thumbnail doesn't exist yet; afterwards the file is served directly.
     $r->get('/assets/images/thumbs/{width:\d+}/{path:.+}', [Shop\ThumbnailController::class, 'show'], 'thumbnail');
     $r->get('/cart', [Shop\CartController::class, 'show'], 'cart')->tracked();
+    $r->get('/cart/recover', [Shop\CartController::class, 'recover'], 'cart.recover');
     $r->get('/checkout', [Shop\CheckoutController::class, 'show'], 'checkout')->tracked();
     $r->post('/checkout', [Shop\CheckoutController::class, 'submit'], 'checkout.submit');
     $r->get('/order/confirmation', [Shop\OrderController::class, 'confirmation'], 'order.confirmation')->tracked();
+    $r->get('/order/return', [Shop\ReturnController::class, 'form'], 'order.return');
+    $r->post('/order/return', [Shop\ReturnController::class, 'submit'], 'order.return.submit');
+    $r->get('/order/invoice', [Shop\InvoiceController::class, 'download'], 'order.invoice');
     $r->get('/order/track', [Shop\OrderController::class, 'track'], 'order.track')->tracked();
     $r->post('/order/track', [Shop\OrderController::class, 'lookup'], 'order.lookup');
 
@@ -54,10 +66,13 @@ return static function (RouteCollection $r): void {
     $r->get('/account', [Shop\AccountController::class, 'overview'], 'account');
     $r->get('/account/orders', [Shop\AccountController::class, 'orders'], 'account.orders');
     $r->get('/account/orders/{number:[A-Za-z0-9-]+}', [Shop\AccountController::class, 'order'], 'account.order');
+    $r->get('/account/wishlist', [Shop\WishlistController::class, 'show'], 'account.wishlist');
+    $r->post('/account/wishlist', [Shop\WishlistController::class, 'toggle'], 'account.wishlist.submit');
     $r->get('/account/profile', [Shop\AccountController::class, 'profile'], 'account.profile');
     $r->post('/account/profile', [Shop\AccountController::class, 'updateProfile'], 'account.profile.submit');
     $r->get('/account/addresses', [Shop\AccountController::class, 'addresses'], 'account.addresses');
     $r->post('/account/addresses', [Shop\AccountController::class, 'updateAddresses'], 'account.addresses.submit');
+    $r->get('/p/{slug:[a-z0-9]+(?:-[a-z0-9]+)*}', [Shop\PageController::class, 'custom'], 'page.custom')->tracked();
     $r->get('/about', [Shop\PageController::class, 'about'], 'page.about')->tracked();
     $r->get('/info', [Shop\PageController::class, 'info'], 'page.info')->tracked();
     $r->get('/support', [Shop\PageController::class, 'support'], 'page.support')->tracked();
@@ -69,6 +84,8 @@ return static function (RouteCollection $r): void {
     $r->get('/api/cart', [CartApiController::class, 'show'], 'api.cart');
     $r->post('/api/cart', [CartApiController::class, 'update'], 'api.cart.update')->withoutCsrf();
     // Live checkout totals (shipping, discount, VAT) for assets/js/checkout.js; read-only.
+    // Marketplace connectors (Settings → Marketplace orders): bearer API key instead of a session / form token.
+    $r->post('/api/marketplace/orders', [Api\MarketplaceOrderController::class, 'create'], 'api.marketplace.orders')->withoutCsrf();
     $r->get('/api/checkout/quote', [Shop\CheckoutController::class, 'quote'], 'api.checkout.quote');
 
     // ---- payment providers (signed callbacks, never redirected) -----------
@@ -104,9 +121,23 @@ return static function (RouteCollection $r): void {
         $r->post('/categories', [Admin\CategoryController::class, 'handle'], 'admin.categories.submit')
             ->admin('staff')->actionsNeed('manager', ['delete']);
         $r->get('/orders', [Admin\OrderController::class, 'index'], 'admin.orders')->admin('staff');
+        $r->post('/orders/bulk', [Admin\OrderController::class, 'bulk'], 'admin.orders.bulk')->admin('staff');
+        $r->get('/orders/packing-slips', [Admin\OrderController::class, 'packingSlips'], 'admin.orders.packing')->admin('staff');
         $r->get('/orders/{id:\d+}', [Admin\OrderController::class, 'show'], 'admin.order')->admin('staff');
         $r->post('/orders/{id:\d+}', [Admin\OrderController::class, 'handle'], 'admin.order.submit')->admin('staff');
-        // Managers (the group default): shipping, analytics, activity log.
+        $r->get('/orders/{id:\d+}/invoice', [Admin\OrderController::class, 'invoice'], 'admin.order.invoice')->admin('staff');
+        $r->get('/pages', [Admin\PageController::class, 'index'], 'admin.pages');
+        $r->post('/pages', [Admin\PageController::class, 'handle'], 'admin.pages.submit');
+        $r->get('/reviews', [Admin\ReviewController::class, 'index'], 'admin.reviews')->admin('staff');
+        $r->post('/reviews', [Admin\ReviewController::class, 'handle'], 'admin.reviews.submit')->admin('staff');
+        $r->get('/returns', [Admin\ReturnController::class, 'index'], 'admin.returns')->admin('staff');
+        $r->post('/returns', [Admin\ReturnController::class, 'handle'], 'admin.returns.submit')->admin('staff');
+        // Managers (the group default): newsletter, shipping, analytics, activity log.
+        $r->get('/giftcards', [Admin\GiftCardController::class, 'index'], 'admin.giftcards');
+        $r->post('/giftcards', [Admin\GiftCardController::class, 'handle'], 'admin.giftcards.submit');
+        $r->get('/newsletter', [Admin\NewsletterController::class, 'index'], 'admin.newsletter');
+        $r->post('/newsletter', [Admin\NewsletterController::class, 'handle'], 'admin.newsletter.submit');
+        $r->get('/newsletter/export', [Admin\NewsletterController::class, 'export'], 'admin.newsletter.export');
         $r->get('/activity', [Admin\ActivityController::class, 'index'], 'admin.activity');
         // CSV export / import (bulk data: customer details, every price).
         $r->get('/products/export', [Admin\ProductCsvController::class, 'export'], 'admin.products.export');
@@ -134,6 +165,12 @@ return static function (RouteCollection $r): void {
         $r->get('/users', [Admin\UserController::class, 'index'], 'admin.users')->admin('owner');
         $r->post('/users', [Admin\UserController::class, 'handle'], 'admin.users.submit')->admin('owner');
         $r->post('/api/magic-edit', [Admin\MagicEditController::class, 'suggest'], 'admin.api.magic_edit')->admin('staff')->withoutAudit();
+        // Magic edit for every product: list the ids, then save each reviewed suggestion (audited).
+        $r->get('/api/magic-edit/products', [Admin\MagicEditController::class, 'productIds'], 'admin.api.magic_edit.products')->admin('staff');
+        $r->post('/api/magic-edit/apply', [Admin\MagicEditController::class, 'apply'], 'admin.api.magic_edit.apply')->admin('staff');
+        // Same access as Admin → Pages (the group's default admin role).
+        $r->post('/api/magic-page', [Admin\PageMagicController::class, 'suggest'], 'admin.api.magic_page')->withoutAudit();
+        $r->post('/api/magic-newsletter', [Admin\NewsletterMagicController::class, 'suggest'], 'admin.api.magic_newsletter')->withoutAudit();
         $r->post('/api/translate-product', [Admin\ProductTranslationController::class, 'suggest'], 'admin.api.translate')->admin('staff')->withoutAudit();
     }, static fn (Route $route) => $route->admin());
 };

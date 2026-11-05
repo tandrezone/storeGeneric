@@ -14,7 +14,7 @@ use App\Support\Config;
  * Dumps the database (schema + data, through PDO — no mysqldump needed) to
  * var/backups/backup-<db>-<YYYYmmdd-HHiiss>.sql[.gz]. Cron example (daily,
  * keep two weeks):
- *   30 3 * * * cd /var/www/store && bin/console db:backup --gzip --keep=14
+ *   30 3 * * * cd /var/www/cactistore && bin/console db:backup --gzip --keep=14
  */
 final class BackupDatabaseCommand implements Command
 {

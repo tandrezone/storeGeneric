@@ -1,0 +1,54 @@
+{% extends 'layout/admin.html.twig' %}
+
+{% set title = 'Packing slips'|trans %}
+{% set active_nav = 'orders' %}
+
+{% block content %}
+<style>
+    .slip { background: #fff; color: #000; border: 1px solid #ccc; padding: 24px; margin: 0 0 24px; }
+    .slip h2 { margin-top: 0; }
+    .slip table { width: 100%; border-collapse: collapse; }
+    .slip th, .slip td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; }
+    .slip .qty { text-align: right; white-space: nowrap; }
+    @media print {
+        .site-header, .site-footer, .no-print, footer { display: none !important; }
+        .slip { border: 0; padding: 0; margin: 0; page-break-after: always; break-after: page; }
+        .slip:last-child { page-break-after: auto; break-after: auto; }
+    }
+</style>
+<p class="no-print">
+    <a href="{{ path('admin.orders') }}" class="btn-secondary">&larr; {{ 'Back to orders'|trans }}</a>
+    <button type="button" class="btn-primary" data-print>{{ 'Print'|trans }}</button>
+    <span class="field-hint">{{ '{count} order'|trans_plural(orders|length) }}</span>
+</p>
+
+{% for order in orders %}
+    <section class="slip">
+        <h2>{{ store.name }} — {{ 'Packing slip'|trans }}</h2>
+        <p>
+            <strong>{{ order.order_number }}</strong> · {{ order.created_at }}{% if order.source %} · {{ order.shipping_label ?: order.source }}{% endif %}<br>
+            {{ 'Shipping method'|trans }}: {{ order.shipping_label ?: order.shipping_method }}{% if order.weight_grams > 0 %} · {{ 'Weight'|trans }}: {{ order.weight_grams }} g{% endif %}
+        </p>
+        <p>
+            <strong>{{ 'Ship to'|trans }}</strong><br>
+            {{ order.ship_name }}<br>
+            {{ order.ship_address1 }}<br>
+            {% if order.ship_address2 %}{{ order.ship_address2 }}<br>{% endif %}
+            {{ order.ship_postal_code }} {{ order.ship_city }}{{ order.ship_state ? ', ' ~ order.ship_state }}<br>
+            {{ order.ship_country }}{% if order.phone %}<br>{{ order.phone }}{% endif %}
+        </p>
+        <table>
+            <thead><tr><th>SKU</th><th>{{ 'Item'|trans }}</th><th class="qty">{{ 'Qty'|trans }}</th></tr></thead>
+            <tbody>
+            {% for item in order['items'] %}
+                <tr>
+                    <td>{{ skus[item.id]|default('') }}</td>
+                    <td>{{ item.product_name }}{% if (item.label ~ ' ' ~ item.unit)|trim %} — {{ (item.label ~ ' ' ~ item.unit)|trim }}{% endif %}</td>
+                    <td class="qty">{{ item.quantity }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+{% endfor %}
+{% endblock %}

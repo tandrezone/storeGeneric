@@ -1,5 +1,6 @@
 {# Storefront footer — closes what header.html.twig opened. Keep the two scripts.
-   languages: [{code, name, html_lang, url, active}] — the language switcher (see header). #}
+   languages: [{code, name, html_lang, url, active}] — the language switcher (see header).
+   footer_pages: [{title, url}] — extra links from Admin → Pages (may be missing in old themes). #}
 </main>
 <footer class="site-footer">
     <div class="container footer-inner">
@@ -10,6 +11,7 @@
             <a href="{{ path('order.track') }}">{{ 'Track your order'|trans }}</a>
             <a href="{{ path('page.terms') }}">{{ 'Terms & Conditions'|trans }}</a>
             <a href="{{ path('page.privacy') }}">{{ 'Privacy Policy'|trans }}</a>
+            {% for page in footer_pages|default([]) %}<a href="{{ page.url }}">{{ page.title }}</a>{% endfor %}
         </nav>
         {% if languages|default([])|length > 1 %}
             <nav class="footer-lang" aria-label="{{ 'Language'|trans }}">
@@ -23,5 +25,6 @@
 </footer>
 <script src="/assets/js/ajax-nav.js"></script>
 <script src="/assets/js/app.js"></script>
+<script src="{{ asset('js/responsive-tables.js') }}" defer></script>
 </body>
 </html>

@@ -1,0 +1,12 @@
+{# Lets visitors see approximate prices in another currency (only when Admin → Settings → Currencies lists some). Shown on catalogue pages; cart, checkout and orders stay in the store currency. #}
+{% set currencies = display_currencies() %}
+{% if currencies.codes is not empty and current_path|default('') not in ['/cart', '/checkout'] %}
+    <nav class="currency-switcher container" aria-label="{{ 'Currency'|trans }}">
+        <span>{{ 'Prices also in'|trans }}:</span>
+        {% for code in currencies.codes %}
+            <a href="{{ path('currency.select', {}, {code: code, back: current_path|default('/')}) }}" data-no-ajax {{ currencies.chosen == code ? 'aria-current="true" class="active"' : '' }}>{{ code }}</a>
+        {% endfor %}
+        {% if currencies.chosen %}<a href="{{ path('currency.select', {}, {back: current_path|default('/')}) }}" data-no-ajax>{{ 'off'|trans }}</a>{% endif %}
+        <small class="field-hint">{{ 'Approximate. You pay in {currency}.'|trans({currency: currencies.base}) }}</small>
+    </nav>
+{% endif %}

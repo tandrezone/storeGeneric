@@ -1,0 +1,18 @@
+{
+    "name": "Nordic",
+    "description": "Frosted slate and fjord blue with a muted red accent.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#f8f9fb",
+            "#e3e8f0"
+        ],
+        "text": "#2e3440",
+        "accent": "#5e81ac",
+        "accent2": "#bf616a",
+        "surface": "#f8f9fb",
+        "font": "sans",
+        "motif": "corners"
+    }
+}

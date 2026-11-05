@@ -12,7 +12,7 @@
     <span class="status-badge" data-status="{{ order.payment_status }}">{{ order.payment_status|capitalize|trans }}</span>
 </h1>
 <p style="color: var(--color-muted);">
-    {{ 'Placed {date}'|trans({date: order.created_at}) }}
+    {{ 'Placed {date}'|trans({date: order.created_at}) }}{% if order.source %} · {{ 'Imported from {source}'|trans({source: order.shipping_label ?: order.source}) }}{% endif %}
     {% if order.stock_reserved %}· {{ 'stock reserved'|trans }}{% else %}· {{ 'stock not held'|trans }}{% endif %}
 </p>
 
@@ -38,6 +38,14 @@
                 <p style="display: flex; justify-content: space-between;">
                     <span>{{ 'Discount'|trans }}{% if order.coupon_code %} ({% if admin_can('manager') %}<a href="{{ path('admin.discounts') }}">{{ order.coupon_code }}</a>{% else %}{{ order.coupon_code }}{% endif %}){% endif %}</span><span>−{{ order.discount_amount|money }}</span>
                 </p>
+            {% endif %}
+            {% if order.gift_card_amount|default(0) > 0 %}
+                <p style="display: flex; justify-content: space-between;">
+                    <span>{{ 'Gift card ({code})'|trans({code: order.gift_card_code}) }}</span><span>−{{ order.gift_card_amount|money }}</span>
+                </p>
+            {% endif %}
+            {% if order.vat_reverse_charge|default(0) %}
+                <p>{{ 'VAT reverse charge — no VAT charged'|trans }}{% if order.vat_id %} ({{ order.vat_id }}){% endif %}</p>
             {% endif %}
             {% if order.tax_amount|default(0) > 0 and not order.prices_include_tax %}
                 <p style="display: flex; justify-content: space-between;">
@@ -99,6 +107,14 @@
                 {{ order.ship_country }}
             </div>
         </div>
+
+        {% if invoice %}
+            <div class="panel">
+                <h2>{{ 'Documents'|trans }}</h2>
+                <a class="btn-secondary" href="{{ path('admin.order.invoice', {id: order.id}) }}" data-no-ajax>{{ 'Invoice (PDF)'|trans }}</a>
+                {% if credit_note %}<a class="btn-secondary" href="{{ path('admin.order.invoice', {id: order.id}, {type: 'credit_note'}) }}" data-no-ajax>{{ 'Credit note (PDF)'|trans }}</a>{% endif %}
+            </div>
+        {% endif %}
 
         <div class="panel">
             <h2>{{ 'Payment'|trans }}</h2>
@@ -187,6 +203,28 @@
                     <button type="submit" class="btn-secondary">{{ 'Cancel order'|trans }}</button>
                 </form>
             {% endif %}
+        </div>
+        <div class="panel">
+            <h2>{{ 'Internal notes'|trans }}</h2>
+            <p class="field-hint">{{ 'Only staff can see these notes.'|trans }}</p>
+            {% for note in notes %}
+                <div class="order-note" style="margin: 10px 0; padding-bottom: 10px; border-bottom: 1px solid var(--color-border, #e5e5e5);">
+                    <div style="white-space: pre-wrap;">{{ note.body }}</div>
+                    <small class="field-hint">{{ note.author ?? '—' }} · {{ note.created_at }}</small>
+                    <form method="post" action="{{ path('admin.order.submit', {id: order.id}) }}" style="display: inline;" data-confirm="{{ 'Delete this note?'|trans }}">
+                        {{ csrf_field() }}
+                        <input type="hidden" name="action" value="delete_note">
+                        <input type="hidden" name="note_id" value="{{ note.id }}">
+                        <button type="submit" class="btn-link">{{ 'Delete'|trans }}</button>
+                    </form>
+                </div>
+            {% endfor %}
+            <form method="post" action="{{ path('admin.order.submit', {id: order.id}) }}">
+                {{ csrf_field() }}
+                <input type="hidden" name="action" value="add_note">
+                <textarea name="note" rows="3" maxlength="2000" required style="width: 100%; margin-bottom: 8px;" aria-label="{{ 'Internal notes'|trans }}"></textarea>
+                <button type="submit" class="btn-secondary">{{ 'Add note'|trans }}</button>
+            </form>
         </div>
     </div>
 </div>

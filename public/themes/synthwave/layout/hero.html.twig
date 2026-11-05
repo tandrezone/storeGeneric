@@ -1,0 +1,19 @@
+{# Banner at the top of the shop page: big gradient headline over a glowing backdrop. #}
+<section class="shop-hero">
+    <div class="shop-hero-inner">
+        <span class="hero-eyebrow">{{ 'New arrivals'|trans }}</span>
+        <h1>{{ store.name }}</h1>
+        <p>{{ 'Fresh picks, glowing deals.'|trans }}</p>
+    </div>
+    <svg class="hero-orb" viewBox="0 0 220 220" aria-hidden="true" focusable="false">
+        <defs>
+            <linearGradient id="synth-orb" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ff8a1e"/>
+                <stop offset="1" stop-color="#b14bff"/>
+            </linearGradient>
+        </defs>
+        <circle cx="110" cy="110" r="78" fill="url(#synth-orb)" opacity="0.9"/>
+        <circle cx="110" cy="110" r="100" fill="none" stroke="#7dff4d" stroke-opacity="0.45" stroke-width="2" stroke-dasharray="4 10"/>
+        <circle cx="110" cy="110" r="64" fill="none" stroke="#0d0221" stroke-opacity="0.35" stroke-width="2"/>
+    </svg>
+</section>

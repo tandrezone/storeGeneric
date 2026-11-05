@@ -34,7 +34,7 @@ final class ProductCsvRepository extends Repository
 
         $stmt = $this->run('
             SELECT p.id AS product_id, p.name, c.name AS category, p.import_status AS status, p.short_description,
-                   v.sku, v.label, v.unit, v.price, v.stock, v.is_active AS active
+                   v.sku, v.label, v.unit, v.price, v.sale_price, v.sale_starts_at, v.sale_ends_at, v.stock, v.weight_grams, v.is_active AS active
             FROM products p
             JOIN categories c ON c.id = p.category_id
             LEFT JOIN product_variants v ON v.product_id = p.id
@@ -59,7 +59,7 @@ final class ProductCsvRepository extends Repository
         foreach (array_chunk(array_values(array_unique($skus)), 500) as $chunk) {
             $placeholders = implode(',', array_fill(0, count($chunk), '?'));
             $rows = $this->all("
-                SELECT v.id, v.product_id, v.sku, v.label, v.unit, v.price, v.stock, v.is_active,
+                SELECT v.id, v.product_id, v.sku, v.label, v.unit, v.price, v.sale_price, v.sale_starts_at, v.sale_ends_at, v.stock, v.weight_grams, v.is_active,
                        p.name AS product_name, p.category_id, p.short_description, p.import_status
                 FROM product_variants v
                 JOIN products p ON p.id = v.product_id

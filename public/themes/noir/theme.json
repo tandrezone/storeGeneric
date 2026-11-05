@@ -1,0 +1,20 @@
+{
+    "name": "Noir",
+    "description": "Black and white with a touch of gold. Sharp, quiet, editorial.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#161616",
+            "#0a0a0a"
+        ],
+        "text": "#f2f2f2",
+        "accent": "#c9a24b",
+        "accent2": "#f2f2f2",
+        "surface": "#141414",
+        "font": "serif",
+        "motif": "frame",
+        "uppercase": true,
+        "text_width": 500
+    }
+}

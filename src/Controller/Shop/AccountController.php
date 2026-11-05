@@ -13,6 +13,7 @@ use App\Repository\CustomerAddressRepository;
 use App\Repository\OrderRepository;
 use App\Security\CustomerAuthenticator;
 use App\Service\CustomerAccounts;
+use App\Service\CustomerDataExport;
 use App\Service\OrderLinks;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -38,6 +39,7 @@ final class AccountController
         private readonly PaymentRegistry $payments,
         private readonly OrderLinks $links,
         private readonly Translator $translator,
+        private readonly CustomerDataExport $export,
     ) {
     }
 
@@ -150,6 +152,15 @@ final class AccountController
 
                     // ?lang= also updates the language cookie (LocaleMiddleware).
                     return $this->responder->redirectToRoute('account.profile', [], ['lang' => $locale]);
+
+                case 'export':
+                    $this->accounts->requirePassword($id, (string) ($body['current_password'] ?? ''));
+
+                    return $this->responder->downloadContent(
+                        $this->export->toJson($id),
+                        'my-data-' . date('Y-m-d') . '.json',
+                        'application/json; charset=utf-8'
+                    );
 
                 case 'delete':
                     if (empty($body['confirm'])) {

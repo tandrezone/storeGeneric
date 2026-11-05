@@ -1,0 +1,19 @@
+{
+    "name": "Citrus",
+    "description": "Lemon-yellow brights, tangerine buttons and lime green.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#fffef4",
+            "#fff3b8"
+        ],
+        "text": "#2a2a0a",
+        "accent": "#e07b00",
+        "accent2": "#5f9f12",
+        "surface": "#ffffff",
+        "font": "round-bold",
+        "motif": "slices",
+        "text_width": 500
+    }
+}

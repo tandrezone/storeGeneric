@@ -21,8 +21,29 @@ use DOMText;
 final class HtmlSanitizer
 {
     private const ALLOWED_TAGS = ['p', 'br', 'b', 'strong', 'i', 'em', 'u', 'ul', 'ol', 'li', 'a', 'blockquote'];
+    /** Content pages may also use headings and rules. */
+    private const PAGE_TAGS = ['h2', 'h3', 'h4', 'hr'];
 
+    /** @var list<string> */
+    private array $allowed = self::ALLOWED_TAGS;
+
+    /** Product-description formatting only. */
     public function clean(string $html): string
+    {
+        $this->allowed = self::ALLOWED_TAGS;
+
+        return $this->run($html);
+    }
+
+    /** Page formatting: the product tags plus h2–h4 and hr. */
+    public function cleanPage(string $html): string
+    {
+        $this->allowed = array_merge(self::ALLOWED_TAGS, self::PAGE_TAGS);
+
+        return $this->run($html);
+    }
+
+    private function run(string $html): string
     {
         if (trim($html) === '') {
             return '';
@@ -92,7 +113,7 @@ final class HtmlSanitizer
 
             $this->cleanChildren($child);
 
-            if (!in_array($tag, self::ALLOWED_TAGS, true)) {
+            if (!in_array($tag, $this->allowed, true)) {
                 while ($child->firstChild) {
                     $node->insertBefore($child->firstChild, $child);
                 }

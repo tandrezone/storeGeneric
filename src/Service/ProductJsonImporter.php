@@ -397,7 +397,7 @@ final class ProductJsonImporter
                         'price'     => $variant['price'],
                         'stock'     => $variant['stock'],
                         'is_active' => (int) $variant['is_active'],
-                    ];
+                    ] + array_intersect_key($variant, array_flip(['sale_price', 'sale_starts_at', 'sale_ends_at', 'weight_grams']));
                     if ($kind === 'create') {
                         $this->variants->create(['product_id' => $productId] + $row);
                     } else {
@@ -593,7 +593,12 @@ final class ProductJsonImporter
             || (string) ($current['unit'] ?? '') !== (string) ($variant['unit'] ?? '')
             || abs((float) $current['price'] - (float) $variant['price']) >= 0.005
             || (int) $current['stock'] !== (int) $variant['stock']
-            || (bool) $current['is_active'] !== (bool) $variant['is_active'];
+            || (bool) $current['is_active'] !== (bool) $variant['is_active']
+            || (array_key_exists('sale_price', $variant) && (($variant['sale_price'] === null) !== ($current['sale_price'] === null)
+                || ($variant['sale_price'] !== null && abs((float) $current['sale_price'] - (float) $variant['sale_price']) >= 0.005)))
+            || (array_key_exists('sale_starts_at', $variant) && (string) ($current['sale_starts_at'] ?? '') !== (string) ($variant['sale_starts_at'] ?? ''))
+            || (array_key_exists('sale_ends_at', $variant) && (string) ($current['sale_ends_at'] ?? '') !== (string) ($variant['sale_ends_at'] ?? ''))
+            || (array_key_exists('weight_grams', $variant) && (int) ($current['weight_grams'] ?? 0) !== (int) $variant['weight_grams']);
     }
 
     /**
@@ -728,6 +733,44 @@ final class ProductJsonImporter
                 continue;
             }
 
+            // Optional: a key that is absent leaves the variant's value alone; null / "" clears a sale.
+            $optional = [];
+            if (array_key_exists('sale_price', $raw)) {
+                $sale = $raw['sale_price'];
+                if ($sale === null || $sale === '') {
+                    $optional['sale_price'] = null;
+                } elseif (!is_numeric($sale) || (float) $sale <= 0 || (float) $sale >= (float) $price) {
+                    $errors[] = $this->t('Variant {sku}: the sale price must be above 0 and lower than the regular price.', ['sku' => $sku]);
+                    continue;
+                } else {
+                    $optional['sale_price'] = round((float) $sale, 2);
+                }
+            }
+            foreach (['sale_starts_at', 'sale_ends_at'] as $key) {
+                if (!array_key_exists($key, $raw)) {
+                    continue;
+                }
+                $value = $raw[$key];
+                $ts = is_string($value) && trim($value) !== '' ? strtotime($value) : null;
+                if ($value !== null && $value !== '' && $ts === false) {
+                    $errors[] = $this->t('Variant {sku}: {field} is not a date.', ['sku' => $sku, 'field' => $key]);
+                    continue 2;
+                }
+                $optional[$key] = $ts ? date('Y-m-d H:i:s', $ts) : null;
+            }
+            if (($optional['sale_starts_at'] ?? null) !== null && ($optional['sale_ends_at'] ?? null) !== null && $optional['sale_ends_at'] <= $optional['sale_starts_at']) {
+                $errors[] = $this->t('Variant {sku}: the sale must end after it starts.', ['sku' => $sku]);
+                continue;
+            }
+            if (array_key_exists('weight_grams', $raw)) {
+                $weight = $raw['weight_grams'];
+                if (!is_numeric($weight) || (float) $weight < 0 || (float) $weight > 4294967295 || floor((float) $weight) !== (float) $weight) {
+                    $errors[] = $this->t('Variant {sku}: the weight must be a whole number of grams.', ['sku' => $sku]);
+                    continue;
+                }
+                $optional['weight_grams'] = (int) $weight;
+            }
+
             $data['variants'][] = [
                 'sku'       => $sku,
                 'label'     => $label !== '' ? $label : null,
@@ -735,7 +778,7 @@ final class ProductJsonImporter
                 'price'     => round((float) $price, 2),
                 'stock'     => (int) $stock,
                 'is_active' => $this->bool($raw['is_active'] ?? $raw['active'] ?? null) ?? true,
-            ];
+            ] + $optional;
         }
     }
 

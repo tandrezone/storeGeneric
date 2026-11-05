@@ -90,8 +90,29 @@ final class CustomerRepository extends Repository
      */
     public function anonymise(int $id): void
     {
+        $email = (string) $this->value('SELECT email FROM customers WHERE id = :id', ['id' => $id]);
         $this->run('DELETE FROM customer_addresses WHERE customer_id = :id', ['id' => $id]);
         $this->run('DELETE FROM customer_tokens WHERE customer_id = :id', ['id' => $id]);
+        // Optional features: rows that belong to the person go; each table exists only once its migration has run.
+        foreach ([
+            "UPDATE product_reviews SET customer_id = NULL, author = '' WHERE customer_id = :id",
+            'DELETE FROM wishlist_items WHERE customer_id = :id',
+        ] as $sql) {
+            try {
+                $this->run($sql, ['id' => $id]);
+            } catch (\PDOException) {
+                // table not there yet
+            }
+        }
+        if ($email !== '') { // rows keyed by the address, not the account
+            foreach (['DELETE FROM newsletter_subscribers WHERE email = :e', 'DELETE FROM stock_alerts WHERE email = :e'] as $sql) {
+                try {
+                    $this->run($sql, ['e' => $email]);
+                } catch (\PDOException) {
+                    // table not there yet
+                }
+            }
+        }
         $this->run("
             UPDATE customers
             SET email = CONCAT('deleted-', id, '@invalid'), name = 'Deleted customer', password_hash = '',

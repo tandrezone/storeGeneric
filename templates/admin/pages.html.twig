@@ -1,0 +1,142 @@
+{% extends 'layout/admin.html.twig' %}
+
+{% set title = 'Admin — {page}'|trans({page: 'Pages'|trans}) %}
+{% set active_nav = 'pages' %}
+
+{% block content %}
+<h1>{{ 'Pages'|trans }}</h1>
+{% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
+
+{% if editing is not null %}
+    {% set is_new = not editing.id|default(0) %}
+    <section class="panel">
+        <h2>{{ is_new ? 'New page'|trans : 'Edit page'|trans }}</h2>
+        <form method="post" action="{{ path('admin.pages.submit') }}">
+            {{ csrf_field() }}
+            <input type="hidden" name="action" value="save">
+            <input type="hidden" name="id" value="{{ editing.id|default(0) }}">
+            <div class="form-row">
+                <label>{{ 'Address'|trans }}
+                    {% if is_new and editing.slug|default('') in built_in %}
+                        <input type="text" name="slug" value="{{ editing.slug }}" readonly>
+                    {% elseif is_new %}
+                        <input type="text" name="slug" value="{{ editing.slug|default('') }}" maxlength="80" required pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="shipping-faq">
+                    {% else %}
+                        <input type="text" value="{{ editing.slug }}" readonly>
+                    {% endif %}
+                </label>
+                <label>{{ 'Language'|trans }}
+                    {% if is_new %}
+                        <select name="locale">
+                            <option value="" {{ editing.locale|default('') == '' ? 'selected' }}>{{ 'All languages'|trans }}</option>
+                            {% for code, name in languages %}<option value="{{ code }}" {{ editing.locale|default('') == code ? 'selected' }}>{{ name }}</option>{% endfor %}
+                        </select>
+                    {% else %}
+                        <input type="text" value="{{ editing.locale ? languages[editing.locale]|default(editing.locale) : 'All languages'|trans }}" readonly>
+                    {% endif %}
+                </label>
+            </div>
+            <label>{{ 'Title'|trans }}
+                <input type="text" name="title" value="{{ editing.title }}" maxlength="180" required>
+            </label>
+            <div class="wysiwyg" data-wysiwyg>
+                <div class="wysiwyg-toolbar" role="toolbar" aria-label="{{ 'Formatting'|trans }}">
+                    <button type="button" data-cmd="formatBlock" data-value="h2" title="{{ 'Heading'|trans }}">H2</button>
+                    <button type="button" data-cmd="formatBlock" data-value="h3" title="{{ 'Subheading'|trans }}">H3</button>
+                    <button type="button" data-cmd="formatBlock" data-value="p" title="{{ 'Paragraph'|trans }}">¶</button>
+                    <button type="button" data-cmd="bold" title="{{ 'Bold'|trans }}"><b>B</b></button>
+                    <button type="button" data-cmd="italic" title="{{ 'Italic'|trans }}"><i>I</i></button>
+                    <button type="button" data-cmd="insertUnorderedList" title="{{ 'Bullet list'|trans }}">&bull; {{ 'List'|trans }}</button>
+                    <button type="button" data-cmd="insertOrderedList" title="{{ 'Numbered list'|trans }}">1. {{ 'List'|trans }}</button>
+                    <button type="button" data-cmd="createLink" title="{{ 'Insert link'|trans }}">&#128279;</button>
+                    <button type="button" data-cmd="removeFormat" title="{{ 'Clear formatting'|trans }}">&times;</button>
+                </div>
+                <div class="wysiwyg-editor" contenteditable="true">{{ editing.body|raw }}</div>
+                <textarea name="body" hidden>{{ editing.body }}</textarea>
+            </div>
+            <div class="form-row">
+                <label style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" name="is_published" value="1" style="width: auto;" {{ editing.is_published ? 'checked' }}> {{ 'Published'|trans }}
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" name="in_footer" value="1" style="width: auto;" {{ editing.in_footer ? 'checked' }}> {{ 'Link in the footer'|trans }}
+                </label>
+                <label>{{ 'Footer order'|trans }}
+                    <input type="number" name="sort_order" value="{{ editing.sort_order }}" step="1">
+                </label>
+            </div>
+            <div class="magic-block page-magic"
+                 data-endpoint="{{ path('admin.api.magic_page') }}"
+                 data-csrf="{{ csrf_token() }}"
+                 data-slug="{{ editing.slug|default('') }}"
+                 data-locale="{{ editing.locale|default('') }}">
+                <h3>✨ {{ 'Magic edit'|trans }}</h3>
+                <p class="field-hint">{{ 'Writes the title and content from your products, shipping and payment settings. Nothing is saved until you click "Save page".'|trans }}</p>
+                <label>{{ 'Extra instruction (optional)'|trans }}
+                    <input type="text" class="magic-prompt" maxlength="2000" placeholder="{{ 'e.g. friendly tone, mention free shipping over 50 €, keep it short'|trans }}">
+                </label>
+                <button type="button" class="btn-secondary page-magic-run">✨ {{ 'Fill with AI'|trans }}</button>
+                <p class="page-magic-status field-hint" aria-live="polite"></p>
+            </div>
+            <button type="submit" class="btn-primary">{{ 'Save page'|trans }}</button>
+            <a href="{{ path('admin.pages') }}" class="btn-secondary">{{ 'Cancel'|trans }}</a>
+        </form>
+    </section>
+{% endif %}
+
+<section class="panel">
+    <h2>{{ 'Built-in pages'|trans }}</h2>
+    <p class="field-hint">{{ 'These pages have standard text. Edit one to replace it with your own; remove your version to get the standard text back.'|trans }}</p>
+    <table class="data-table">
+        <tbody>
+        {% for slug in built_in %}
+            <tr>
+                <td><strong>{{ slug }}</strong> <a href="/{{ slug }}" target="_blank" rel="noopener">/{{ slug }}</a></td>
+                <td>
+                    {% set mine = pages|filter(p => p.slug == slug) %}
+                    {% if mine is empty %}<span class="field-hint">{{ 'Standard text'|trans }}</span>{% endif %}
+                    {% for p in mine %}
+                        <a href="{{ path('admin.pages', {}, {id: p.id}) }}">{{ p.locale ? languages[p.locale]|default(p.locale) : 'All languages'|trans }}{{ p.is_published ? '' : ' (' ~ 'draft'|trans ~ ')' }}</a>{{ not loop.last ? ' · ' }}
+                    {% endfor %}
+                </td>
+                <td><a href="{{ path('admin.pages', {}, {slug: slug}) }}" class="btn-secondary">{{ 'Write your own'|trans }}</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+<section class="panel">
+    <h2>{{ 'Your pages'|trans }} <a href="{{ path('admin.pages', {}, {slug: ''}) }}" class="btn-primary" style="float: right;">+ {{ 'New page'|trans }}</a></h2>
+    {% set custom = pages|filter(p => p.slug not in built_in) %}
+    {% if custom is empty %}<p class="field-hint">{{ 'No pages yet.'|trans }}</p>{% else %}
+        <table class="data-table">
+            <thead><tr><th>{{ 'Title'|trans }}</th><th>{{ 'Address'|trans }}</th><th>{{ 'Language'|trans }}</th><th></th></tr></thead>
+            <tbody>
+            {% for p in custom %}
+                <tr>
+                    <td><a href="{{ path('admin.pages', {}, {id: p.id}) }}">{{ p.title }}</a>{{ p.is_published ? '' : ' (' ~ 'draft'|trans ~ ')' }}{{ p.in_footer ? ' · ' ~ 'footer'|trans }}</td>
+                    <td><a href="{{ path('page.custom', {slug: p.slug}) }}" target="_blank" rel="noopener">/p/{{ p.slug }}</a></td>
+                    <td>{{ p.locale ? languages[p.locale]|default(p.locale) : 'All languages'|trans }}</td>
+                    <td>
+                        <form method="post" action="{{ path('admin.pages.submit') }}" class="inline-form" data-confirm="{{ 'Delete this page?'|trans }}">
+                            {{ csrf_field() }}<input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="{{ p.id }}">
+                            <button type="submit" class="btn-secondary">{{ 'Delete'|trans }}</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+</section>
+
+{% set removable = pages|filter(p => p.slug in built_in) %}
+{% if editing is not null and editing.id|default(0) and editing.slug in built_in %}
+    <form method="post" action="{{ path('admin.pages.submit') }}" data-confirm="{{ 'Remove your version and bring back the standard text?'|trans }}">
+        {{ csrf_field() }}<input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="{{ editing.id }}">
+        <button type="submit" class="btn-secondary">{{ 'Back to the standard text'|trans }}</button>
+    </form>
+{% endif %}
+<script src="{{ js('admin.js') }}"></script>
+{% endblock %}

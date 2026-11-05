@@ -1,0 +1,19 @@
+{% autoescape false %}
+{{ 'Hi {name},'|trans({name: request.ship_name}) }}
+
+{% if request.status == 'approved' %}
+{{ 'Your return request for order {number} has been approved. Please send the items back to us.'|trans({number: request.order_number}) }}
+{% elseif request.status == 'rejected' %}
+{{ 'We\'re sorry, but we can\'t accept the return you requested for order {number}.'|trans({number: request.order_number}) }}
+{% else %}
+{{ 'We have received the items you returned for order {number}. We will refund you shortly.'|trans({number: request.order_number}) }}
+{% endif %}
+{% if request.admin_response %}
+
+{{ request.admin_response }}
+{% endif %}
+
+{{ 'Track your order'|trans }}: {{ order_url }}
+
+{{ store_name }} — {{ store_email }}
+{% endautoescape %}

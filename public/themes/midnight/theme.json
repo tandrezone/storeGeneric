@@ -1,0 +1,19 @@
+{
+    "name": "Midnight",
+    "description": "Dark navy with a cool blue glow, built for night owls.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#18213f",
+            "#0b1020"
+        ],
+        "text": "#e6ebff",
+        "accent": "#5b8cff",
+        "accent2": "#8fd3ff",
+        "surface": "#131a30",
+        "font": "sans",
+        "motif": "stars",
+        "effect": "glow"
+    }
+}

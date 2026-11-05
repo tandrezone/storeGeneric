@@ -54,4 +54,19 @@ return [
     'Total visits',
     'Unique visitors',
     '{day}: {total} total visits, {unique} unique visitors',
+    // admin.js — magic edit all products
+    'There are no products yet.',
+    'Run this instruction on {count} product? Each product is one AI request.',
+    '{done} of {total} products checked — {changed} with changes, {failed} failed.',
+    'Stopped.',
+    'Save the changes to {count} product?',
+    'Saved ✓',
+    '{count} product saved. Reload the page to see the changes in the list.',
+    // admin.js — magic edit for pages and the newsletter
+    'Replace the current title and content with the AI version?',
+    'Writing the page… this can take up to 30 seconds.',
+    'Done — review the page, then click "Save page".',
+    'Replace the current subject and message with the AI version?',
+    'Writing the campaign… this can take up to 30 seconds.',
+    'Done — review it and send yourself a test first.',
 ];

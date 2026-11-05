@@ -15,8 +15,9 @@
                  alt="{{ product.name }}"
                  {% if eager|default(false) %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async">
         {% else %}
-            <div class="image-placeholder">{{ 'No image'|trans }}</div>
+            <div class="image-placeholder">{{ product.name }}</div>
         {% endif %}
+        {% if product.on_sale|default(0) and not sold_out %}<span class="sale-badge">{{ 'Sale'|trans }}</span>{% endif %}
         {% if sold_out %}
             <span class="stock-badge is-out">{{ 'Out of stock'|trans }}</span>
         {% elseif product.stock <= low_stock_threshold %}
@@ -28,7 +29,7 @@
         <h3>{{ product.name }}</h3>
         <p class="short-desc">{{ product.short_description }}</p>
         {% if product.from_price is not null %}
-            <p class="price">{{ 'From {price}'|trans({price: product.from_price|money}) }}</p>
+            <p class="price"><span class="price-now{{ product.on_sale|default(0) ? ' is-sale' }}">{{ 'From {price}'|trans({price: product.from_price|money}) }}</span>{% set approx = approx_price(product.from_price) %}{% if approx %} <small class="price-approx">{{ approx }}</small>{% endif %}</p>
         {% endif %}
     </div>
 </a>

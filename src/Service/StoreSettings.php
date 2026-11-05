@@ -82,12 +82,30 @@ final class StoreSettings
         return max(0, (int) $this->settings->get('low_stock_threshold', (string) self::DEFAULT_LOW_STOCK_THRESHOLD));
     }
 
+    /** Whether the storefront shows the cookie notice (on by default; always on when a tracking snippet is set). */
+    public function cookieNoticeEnabled(): bool
+    {
+        return $this->trackingSnippet() !== '' || $this->settings->get('cookie_notice', '1') === '1';
+    }
+
+    /** Whether the newsletter signup form is shown (Admin → Newsletter). */
+    public function newsletterEnabled(): bool
+    {
+        return $this->settings->get('newsletter_enabled', '0') === '1';
+    }
+
+    /** HTML / JavaScript (analytics, pixels…) that is only loaded after the visitor accepts cookies. */
+    public function trackingSnippet(): string
+    {
+        return trim((string) $this->settings->get('tracking_snippet', ''));
+    }
+
     public function showNameWithLogo(): bool
     {
         return $this->settings->get('logo_show_name', '1') === '1';
     }
 
-    /** @return array{name: string, email: string, logo_url: ?string, currency: string} */
+    /** @return array{name: string, email: string, logo_url: ?string, currency: string, cookie_notice: bool, tracking_snippet: string, newsletter: bool} */
     public function toArray(): array
     {
         return [
@@ -95,6 +113,9 @@ final class StoreSettings
             'email'    => $this->email(),
             'logo_url' => $this->logoUrl(),
             'currency' => $this->currency(),
+            'cookie_notice'    => $this->cookieNoticeEnabled(),
+            'tracking_snippet' => $this->trackingSnippet(),
+            'newsletter'       => $this->newsletterEnabled(),
         ];
     }
 }

@@ -1,0 +1,19 @@
+{
+    "name": "Mushroom",
+    "description": "Forest-floor palette: loam browns, moss green, cream gills and a toadstool-red accent, with cap-shaped images and a spore-dusted background.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#fbf6ea",
+            "#ebdfc8"
+        ],
+        "text": "#33261c",
+        "accent": "#b3402f",
+        "accent2": "#5d7a4a",
+        "surface": "#fbf6ea",
+        "font": "serif-bold",
+        "motif": "toadstool",
+        "text_y": 350
+    }
+}

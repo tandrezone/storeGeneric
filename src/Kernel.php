@@ -31,10 +31,10 @@ final class Kernel
         $builder = new ContainerBuilder();
         $builder->useAutowiring(true);
         $builder->addDefinitions([
-            Paths::class  => new Paths($projectRoot),
+            Paths::class  => $paths = new Paths($projectRoot, Paths::detectCore($projectRoot)),
             Config::class => Config::fromEnvironment($projectRoot),
         ]);
-        $builder->addDefinitions($projectRoot . '/config/container.php');
+        $builder->addDefinitions($paths->locate('config/container.php'));
 
         return new self($builder->build());
     }
@@ -47,7 +47,7 @@ final class Kernel
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $paths = $this->container->get(Paths::class);
-        $middleware = require $paths->root . '/config/middleware.php';
+        $middleware = require $paths->locate('config/middleware.php');
 
         $pipeline = new MiddlewarePipeline(
             $this->container,

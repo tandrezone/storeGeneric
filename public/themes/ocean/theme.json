@@ -1,0 +1,19 @@
+{
+    "name": "Ocean",
+    "description": "Sea-glass blues with a coral accent and soft, rolling shapes.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#fbfeff",
+            "#dcedf4"
+        ],
+        "text": "#0f2c3d",
+        "accent": "#0b7fa8",
+        "accent2": "#ff7a6b",
+        "surface": "#fbfeff",
+        "font": "round-bold",
+        "motif": "waves",
+        "text_y": 260
+    }
+}

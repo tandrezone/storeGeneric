@@ -16,7 +16,9 @@
 
 {{ 'Shipping to'|trans }}:
 {{ include('email/_address.txt.twig') }}
-{{ 'View your order'|trans }}: {{ order_url }}
+{% if has_document|default(false) %}{{ 'Your invoice is attached as a PDF.'|trans }}
+
+{% endif %}{{ 'View your order'|trans }}: {{ order_url }}
 
 {{ store_name }} — {{ store_email }}
 {% endautoescape %}

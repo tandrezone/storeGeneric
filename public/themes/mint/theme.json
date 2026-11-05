@@ -1,0 +1,18 @@
+{
+    "name": "Mint",
+    "description": "Fresh mint green with a pop of strawberry pink.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#fcfffd",
+            "#dcf5ea"
+        ],
+        "text": "#123a2e",
+        "accent": "#0f9b72",
+        "accent2": "#f2698a",
+        "surface": "#fcfffd",
+        "font": "round-bold",
+        "motif": "blobs"
+    }
+}

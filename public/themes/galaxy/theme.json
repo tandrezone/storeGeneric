@@ -1,0 +1,19 @@
+{
+    "name": "Galaxy",
+    "description": "Deep-space violet with nebula purple and pink.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#1a0f3a",
+            "#0a0618"
+        ],
+        "text": "#efe9ff",
+        "accent": "#9d6bff",
+        "accent2": "#ff6bd6",
+        "surface": "#150d2e",
+        "font": "sans-bold",
+        "motif": "stars",
+        "effect": "glow"
+    }
+}

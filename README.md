@@ -38,13 +38,13 @@ It is structured as a small MVC application on the PHP-FIG standards:
 | PHP | 8.1+ with `pdo_mysql`, `curl`, `json`, `zip`, `gd` |
 | MariaDB | 10.x |
 | Composer + git | Dependencies are installed from GitHub (see `repositories` in `composer.json`) |
-| Web server | Apache (`setup-apache.sh`), Nginx, or `php -S` for development |
+| Web server | Apache (`setup-site.sh`), Nginx, or `php -S` for development |
 
 ---
 
 ## 2. Setup
 
-On a Debian/Ubuntu server, `sudo ./setup-apache.sh` does everything below (see
+On a Debian/Ubuntu server, `sudo ./setup-site.sh` does everything below (see
 [Deploying to finderskeep.online](#deploying-to-finderskeeponline)). By hand:
 
 ```bash
@@ -80,6 +80,7 @@ environment take priority. Comments must be on their own line.
 | `STORE_NAME`, `STORE_EMAIL` | Defaults for the store name and contact email (Admin → Settings overrides them) |
 | `STORE_LANGUAGE` | Default storefront language, a catalog in `translations/` (`en` or `pt`; default `en`). Admin → Settings overrides it; visitors can switch (see [Languages](#languages-translations)) |
 | `STORE_CURRENCY` | ISO currency code for prices and payment providers (default `EUR`). Formatting and minor units follow the currency (e.g. `JPY` has no decimals); uses `ext-intl` when loaded |
+| `CACHE_ENABLED` | `false` turns off the storefront data cache (default on; also off when `APP_DEBUG=true`) |
 | `APP_SECRET` | Signs customer order links (`?key=…` on the confirmation / track-order pages). If empty, one is generated into `var/app-secret` |
 | `MAIL_TRANSPORT` | `smtp`, `mail` (PHP `mail()`) or `log` (default: writes emails to `var/log/mail-*.log`) |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_ENCRYPTION`, `MAIL_USERNAME`, `MAIL_PASSWORD` | SMTP server (`tls` = STARTTLS, usually 587; `ssl` = 465; AUTH LOGIN when a username is set) |
@@ -122,7 +123,11 @@ bin/console images:regenerate [--force]            placeholder images for produc
 bin/console db:migrate [--status] [--dry-run] [--baseline=NNN]   apply the migrations that haven't run yet
 bin/console db:reimport --force                    DEV ONLY: drop all tables, rebuild from schema + migrations
 bin/console orders:expire [--hours=48]             cancel unpaid online orders and restock them (run from cron)
-bin/console maintenance:prune [--dry-run] [--page-views-days=180] [--audit-days=365] [--carts-days=60] [--attempts-days=7]   delete old analytics / audit / cart / token / attempt rows (run from cron)
+bin/console mail:process [--limit=50] [--retry-failed] [--status]   send queued / retry failed emails (run from cron, every 5 minutes)
+bin/console stock:notify                           queue "back in stock" emails (run from cron, every 15 minutes)
+bin/console carts:remind [--hours=24] [--force]    queue abandoned-cart reminders when switched on in Settings (run hourly)
+bin/console currency:update [--force]               refresh the display-currency rates from the ECB when switched on in Settings (daily from cron)
+bin/console maintenance:prune [--dry-run] [--page-views-days=180] [--audit-days=365] [--carts-days=60] [--attempts-days=7] [--mail-days=30]   delete old analytics / audit / cart / token / attempt rows (run from cron)
 bin/console products:export [--output=path] [--status=approved] [--embed-images]   products + variants + translations + images as JSON
 bin/console products:import <file> [--dry-run] [--create-categories] [--no-update] [--no-images]   import such a file, fetching missing images
 bin/console db:backup [--output=path] [--gzip] [--with-uploads] [--keep=N]   back up to var/backups/
@@ -176,7 +181,7 @@ streamed, `TIMESTAMP`s are written in UTC, and the file only appears once it is 
 Daily at 03:30, keeping two weeks:
 
 ```
-30 3 * * * cd /var/www/store && bin/console db:backup --gzip --with-uploads --keep=14 >> var/log/backup.log 2>&1
+30 3 * * * cd /var/www/cactistore && bin/console db:backup --gzip --with-uploads --keep=14 >> var/log/backup.log 2>&1
 ```
 
 `bin/console db:restore var/backups/backup-….sql.gz --force` replaces every table in the backup
@@ -206,6 +211,9 @@ and `tearDown()`.
   with optional segments, the theme-upload file filter, `ClientIp`, customer password / return-path rules,
   provider refund requests (Stripe / PayPal / Revolut, with a fake HTTP client), the `Translator` (fallbacks, placeholders, plurals) and the catalogs (same keys and placeholders in every language).
 - **Unit** (cont.) — `Totp` against the RFC 6238 test vectors, window, replay and recovery-code rules.
+- **HTTP** (`tests/Integration/Http`, base class `tests/HttpTestCase.php`) — whole requests through routing, session, CSRF, admin login wall,
+  controllers and Twig, with helpers to sign in an admin or customer: storefront smoke test, notes, sale pricing, wishlist and alerts, reviews,
+  returns, invoices, newsletter, cart reminders, pages, cookie notice, data export.
 - **Integration** — against a real MariaDB/MySQL database: checkout places the order, reserves stock
   and refuses to oversell; `PaymentRecorder` ignores duplicate events and refuses wrong amounts or
   currencies; cancelling restocks exactly once; CSV import/export; backup + restore round trip;
@@ -355,7 +363,7 @@ To add a page: add a route in `config/routes.php`, a controller method, and a te
   since the answer is parsed the same way as with the built-in prompt.
 
 Uploads need the PHP `zip` extension and write access to `public/themes/`,
-`public/assets/images/branding/` and `var/` (all handled by `setup-apache.sh`). Files with a
+`public/assets/images/branding/` and `var/` (all handled by `setup-site.sh`). Files with a
 script extension anywhere in their name (`x.php.css`, …) are skipped, and `public/themes/.htaccess`
 switches script handlers off. A form larger than PHP's `post_max_size` shows "The upload is too
 large (limit …)".
@@ -680,7 +688,7 @@ To add a method, implement `App\Payment\PaymentMethod` (or extend `AbstractPayme
   is cancelled, its payment fails or expires, or it is refunded with "restock" ticked
   (`orders.stock_reserved` tracks this). Online orders abandoned at the provider are released by
   `bin/console orders:expire` — run it hourly from cron, e.g.
-  `0 * * * * cd /var/www/store && bin/console orders:expire --hours=48`.
+  `0 * * * * cd /var/www/cactistore && bin/console orders:expire --hours=48`.
 - **Payments** (`PaymentRecorder`) are idempotent: webhook retries are ignored, a "paid" event must
   match the order total and `STORE_CURRENCY` (otherwise it is logged as `amount_mismatch` and the order
   stays unpaid), and once paid an order is never moved back by later events.
@@ -699,7 +707,7 @@ To add a method, implement `App\Payment\PaymentMethod` (or extend `AbstractPayme
   `customer_tokens`, and login / order-lookup / customer-auth attempt rows older than 7 days
   (`--page-views-days`, `--audit-days`, `--carts-days`, `--attempts-days` change the durations).
   `--dry-run` only prints what would go. Orders, payments and customers are never touched. Daily from cron:
-  `15 4 * * * cd /var/www/store && bin/console maintenance:prune >> var/log/prune.log 2>&1`
+  `15 4 * * * cd /var/www/cactistore && bin/console maintenance:prune >> var/log/prune.log 2>&1`
 - **Emails** (`templates/email/`, HTML + text, sent by `App\Infrastructure\Mailer` — see `MAIL_*`):
   order confirmation (bank transfer / cash on delivery: when placed, with payment instructions;
   online methods: when paid), payment received (manual methods), shipped (with tracking),
@@ -746,13 +754,23 @@ Optional — guest checkout works exactly as before. Tables `customers`, `custom
 
 ### Deploying to finderskeep.online
 
-`setup-apache.sh` and `verify-env.sh` default to `finderskeep.online` (pass `DOMAIN=...` to use another
+`setup-site.sh` and `verify-env.sh` default to `finderskeep.online` (pass `DOMAIN=...` to use another
 domain). On the server:
 
 ```bash
-sudo ./setup-apache.sh            # packages, .env, database, Apache vhost for finderskeep.online + www
+sudo ./setup-site.sh            # packages, .env, database, Apache vhost for finderskeep.online + www
 sudo apt-get install -y certbot python3-certbot-apache
 sudo certbot --apache --redirect -d finderskeep.online -d www.finderskeep.online
+```
+
+Both scripts are also installed as global commands (`setup-site`, `verify-env`). Run them from a
+store directory (one with a `public/` folder) to act on that store; the domain comes from its
+`.vhost` file:
+
+```bash
+cd /var/www/stores/<store>
+sudo setup-site                 # set up this store
+sudo verify-env                 # re-check it at any time (services, PHP, HTTP, database, permissions)
 ```
 
 Before running certbot, point the DNS **A** (and **AAAA** if you have IPv6) records for
@@ -772,6 +790,95 @@ with the providers don't need to change.
 
 ---
 
+### Customer and operations features
+
+All of these need `bin/console db:migrate` after updating (migrations 030–042). Admin screens are under the
+menu entries named below; staff = any admin, manager / owner as in [Admin users and roles](#admin-users-and-roles).
+
+| Feature | Where | Notes |
+|---|---|---|
+| **Internal order notes** | Admin → Orders → an order | Staff-only notes with author and time. |
+| **Email queue with retry** | `mail_queue` table, `mail:process` | Order, account and return emails are sent right away; if the mail server refuses, the message is stored and retried after 5 min, 30 min, 2 h, 6 h, 24 h, then given up (`mail:process --status`, `--retry-failed`). Bulk mail (newsletter, reminders, back-in-stock) is only queued, so `mail:process` must run from cron. |
+| **Sale pricing** | Admin → Products → a variant | `price` stays the regular price; an optional sale price with start and end time. The storefront shows the old price struck through and a "Sale" badge; carts and orders use the price in force. The CSV and JSON files carry `sale_price`, `sale_starts`, `sale_ends` (JSON: `sale_starts_at`, `sale_ends_at`) and `weight_grams`: a column / key that is absent leaves the value alone, an empty cell (JSON `null`) clears a sale. |
+| **Weight-based shipping** | Admin → Products (variant weight, grams), Admin → Shipping | Per-method extra cost per kg and minimum / maximum order weight (a method is hidden at checkout outside its range). Country lists work as before. The order stores its total weight. |
+| **PDF invoices and credit notes** | Admin → Settings → Invoices; order pages | Dependency-free PDF writer (`App\Support\SimplePdf`). Numbers are gap-free per year (`INV-2026-00001`, `CN-2026-00001`), assigned the first time a document is requested and never changed. Invoices exist for paid orders, credit notes for refunded ones; customers download them from their order page, staff from the admin order page. Fill in company name, address and VAT number first. |
+| **Returns (RMA)** | Order page → "Request a return"; Admin → Returns; Settings → Returns | Within *N* days of shipping (default 14, 0 = off), per item and quantity. Staff approve / reject / mark received / mark refunded and can leave a message; customers are emailed. The money is still refunded from the order page. |
+| **Product reviews** | Product page; Admin → Reviews | Signed-in customers only, one per product, held for approval (Settings key `reviews_auto_approve` = 1 publishes at once). "Verified purchase" for customers with a paid order. Star ratings also appear in the product's JSON-LD (`aggregateRating`). |
+| **Wishlist** | Product page, Account → Wishlist | Signed-in customers. |
+| **Back-in-stock alerts** | Sold-out product page | Visitors leave an email; `stock:notify` (cron) emails them once when the product can be bought again. |
+| **Newsletter** | Admin → Newsletter | Off until enabled there. Double opt-in, honeypot, one unsubscribe link per email, CSV export, test send, campaign history. Campaigns are queued; `mail:process` sends them. |
+| **Abandoned-cart reminders** | Admin → Settings → Abandoned carts | Off by default. One email per cart, only to signed-in customers with a verified email who have not ordered since; the link restores the items in any browser. |
+| **Editable pages** | Admin → Pages | Replace the text of About / Info / Support / Terms / Privacy, or add pages at `/p/<slug>` (per language, footer link, listed in `sitemap.xml`). HTML is sanitized (headings, lists, links). Remove your version to get the standard text back. |
+| **Cookie notice** | Admin → Settings → Privacy and cookies | The store itself only sets essential cookies, so the notice is informational by default. Paste an analytics / advertising snippet and it loads **only after the visitor clicks Accept** (Decline and no answer load nothing). |
+| **Marketplace orders** | Admin → Settings → Marketplace orders | Import endpoint for connectors of marketplaces / delivery apps — see [Marketplace orders](#marketplace-orders). |
+| **Invoice PDFs in emails** | Admin → Settings → Invoices | The payment-confirmation email carries the invoice and the refund email the credit note as PDF attachments (switch off with the checkbox). The mailer builds proper `multipart/mixed` messages; queued mail keeps its attachments for retries. |
+| **Gift cards** | Admin → Gift cards; checkout "Gift card" box | Issue a card (generated or chosen code, optional expiry, optional email to the recipient with a message), top up or correct it, switch it off, see its ledger and the money still outstanding. At checkout the card pays what its balance covers and the order total becomes the remainder (0 = paid in full at once). Cancelled, expired and refunded orders give the amount back to the card, once. Cards are issued by staff; selling them as a product is not built. |
+| **EU VAT numbers (VIES) and reverse charge** | Admin → Settings → Invoices ("Your country") and Tax; checkout | With VAT on and your country set, a "VAT number" field appears at checkout. The number is checked live against the European Commission's VIES service (answers cached 24 h valid / 1 h invalid; if VIES or the member state is down, checkout asks to retry or leave it out and never guesses). VAT is not charged (reverse charge) when the number is valid, from another EU country than yours, and the goods go to that country; with VAT-inclusive prices the buyer pays the net amount. The number and a reverse-charge note are printed on the invoice and shown on the order. |
+| **Bulk order actions** | Admin → Orders | Tick orders, then mark them processing / shipped (with a carrier) / completed, or print packing slips (SKU, quantity, address; no internal notes). Orders that can't make that move are skipped and listed. |
+| **Prices in other currencies (display only)** | Admin → Settings → Currencies | Visitors pick a currency to see "≈ $13.50" next to catalogue prices. Rates are typed in, or refreshed daily from the ECB when the store currency is EUR (`currency:update`). **Everything is still priced, charged and refunded in the store currency**; cart, checkout, orders and emails never show converted amounts. See the roadmap. |
+| **Storefront cache** | `CACHE_ENABLED` (default on; off with `APP_DEBUG=true`) | Caches data, never HTML (pages hold each visitor's CSRF token and cart): the plain home listing and category list for 60 s, the sitemap for an hour. Dropped at once by any successful admin change and by every new order (stock). Searches are never cached. Files live in `var/cache/data/`. |
+| **GDPR data export** | Account → Profile → Download my data | JSON with profile, addresses, orders and the data of the features above. Needs the current password. Deleting an account also removes its wishlist and newsletter / alert rows and detaches (anonymises) its reviews. |
+
+Cron jobs for every store (see below for running one command on all stores):
+
+```
+*/5  * * * * /var/www/stores/stores-console.sh all mail:process
+*/15 * * * * /var/www/stores/stores-console.sh all stock:notify
+0    * * * * /var/www/stores/stores-console.sh all carts:remind
+0    * * * * /var/www/stores/stores-console.sh all orders:expire
+0    6 * * * /var/www/stores/stores-console.sh all currency:update
+15   4 * * * /var/www/stores/stores-console.sh all maintenance:prune
+```
+
+#### Marketplace orders
+
+Orders taken on a marketplace or delivery app (Glovo, Bolt Food, Uber Eats, Wolt, Just Eat…) can be imported so stock and
+the order list stay in one place. The store does **not** talk to those services itself: each of them gives merchants its own
+API or webhooks only after a partner agreement, and the formats differ. A small connector (your own script, a hosted
+automation tool, or the marketplace's integration partner) translates their order into this normalized JSON and posts it:
+
+```
+POST /api/marketplace/orders
+Authorization: Bearer mk_…        (create the key in Admin → Settings → Marketplace orders; shown once)
+Content-Type: application/json
+
+{
+  "source": "glovo",                       // 2–30 chars: letters, digits, - _ ; shown as the order's source
+  "external_id": "G-1048213",              // the marketplace's own order id (unique per source)
+  "placed_at": "2026-11-05T12:30:00Z",     // optional, ISO 8601, not in the future
+  "currency": "EUR",                       // optional, must equal STORE_CURRENCY
+  "customer": { "name": "Ana Costa", "email": "", "phone": "+351…", "address1": "…", "address2": "", "city": "Porto",
+                "state": "", "postal_code": "4000-001", "country": "Portugal" },   // all optional
+  "items": [ { "sku": "CACT-001", "quantity": 2, "unit_price": 4.50 } ],           // SKUs of product variants
+  "delivery_fee": 2.50, "discount": 1.00,  // optional, ≥ 0
+  "tax_rate": 23, "tax_amount": 1.96,      // optional; prices are treated as VAT-inclusive
+  "note": "Ring twice"                     // optional, kept as an internal note
+}
+```
+
+- `201 {"id", "order_number"}` created; `200 {…, "duplicate": true}` already imported (a connector may retry safely);
+  `401` bad or missing key; `422 {"error"}` lists what is wrong, or the unknown SKU (the whole order is refused, nothing changes).
+- The order is **paid** (the marketplace collected the money), uses the **prices from the payload**, takes stock, and sends no email.
+  If stock is short the order is still imported (it exists at the marketplace), stock goes to 0 and an internal note says so.
+- Refunding or cancelling it in the admin restocks like any order; refund the money at the marketplace, not here.
+- Replacing or revoking the key in Settings takes effect immediately.
+
+#### Several stores on one core
+
+Stores are folders next to `coreStore/` with their own `.env`, `var/` and `public/` and a `core -> ../coreStore/` link, so
+code updates reach every store at once, but **each store's database must be migrated too**. `bin/console` runs for one store
+when `STORE_ROOT=/var/www/stores/<store>` is set (or when run from inside the store's folder); the helper does it for all:
+
+```bash
+/var/www/stores/stores-console.sh all list-stores
+/var/www/stores/stores-console.sh all db:backup        # back up every store first
+/var/www/stores/stores-console.sh all db:migrate       # then apply the new migrations to every store
+/var/www/stores/stores-console.sh shop mail:process    # one store
+```
+
+Because the code is shared, deploy in this order: back up, run `db:migrate` for all stores, then (or at the same moment) update the core.
+A store whose database hasn't been migrated returns an error page for any feature whose table or column is missing.
+
 ## 6. Pre-Deployment Checklist
 
 - [ ] **Change the default admin password** — see [Admin users and roles](#admin-users-and-roles) (generate the hash with `bin/console admin:hash-password`)
@@ -790,4 +897,12 @@ with the providers don't need to change.
 
 ## 7. Roadmap
 
-- Tests for the HTTP layer (controllers through the middleware pipeline) on top of the service tests
+Done since the last revision: HTTP-layer tests, gift cards, VIES / reverse charge, bulk order actions, storefront data cache,
+invoice PDFs attached to emails, sale prices and weights in the CSV / JSON files, and display-only multi-currency. Not built:
+
+- **Charging in other currencies.** Today's multi-currency only shows approximate prices. Real multi-currency means every order
+  storing its currency and rate, and Stripe / PayPal / Revolut / OxaPay, the payment-amount checks, refunds, bank-transfer
+  instructions, invoices and emails all using it. That touches every payment path and needs each provider's sandbox to test, so it was not attempted.
+- Selling gift cards as a product (cards are issued by staff)
+- Ready-made connectors for specific marketplaces (they need each partner's API access and documentation)
+- Whole-page caching (pages embed per-visitor tokens; the data cache above is what is safe)

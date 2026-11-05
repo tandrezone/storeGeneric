@@ -1,0 +1,26 @@
+{# Banner at the top of the shop page, with a toadstool cluster beside the text. #}
+<section class="shop-hero">
+    <div class="shop-hero-inner">
+        <span class="hero-eyebrow">{{ 'Fresh from the forest floor'|trans }}</span>
+        <h1>{{ 'Welcome to {store}'|trans({store: store.name}) }}</h1>
+        <p>{{ 'Mushrooms, spores and woodland treasures, gathered with care.'|trans }}</p>
+    </div>
+    <svg class="hero-mushrooms" viewBox="0 0 260 220" aria-hidden="true" focusable="false">
+        <g class="hero-big">
+            <path d="M92 204 C96 170 94 150 98 132 H122 C126 150 124 170 128 204 z" fill="#f0e6d0"/>
+            <path d="M96 140 H124 V148 H96 z" fill="#d9c9a6"/>
+            <path d="M40 132 C40 78 78 44 110 44 C142 44 180 78 180 132 C180 138 174 140 168 140 H52 C46 140 40 138 40 132 z" fill="#b3402f"/>
+            <circle cx="80" cy="96" r="9" fill="#fbf6ea"/>
+            <circle cx="118" cy="74" r="11" fill="#fbf6ea"/>
+            <circle cx="146" cy="108" r="8" fill="#fbf6ea"/>
+            <circle cx="104" cy="118" r="6" fill="#fbf6ea"/>
+        </g>
+        <g class="hero-small">
+            <path d="M200 204 C202 188 201 178 203 168 H215 C217 178 216 188 218 204 z" fill="#f0e6d0"/>
+            <path d="M178 168 C178 144 192 130 209 130 C226 130 240 144 240 168 C240 171 237 172 234 172 H184 C181 172 178 171 178 168 z" fill="#8a6a47"/>
+            <circle cx="198" cy="150" r="4" fill="#c9a679"/>
+            <circle cx="220" cy="146" r="5" fill="#c9a679"/>
+        </g>
+        <ellipse cx="130" cy="208" rx="120" ry="9" fill="#5d7a4a" opacity="0.55"/>
+    </svg>
+</section>

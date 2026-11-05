@@ -1,0 +1,8 @@
+{% extends 'email/_layout.html.twig' %}
+
+{% block body %}
+<p>{{ 'Good news — {product} is back in stock.'|trans({product: '<strong>' ~ product_name|e ~ '</strong>'})|raw }}</p>
+<p>{{ 'Stock is limited, so be quick if you still want it.'|trans }}</p>
+<p><a href="{{ product_url }}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;">{{ 'View product'|trans }}</a></p>
+<p style="font-size:12px;color:#6b7280;">{{ 'You asked us to tell you. This is the only email we send about it.'|trans }} <a href="{{ cancel_url }}" style="color:#6b7280;">{{ 'Cancel alert'|trans }}</a></p>
+{% endblock %}

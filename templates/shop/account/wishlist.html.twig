@@ -1,0 +1,32 @@
+{% extends 'layout/shop.html.twig' %}
+
+{% set title = 'Your wishlist'|trans %}
+{% set robots = 'noindex, nofollow' %}
+{% set account_nav = 'wishlist' %}
+
+{% block content %}
+<section class="account-page">
+    <h1>{{ 'Your wishlist'|trans }}</h1>
+    {{ include('shop/account/_nav.html.twig') }}
+    {{ include('shop/account/_flashes.html.twig') }}
+
+    {% if products is empty %}
+        <p>{{ 'Nothing saved yet.'|trans }} <a href="{{ path('home') }}">{{ 'Start shopping'|trans }}</a>.</p>
+    {% else %}
+        <div class="wishlist-grid">
+            {% for product in products %}
+                <div>
+                    {{ include('shop/partials/product-card.html.twig', {product: product}) }}
+                    <form method="post" action="{{ path('account.wishlist.submit') }}" data-no-ajax>
+                        {{ csrf_field() }}
+                        <input type="hidden" name="product_id" value="{{ product.id }}">
+                        <input type="hidden" name="action" value="remove">
+                        <input type="hidden" name="back" value="{{ path('account.wishlist') }}">
+                        <button type="submit" class="btn-secondary">{{ 'Remove'|trans }}</button>
+                    </form>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

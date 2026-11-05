@@ -32,6 +32,9 @@ final class CatalogExtension extends AbstractExtension implements GlobalsInterfa
         private readonly Thumbnails $thumbnails,
         private readonly SiteUrl $siteUrl,
         private readonly StoreSettings $store,
+        private readonly \App\Repository\PageRepository $pages,
+        private readonly \App\I18n\Translator $translator,
+        private readonly \App\Service\CurrencyService $currencies,
     ) {
     }
 
@@ -43,6 +46,9 @@ final class CatalogExtension extends AbstractExtension implements GlobalsInterfa
             new TwigFunction('srcset', $this->thumbnails->srcset(...)),
             new TwigFunction('image_size', $this->thumbnails->size(...)),
             new TwigFunction('absolute_url', $this->siteUrl->absolute(...)),
+            new TwigFunction('footer_pages', $this->footerPages(...)),
+            new TwigFunction('approx_price', $this->approxPrice(...)),
+            new TwigFunction('display_currencies', $this->displayCurrencies(...)),
             new TwigFunction('json_ld', $this->jsonLd(...), ['is_safe' => ['html']]),
         ];
     }
@@ -60,6 +66,39 @@ final class CatalogExtension extends AbstractExtension implements GlobalsInterfa
             // "Only N left" at or below this (Admin → Settings, default 5).
             'low_stock_threshold' => $this->store->lowStockThreshold(),
         ];
+    }
+
+    /** "≈ $13.50" in the visitor's chosen currency ('' when none). Never breaks a page. */
+    private function approxPrice(float|int|string|null $amount): string
+    {
+        try {
+            return $this->currencies->approx($amount);
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    /** @return array{codes: list<string>, chosen: ?string, base: string} the currencies visitors can pick */
+    private function displayCurrencies(): array
+    {
+        try {
+            return ['codes' => $this->currencies->available(), 'chosen' => $this->currencies->chosen(), 'base' => $this->currencies->base()];
+        } catch (\Throwable) {
+            return ['codes' => [], 'chosen' => null, 'base' => ''];
+        }
+    }
+
+    /** Pages from Admin → Pages that want a footer link: [{title, url}]. Never fails a page render. @return list<array{title: string, url: string}> */
+    private function footerPages(): array
+    {
+        try {
+            return array_map(
+                fn (array $p): array => ['title' => $p['title'], 'url' => $this->router->url('page.custom', ['slug' => $p['slug']])],
+                $this->pages->footerLinks($this->translator->locale())
+            );
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     /** @param array<string, mixed> $product needs id and name (base_name, the original name, when the text is translated) */

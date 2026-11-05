@@ -8,7 +8,9 @@
 {% endif %}
 
 {{ include('email/_items.txt.twig') }}
-{{ 'If you have any questions, just reply to this email.'|trans }}
+{% if has_document|default(false) %}{{ 'Your credit note is attached as a PDF.'|trans }}
+
+{% endif %}{{ 'If you have any questions, just reply to this email.'|trans }}
 
 {{ store_name }} — {{ store_email }}
 {% endautoescape %}

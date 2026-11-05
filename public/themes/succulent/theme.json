@@ -2,5 +2,18 @@
     "name": "Succulent",
     "description": "For plant and cactus lovers: sage greens, terracotta pots, desert sand and soft rounded shapes.",
     "author": "storeGeneric",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#fffdf7",
+            "#ece6d4"
+        ],
+        "text": "#263a2a",
+        "accent": "#3f7a4e",
+        "accent2": "#b35f3b",
+        "surface": "#fffdf7",
+        "font": "round-bold",
+        "motif": "leaves",
+        "text_width": 480
+    }
 }

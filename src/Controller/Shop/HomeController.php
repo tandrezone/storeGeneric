@@ -9,6 +9,7 @@ use App\Repository\CategoryRepository;
 use App\Repository\ProductRepository;
 use App\Service\ProductImages;
 use App\Service\ProductTranslations;
+use App\Support\FileCache;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -19,6 +20,7 @@ use Psr\Http\Message\ServerRequestInterface;
 final class HomeController
 {
     public const PER_PAGE = 24;
+    private const CACHE_SECONDS = 60;
     public const SORT_LABELS = [
         'name'       => 'Name',
         'price_asc'  => 'Price: low to high',
@@ -32,6 +34,7 @@ final class HomeController
         private readonly CategoryRepository $categories,
         private readonly ProductImages $images,
         private readonly ProductTranslations $translations,
+        private readonly FileCache $cache,
     ) {
     }
 
@@ -50,15 +53,20 @@ final class HomeController
 
         $locale = $this->translations->storefrontLocale();
 
-        $total = $this->products->countVisible($slug, $search, $locale);
+        // Plain browsing (no search text) is the same for everyone: cache the rows for a minute. The cache is also
+        // dropped when the admin changes something or an order takes stock. Searches are never cached.
+        $cached = fn (string $key, callable $compute): mixed => $search === '' ? $this->cache->remember($key, self::CACHE_SECONDS, $compute) : $compute();
+        $keyBase = 'home|' . ($slug ?? '') . '|' . $locale;
+
+        $total = (int) $cached($keyBase . '|count', fn (): int => $this->products->countVisible($slug, $search, $locale));
         $pages = max(1, (int) ceil($total / self::PER_PAGE));
         $page = min($pages, max(1, (int) $param('page')));
 
         return $this->responder->view($request, 'shop/home.html.twig', [
-            'categories'      => $this->categories->findAll(),
+            'categories'      => $this->cache->remember('categories', self::CACHE_SECONDS, fn (): array => $this->categories->findAll()),
             'category'        => $category,
             'products'        => $this->images->forListing(
-                $this->products->findVisible($slug, $search, $sort, self::PER_PAGE, ($page - 1) * self::PER_PAGE, $locale)
+                $cached($keyBase . '|' . $sort . '|' . $page, fn (): array => $this->products->findVisible($slug, $search, $sort, self::PER_PAGE, ($page - 1) * self::PER_PAGE, $locale))
             ),
             'active_category' => $slug,
             'search'          => $search,

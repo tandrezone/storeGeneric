@@ -1,0 +1,51 @@
+{# Customer reviews on the product page. Needs: product, reviews {summary, list, mine}, signed_in. #}
+<section class="reviews" id="reviews" aria-labelledby="reviews-heading">
+    <h2 id="reviews-heading">{{ 'Customer reviews'|trans }}</h2>
+
+    {% if reviews.summary.count > 0 %}
+        <p class="rating-summary">
+            <span class="stars" role="img" aria-label="{{ '{rating} out of 5 stars'|trans({rating: reviews.summary.average}) }}"><span style="width: {{ reviews.summary.average * 20 }}%"></span></span>
+            {{ '{rating} out of 5 — based on {count} reviews'|trans({rating: reviews.summary.average|local_number(1), count: reviews.summary.count}) }}
+        </p>
+        {% for review in reviews.list %}
+            <article class="review">
+                <div class="review-head">
+                    <span class="stars" role="img" aria-label="{{ '{rating} out of 5 stars'|trans({rating: review.rating}) }}"><span style="width: {{ review.rating * 20 }}%"></span></span>
+                    {% if review.title %}<strong>{{ review.title }}</strong>{% endif %}
+                </div>
+                <p class="review-meta">
+                    {{ review.author ?: 'Anonymous'|trans }} · {{ review.created_at|local_date('medium') }}
+                    {% if review.verified %}<span class="review-badge">✓ {{ 'Verified purchase'|trans }}</span>{% endif %}
+                </p>
+                {% if review.body %}<p style="white-space: pre-wrap;">{{ review.body }}</p>{% endif %}
+            </article>
+        {% endfor %}
+    {% else %}
+        <p>{{ 'No reviews yet.'|trans }}</p>
+    {% endif %}
+
+    {% if reviews.mine %}
+        <p class="field-hint">
+            {% if reviews.mine.status == 'pending' %}{{ 'Your review is waiting to be checked.'|trans }}
+            {% elseif reviews.mine.status == 'rejected' %}{{ 'Your review was not published.'|trans }}
+            {% else %}{{ 'Thank you for your review.'|trans }}{% endif %}
+        </p>
+    {% elseif signed_in %}
+        <form method="post" action="{{ path('product.review', {id: product.id}) }}" class="review-form" data-no-ajax>
+            {{ csrf_field() }}
+            <h3>{{ 'Write a review'|trans }}</h3>
+            <label for="review-rating">{{ 'Rating'|trans }}</label>
+            <select id="review-rating" name="rating" required>
+                <option value="">—</option>
+                {% for n in 5..1 %}<option value="{{ n }}">{{ '{rating} out of 5 stars'|trans({rating: n}) }}</option>{% endfor %}
+            </select>
+            <label for="review-title">{{ 'Title (optional)'|trans }}</label>
+            <input type="text" id="review-title" name="title" maxlength="120">
+            <label for="review-body">{{ 'Your review'|trans }}</label>
+            <textarea id="review-body" name="body" rows="4" maxlength="3000"></textarea>
+            <button type="submit" class="btn-primary">{{ 'Submit review'|trans }}</button>
+        </form>
+    {% else %}
+        <p><a href="{{ path('account.login', {}, {next: current_path}) }}">{{ 'Sign in to write a review'|trans }}</a></p>
+    {% endif %}
+</section>

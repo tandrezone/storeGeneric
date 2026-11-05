@@ -10,8 +10,11 @@ use App\Http\Session;
 use App\I18n\Translator;
 use App\Payment\PaymentMethod;
 use App\Payment\PaymentRegistry;
+use App\Repository\OrderNoteRepository;
 use App\Repository\OrderRepository;
 use App\Repository\PaymentRepository;
+use App\Security\AdminAuthenticator;
+use App\Service\InvoiceService;
 use App\Service\OrderService;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -29,6 +32,9 @@ final class OrderController
         private readonly PaymentRegistry $payments,
         private readonly OrderService $service,
         private readonly Translator $translator,
+        private readonly OrderNoteRepository $notes,
+        private readonly AdminAuthenticator $auth,
+        private readonly InvoiceService $invoices,
     ) {
     }
 
@@ -76,7 +82,92 @@ final class OrderController
             ],
             'payment_label'  => $this->payments->label((string) $order['payment_method']),
             'payment_events' => $this->paymentLog->forOrder($id),
+            'notes'          => $this->notes->forOrder($id),
+            'invoice'        => $this->invoices->canInvoice($order),
+            'credit_note'    => $this->invoices->canCreditNote($order),
         ]);
+    }
+
+    /** Most orders one bulk action or packing-slip print may cover. */
+    private const BULK_MAX = 100;
+
+    /** Bulk actions from the orders list: mark processing / completed / shipped for the ticked orders. */
+    public function bulk(ServerRequestInterface $request): ResponseInterface
+    {
+        $body = (array) $request->getParsedBody();
+        $ids = $this->ids($body['ids'] ?? []);
+        $action = (string) ($body['bulk_action'] ?? '');
+        $back = $this->responder->redirectToRoute('admin.orders', [], array_filter(['status' => $body['filter_status'] ?? null]));
+
+        if ($ids === [] || !in_array($action, ['processing', 'completed', 'ship'], true)) {
+            $this->session->flash('error', $this->translator->trans('Tick some orders and choose an action.'));
+
+            return $back;
+        }
+        $carrier = mb_substr(trim((string) ($body['carrier'] ?? '')), 0, 100);
+        $done = 0;
+        $problems = [];
+        foreach ($ids as $id) {
+            $order = $this->orders->find($id);
+            if ($order === null) {
+                continue;
+            }
+            try {
+                $action === 'ship' ? $this->service->ship($id, '', $carrier) : $this->service->setStatus($id, $action);
+                $done++;
+            } catch (RuntimeException $e) {
+                $problems[] = $order['order_number'] . ': ' . $e->getMessage();
+            }
+        }
+        if ($done > 0) {
+            $this->session->flash('success', $this->translator->transPlural('{count} order updated.', $done));
+        }
+        if ($problems !== []) {
+            $this->session->flash('error', $this->translator->trans('Some orders were skipped:') . ' ' . implode(' · ', array_slice($problems, 0, 5)) . (count($problems) > 5 ? ' …' : ''));
+        }
+
+        return $back;
+    }
+
+    /** Printable packing slips for ?ids[]=… (what to pick, where to send it). */
+    public function packingSlips(ServerRequestInterface $request): ResponseInterface
+    {
+        $ids = $this->ids($request->getQueryParams()['ids'] ?? []);
+        $orders = array_values(array_filter(array_map(fn (int $id): ?array => $this->orders->find($id), $ids)));
+        if ($orders === []) {
+            $this->session->flash('error', $this->translator->trans('Tick some orders and choose an action.'));
+
+            return $this->responder->redirectToRoute('admin.orders');
+        }
+
+        return $this->responder->view($request, 'admin/packing-slips.html.twig', [
+            'orders' => $orders,
+            'skus'   => $this->orders->itemSkus(array_map(static fn (array $o): int => (int) $o['id'], $orders)),
+        ]);
+    }
+
+    /** @return list<int> distinct positive ids, at most BULK_MAX */
+    private function ids(mixed $raw): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', is_array($raw) ? $raw : []), static fn (int $id): bool => $id > 0)));
+
+        return array_slice($ids, 0, self::BULK_MAX);
+    }
+
+    /** Invoice (or ?type=credit_note) PDF for an order. */
+    public function invoice(ServerRequestInterface $request, int $id): ResponseInterface
+    {
+        $order = $this->orders->find($id) ?? throw HttpException::notFound('Order not found.');
+        $kind = ($request->getQueryParams()['type'] ?? '') === 'credit_note' ? InvoiceService::CREDIT_NOTE : InvoiceService::INVOICE;
+        try {
+            $pdf = $this->invoices->pdf($order, $kind);
+        } catch (RuntimeException $e) {
+            $this->session->flash('error', $e->getMessage());
+
+            return $this->responder->redirectToRoute('admin.order', ['id' => $id]);
+        }
+
+        return $this->responder->downloadContent($pdf['content'], $pdf['filename'], 'application/pdf');
     }
 
     public function handle(ServerRequestInterface $request, int $id): ResponseInterface
@@ -114,6 +205,18 @@ final class OrderController
                 case 'tracking':
                     $this->service->updateTracking($id, $tracking, $carrier);
                     $this->session->flash('success', $this->translator->trans('Tracking details saved.'));
+                    break;
+                case 'add_note':
+                    $note = trim((string) ($body['note'] ?? ''));
+                    if ($note === '') {
+                        throw new RuntimeException($this->translator->trans('Write the note first.'));
+                    }
+                    $this->notes->add($id, ($this->auth->user()['username'] ?? null), $note);
+                    $this->session->flash('success', $this->translator->trans('Note added.'));
+                    break;
+                case 'delete_note':
+                    $this->notes->delete((int) ($body['note_id'] ?? 0), $id);
+                    $this->session->flash('success', $this->translator->trans('Note deleted.'));
                     break;
                 default:
                     throw new RuntimeException($this->translator->trans('Unknown action.'));

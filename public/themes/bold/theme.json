@@ -2,5 +2,28 @@
     "name": "Bold",
     "description": "High contrast: thick black outlines, hard shadows, yellow and orange.",
     "author": "storeGeneric",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#fffdf2",
+            "#fff6cf"
+        ],
+        "text": "#111111",
+        "accent": "#c73000",
+        "accent2": "#2a2ae0",
+        "surface": "#ffffff",
+        "font": "sans-bold",
+        "motif": "stripes",
+        "uppercase": true,
+        "text_width": 520,
+        "label": {
+            "fill": "#ffffff",
+            "border": "#111111",
+            "border_width": 6,
+            "shadow": "#111111",
+            "shadow_offset": 12,
+            "radius": 0,
+            "padding": 34
+        }
+    }
 }

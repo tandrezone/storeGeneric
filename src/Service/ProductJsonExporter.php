@@ -24,7 +24,7 @@ use App\Support\Paths;
  *    "currency": …, "language": …, "products": [
  *      {"id", "name", "short_description", "long_description" (HTML), "status", "is_active",
  *       "created_at", "category": {"name", "slug", "description"},
- *       "images": [{"path", "url", "data"?}], "variants": [{"sku", "label", "unit", "price", "stock", "is_active"}],
+ *       "images": [{"path", "url", "data"?}], "variants": [{"sku", "label", "unit", "price", "sale_price", "sale_starts_at", "sale_ends_at", "stock", "weight_grams", "is_active"}],
  *       "translations": {"pt": {"name", "short_description", "long_description"}}}]}
  */
 final class ProductJsonExporter
@@ -136,7 +136,11 @@ final class ProductJsonExporter
                 'label'     => $v['label'] !== null ? (string) $v['label'] : null,
                 'unit'      => $v['unit'] !== null ? (string) $v['unit'] : null,
                 'price'     => (string) $v['price'],
+                'sale_price'     => $v['sale_price'] !== null ? (string) $v['sale_price'] : null,
+                'sale_starts_at' => $v['sale_starts_at'] !== null ? (string) $v['sale_starts_at'] : null,
+                'sale_ends_at'   => $v['sale_ends_at'] !== null ? (string) $v['sale_ends_at'] : null,
                 'stock'     => (int) $v['stock'],
+                'weight_grams' => (int) $v['weight_grams'],
                 'is_active' => (bool) $v['is_active'],
             ], $variants),
             'translations'      => (object) $translationData,

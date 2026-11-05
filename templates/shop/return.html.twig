@@ -1,0 +1,49 @@
+{% extends 'layout/shop.html.twig' %}
+
+{% set title = 'Return items'|trans %}
+{% set robots = 'noindex' %}
+
+{% block content %}
+<section class="confirmation-page return-page">
+    <h1>{{ 'Return items from order {number}'|trans({number: order.order_number}) }}</h1>
+
+    {% if returnable is empty %}
+        <p>{{ 'This order can\'t be returned (anymore).'|trans }}
+            {% if window > 0 %}{{ 'Items can be returned within {days} days of shipping.'|trans({days: window}) }}{% endif %}</p>
+    {% else %}
+        <p>{{ 'Items can be returned within {days} days of shipping. Choose what you want to send back.'|trans({days: window}) }}</p>
+
+        {% if errors is not empty %}
+            <div class="form-errors"><ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul></div>
+        {% endif %}
+
+        <form method="post" action="{{ path('order.return', {}, query) }}" class="shipping-form" data-no-ajax>
+            {{ csrf_field() }}
+            <table class="return-items">
+                <thead><tr><th>{{ 'Item'|trans }}</th><th>{{ 'Quantity to return'|trans }}</th></tr></thead>
+                <tbody>
+                {% for item in order['items'] %}{% if returnable[item.id] is defined %}
+                    <tr>
+                        <td>{{ item.product_name }}{% if (item.label ~ ' ' ~ item.unit)|trim %} — {{ (item.label ~ ' ' ~ item.unit)|trim }}{% endif %}</td>
+                        <td><input type="number" name="qty[{{ item.id }}]" min="0" max="{{ returnable[item.id] }}" value="{{ input.qty[item.id]|default(0) }}" aria-label="{{ 'Quantity to return'|trans }}"> / {{ returnable[item.id] }}</td>
+                    </tr>
+                {% endif %}{% endfor %}
+                </tbody>
+            </table>
+
+            <label for="return-reason">{{ 'Reason'|trans }}</label>
+            <select id="return-reason" name="reason" required>
+                <option value="">—</option>
+                {% for code, label in reasons %}<option value="{{ code }}" {{ input.reason|default('') == code ? 'selected' }}>{{ label|trans }}</option>{% endfor %}
+            </select>
+
+            <label for="return-details">{{ 'Details (optional)'|trans }}</label>
+            <textarea id="return-details" name="details" rows="4" maxlength="2000">{{ input.details|default('') }}</textarea>
+
+            <button type="submit" class="btn-primary">{{ 'Send return request'|trans }}</button>
+        </form>
+    {% endif %}
+
+    <p><a href="{{ path('order.track', {}, query) }}">{{ 'Back to my order'|trans }}</a></p>
+</section>
+{% endblock %}

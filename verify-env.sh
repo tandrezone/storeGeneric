@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
 #
 # verify-env.sh — checks that the store (finderskeep.online, or $DOMAIN) is correctly set up.
-# Called at the end of setup-apache.sh; can be run on its own at any time:
+# Called at the end of setup-site.sh; can be run on its own at any time:
 #
 #     sudo ./verify-env.sh
+#
+# Also installed as a global command (/usr/local/bin/verify-env -> this file). Run it
+# from a store directory (one with a public/ folder) to check that store; the domain
+# comes from <store>/.vhost, like setup-site:
+#
+#     cd /var/www/stores/chemHeaven && sudo verify-env
+#
+# Overrides: DOMAIN, APP_ROOT, APACHE_USER.
 #
 # Checks: Apache + MariaDB running, PHP version/extensions (CLI and inside
 # Apache), VirtualHost enabled, HTTP responses through the vhost, sensitive
@@ -14,9 +22,26 @@
 #
 set -uo pipefail
 
-DOMAIN="${DOMAIN:-finderskeep.online}"
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+SCRIPT_DIR="$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd -P)"   # follows symlinks (global command)
+# Store to check: $APP_ROOT, else the current directory if it has a public/ folder, else the core itself.
+if [[ -z "${APP_ROOT:-}" && -d "$PWD/public" ]]; then APP_ROOT="$PWD"; fi
 APP_ROOT="$(cd -- "${APP_ROOT:-$SCRIPT_DIR}" && pwd -P)"
+
+# Domain: $DOMAIN, else <store>/.vhost, else <folder>.<base domain from the parent's .vhost>, else finderskeep.online.
+read_vhost_domain() {
+    [[ -r "$1" ]] || return 0
+    sed -E 's/#.*//; s/^[[:space:]]*(DOMAIN[[:space:]]*=)?[[:space:]]*//; s/[[:space:]\r"'"'"']+$//; s/^["'"'"']//' "$1" | grep -m1 . || true
+}
+if [[ -z "${DOMAIN:-}" ]]; then DOMAIN="$(read_vhost_domain "${APP_ROOT}/.vhost")"; fi
+if [[ -z "${DOMAIN:-}" ]]; then
+    base_domain="$(read_vhost_domain "$(dirname -- "$APP_ROOT")/.vhost")"
+    if [[ -n "$base_domain" ]]; then
+        label="$(basename -- "$APP_ROOT" | tr 'A-Z_' 'a-z-' | tr -c 'a-z0-9-\n' '-' | sed -E 's/^-+|-+$//g')"
+        DOMAIN="${label}.${base_domain}"
+    else
+        DOMAIN="finderskeep.online"
+    fi
+fi
 DOC_ROOT="${APP_ROOT}/public"
 ENV_FILE="${APP_ROOT}/.env"
 APACHE_USER="${APACHE_USER:-www-data}"
@@ -44,11 +69,28 @@ TMP_BODY="$(mktemp)"; PROBE_FILE=""
 cleanup() { rm -f -- "$TMP_BODY"; [[ -z "$PROBE_FILE" ]] || rm -f -- "$PROBE_FILE"; }
 trap cleanup EXIT
 
+# Requests go to this machine (127.0.0.1) with the vhost's Host header. If the site redirects
+# HTTP to HTTPS (e.g. after certbot --redirect), switch to HTTPS so the app itself is tested,
+# not the redirect; -k because the certificate is checked by the browser, not by this script.
+SCHEME=http
 http_get() {  # http_get PATH -> status code; body in $TMP_BODY
     local c
-    c="$(curl -s -o "$TMP_BODY" -w '%{http_code}' --max-time 15 \
-              -H "Host: ${DOMAIN}" "http://127.0.0.1${1}" 2>/dev/null)" || true
+    if [[ "$SCHEME" == https ]]; then
+        c="$(curl -sk -o "$TMP_BODY" -w '%{http_code}' --max-time 15 \
+                  --resolve "${DOMAIN}:443:127.0.0.1" "https://${DOMAIN}${1}" 2>/dev/null)" || true
+    else
+        c="$(curl -s -o "$TMP_BODY" -w '%{http_code}' --max-time 15 \
+                  -H "Host: ${DOMAIN}" "http://127.0.0.1${1}" 2>/dev/null)" || true
+    fi
     printf '%s' "${c:-000}"
+}
+detect_scheme() {
+    local hdr
+    hdr="$(curl -s -o /dev/null -D - --max-time 15 -H "Host: ${DOMAIN}" "http://127.0.0.1/" 2>/dev/null)" || true
+    if grep -Eqi "^HTTP/[0-9.]+ 30[1278]" <<<"$hdr" \
+       && grep -Eqi "^location: https://${DOMAIN//./\\.}(/|:|$)" <<<"$hdr"; then
+        SCHEME=https
+    fi
 }
 
 [[ $EUID -eq 0 ]] || { echo "Run as root: sudo $0" >&2; exit 1; }
@@ -88,6 +130,7 @@ if grep -Eq 'php[0-9._]*_module|proxy_fcgi_module' <<<"$amods"; then pass "PHP h
 else fail "Apache has no PHP handler  (apt-get install libapache2-mod-php)"; fi
 
 # PHP as Apache runs it (may differ from the CLI).
+detect_scheme
 PROBE_NAME="__verify_$$_${RANDOM}.php"
 PROBE_FILE="${DOC_ROOT}/${PROBE_NAME}"
 cat > "$PROBE_FILE" <<'PHP'
@@ -111,7 +154,7 @@ else
 fi
 
 # ---------------------------------------------------------------------- HTTP
-group "HTTP (Host: ${DOMAIN} -> 127.0.0.1)"
+group "HTTP (${SCHEME}://${DOMAIN} -> 127.0.0.1)"
 check_page() {  # check_page PATH [expected=200]
     local path=$1 want=${2:-200} c
     c="$(http_get "$path")"
@@ -144,7 +187,7 @@ elif ! as_user "$APACHE_USER" test -r "$ENV_FILE"; then
 else
     pass ".env present and readable by ${APACHE_USER}"
     db_out="$(cd "$APP_ROOT" && as_user "$APACHE_USER" php -r '
-        require "vendor/autoload.php";
+        require is_file("vendor/autoload.php") ? "vendor/autoload.php" : "core/vendor/autoload.php";
         try {
             $container = App\Kernel::boot(getcwd())->container();
             $pdo = $container->get(App\Infrastructure\Database::class)->pdo();
@@ -182,8 +225,10 @@ group "Name resolution"
 resolved="$(getent hosts "$DOMAIN" | awk '{print $1; exit}')"
 if [[ "$resolved" == "127.0.0.1" || "$resolved" == "::1" ]]; then
     pass "${DOMAIN} resolves to ${resolved}"
-    c="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://${DOMAIN}/" 2>/dev/null)" || true
+    c="$(curl -sLk -o /dev/null -w '%{http_code}' --max-time 10 "http://${DOMAIN}/" 2>/dev/null)" || true
     if [[ "$c" == "200" ]]; then pass "http://${DOMAIN}/ -> 200"; else fail "http://${DOMAIN}/ -> ${c}"; fi
+elif [[ -n "$resolved" ]] && grep -qwF -- "$resolved" <<<"$(hostname -I 2>/dev/null)"; then
+    pass "${DOMAIN} resolves to ${resolved} (this machine)"
 elif [[ -n "$resolved" ]]; then
     warn "${DOMAIN} resolves to ${resolved} (public DNS), not this machine"
 else

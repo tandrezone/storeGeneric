@@ -34,9 +34,10 @@ final class TaxCalculator
      * @param float       $itemsDiscount    amount off the items subtotal (capped at the subtotal)
      * @param float       $shipping         shipping cost of the chosen method
      * @param float       $shippingDiscount amount off the shipping (free-shipping codes; capped at the shipping)
+     * @param bool        $reverseCharge    EU business customer with a valid VAT number: no VAT (see VatIdService)
      * @return array{subtotal: float, discount: float, shipping: float, prices_include_tax: bool, tax_rate: float, tax_amount: float, item_taxes: list<float>, shipping_tax: float, total: float}
      */
-    public function totals(array $lineTotals, float $itemsDiscount, float $shipping, float $shippingDiscount, string $country): array
+    public function totals(array $lineTotals, float $itemsDiscount, float $shipping, float $shippingDiscount, string $country, bool $reverseCharge = false): array
     {
         $decimals = $this->decimals();
         $subtotal = round(array_sum($lineTotals), $decimals);
@@ -45,6 +46,25 @@ final class TaxCalculator
         $shippingDiscount = round(min(max(0.0, $shippingDiscount), $shipping), $decimals);
         $rate = $this->settings->rateFor($country);
         $inclusive = $this->settings->pricesIncludeTax();
+
+        if ($reverseCharge) {
+            // EU business customer: no VAT is charged. When prices include VAT the VAT part comes off, so the buyer pays the net amount.
+            $divisor = $inclusive && $rate > 0.0 ? 1 + $rate / 100 : 1.0;
+            $itemsNet = round(($subtotal - $itemsDiscount) / $divisor, $decimals);
+            $shippingNet = round(($shipping - $shippingDiscount) / $divisor, $decimals);
+
+            return [
+                'subtotal'           => $subtotal,
+                'discount'           => round($itemsDiscount + $shippingDiscount, $decimals),
+                'shipping'           => $shipping,
+                'prices_include_tax' => $inclusive,
+                'tax_rate'           => 0.0,
+                'tax_amount'         => 0.0,
+                'item_taxes'         => array_fill(0, count($lineTotals), 0.0),
+                'shipping_tax'       => 0.0,
+                'total'              => round(max(0.0, $itemsNet + $shippingNet), $decimals),
+            ];
+        }
 
         // Share of the tax base in the amount: rate/(100+rate) when VAT is inside the price, rate/100 on top.
         $factor = $rate <= 0.0 ? 0.0 : ($inclusive ? $rate / (100 + $rate) : $rate / 100);

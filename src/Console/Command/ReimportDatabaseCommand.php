@@ -61,7 +61,7 @@ final class ReimportDatabaseCommand implements Command
         }
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
 
-        $database = $this->paths->root . '/database';
+        $database = $this->paths->locate('database');
         $this->runSqlFile($pdo, $database . '/schema.sql');
         $output->line('applied schema.sql');
 

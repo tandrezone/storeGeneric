@@ -10,11 +10,32 @@ namespace App\Repository;
  */
 final class VariantRepository extends Repository
 {
+    /**
+     * SQL for the price a customer pays right now (alias v): the sale price
+     * while a sale is running, else the regular price. Storefront queries
+     * select it AS price, so carts and checkout need no sale logic.
+     */
+    public const EFFECTIVE_PRICE = 'IF(v.sale_price IS NOT NULL AND v.sale_price > 0 AND v.sale_price < v.price'
+        . ' AND (v.sale_starts_at IS NULL OR v.sale_starts_at <= NOW())'
+        . ' AND (v.sale_ends_at IS NULL OR v.sale_ends_at > NOW()), v.sale_price, v.price)';
+
+    /** True when the sale is running for a row that has the sale columns (PHP twin of EFFECTIVE_PRICE). */
+    public static function onSale(array $row, ?\DateTimeInterface $now = null): bool
+    {
+        $now ??= new \DateTimeImmutable();
+        $stamp = $now->format('Y-m-d H:i:s');
+        $sale = (float) ($row['sale_price'] ?? 0);
+
+        return $sale > 0 && $sale < (float) $row['price']
+            && (empty($row['sale_starts_at']) || $row['sale_starts_at'] <= $stamp)
+            && (empty($row['sale_ends_at']) || $row['sale_ends_at'] > $stamp);
+    }
+
     /** @return array<string, mixed>|null an active variant of a visible product, with the product name */
     public function findAvailable(int $id): ?array
     {
         return $this->one('
-            SELECT v.id, v.product_id, v.sku, v.label, v.unit, v.price,
+            SELECT v.id, v.product_id, v.sku, v.label, v.unit, ' . self::EFFECTIVE_PRICE . ' AS price, v.price AS regular_price,
                    IF(v.price <= 0, 0, v.stock) AS stock, p.name AS product_name
             FROM product_variants v
             JOIN products p ON p.id = v.product_id
@@ -26,10 +47,11 @@ final class VariantRepository extends Repository
     public function findAvailableForProduct(int $productId): array
     {
         return $this->all('
-            SELECT id, sku, label, unit, price, IF(price <= 0, 0, stock) AS stock
-            FROM product_variants
-            WHERE product_id = :product_id AND is_active = 1
-            ORDER BY id ASC
+            SELECT v.id, v.sku, v.label, v.unit, ' . self::EFFECTIVE_PRICE . ' AS price, v.price AS regular_price,
+                   v.sale_ends_at, IF(v.price <= 0, 0, v.stock) AS stock
+            FROM product_variants v
+            WHERE v.product_id = :product_id AND v.is_active = 1
+            ORDER BY v.id ASC
         ', ['product_id' => $productId]);
     }
 
@@ -46,7 +68,7 @@ final class VariantRepository extends Repository
 
         $placeholders = implode(',', array_fill(0, count($productIds), '?'));
         $rows = $this->all("
-            SELECT id, product_id, sku, label, unit, price, stock, is_active
+            SELECT id, product_id, sku, label, unit, price, sale_price, sale_starts_at, sale_ends_at, stock, weight_grams, is_active
             FROM product_variants
             WHERE product_id IN ({$placeholders})
             ORDER BY product_id ASC, id ASC
@@ -68,7 +90,7 @@ final class VariantRepository extends Repository
     public function lockForUpdate(int $id): ?array
     {
         return $this->one('
-            SELECT v.stock, v.price, v.label, v.unit, p.name AS product_name,
+            SELECT v.stock, v.weight_grams, ' . self::EFFECTIVE_PRICE . ' AS price, v.label, v.unit, p.name AS product_name,
                    (v.is_active = 1 AND p.is_active = 1 AND p.import_status = \'approved\') AS available
             FROM product_variants v
             JOIN products p ON p.id = v.product_id
@@ -83,10 +105,11 @@ final class VariantRepository extends Repository
      */
     public function create(array $data): int
     {
+        $data += ['is_active' => 1, 'sale_price' => null, 'sale_starts_at' => null, 'sale_ends_at' => null, 'weight_grams' => 0];
         $this->run('
-            INSERT INTO product_variants (product_id, sku, label, unit, price, stock, is_active)
-            VALUES (:product_id, :sku, :label, :unit, :price, :stock, :is_active)
-        ', $data + ['is_active' => 1]);
+            INSERT INTO product_variants (product_id, sku, label, unit, price, sale_price, sale_starts_at, sale_ends_at, stock, weight_grams, is_active)
+            VALUES (:product_id, :sku, :label, :unit, :price, :sale_price, :sale_starts_at, :sale_ends_at, :stock, :weight_grams, :is_active)
+        ', $data);
 
         return $this->lastId();
     }
@@ -108,11 +131,18 @@ final class VariantRepository extends Repository
             return false;
         }
 
-        $this->run('
+        // The sale fields are optional: callers that don't send them (importers) leave a running sale alone.
+        $weight = array_key_exists('weight_grams', $data) ? ', weight_grams = :weight_grams' : '';
+        $sale = array_key_exists('sale_price', $data)
+            ? ', sale_price = :sale_price, sale_starts_at = :sale_starts_at, sale_ends_at = :sale_ends_at' : '';
+        if ($sale !== '') {
+            $data += ['sale_starts_at' => null, 'sale_ends_at' => null];
+        }
+        $this->run("
             UPDATE product_variants
-            SET sku = :sku, label = :label, unit = :unit, price = :price, stock = :stock, is_active = :is_active
+            SET sku = :sku, label = :label, unit = :unit, price = :price{$sale}{$weight}, stock = :stock, is_active = :is_active
             WHERE id = :id AND product_id = :product_id
-        ', $data + ['id' => $id, 'product_id' => $productId]);
+        ", $data + ['id' => $id, 'product_id' => $productId]);
 
         return true;
     }

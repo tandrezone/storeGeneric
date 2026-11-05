@@ -38,6 +38,17 @@ final class OrderLinks
         return $orderNumber !== '' && $key !== '' && hash_equals($this->key($orderNumber), $key);
     }
 
+    /** A signature for a value in another context ("cart", 12), for links in emails. */
+    public function sign(string $purpose, string $value): string
+    {
+        return substr(hash_hmac('sha256', $purpose . '|' . $value, $this->secret()), 0, 32);
+    }
+
+    public function verifySigned(string $purpose, string $value, string $signature): bool
+    {
+        return $value !== '' && $signature !== '' && hash_equals($this->sign($purpose, $value), $signature);
+    }
+
     /** Valid key, or the order was placed in this session. */
     public function canView(string $orderNumber, string $key): bool
     {

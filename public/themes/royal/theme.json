@@ -1,0 +1,20 @@
+{
+    "name": "Royal",
+    "description": "Midnight navy and antique gold with a regal serif.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#1c275a",
+            "#0e1530"
+        ],
+        "text": "#f4ecd8",
+        "accent": "#d4a93a",
+        "accent2": "#7f9bff",
+        "surface": "#172048",
+        "font": "serif",
+        "motif": "frame",
+        "text_width": 500,
+        "effect": "soft"
+    }
+}

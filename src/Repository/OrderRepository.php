@@ -95,6 +95,28 @@ final class OrderRepository extends Repository
         ));
     }
 
+    /**
+     * SKU of each order line, for packing slips (the line only keeps the product name at order time).
+     *
+     * @param list<int> $orderIds
+     * @return array<int, string> order_items.id => sku
+     */
+    public function itemSkus(array $orderIds): array
+    {
+        if ($orderIds === []) {
+            return [];
+        }
+        $in = implode(',', array_map('intval', $orderIds));
+
+        return array_column($this->all("SELECT oi.id, v.sku FROM order_items oi JOIN product_variants v ON v.id = oi.variant_id WHERE oi.order_id IN ({$in})"), 'sku', 'id');
+    }
+
+    /** @return array<string, mixed>|null an imported order, by the marketplace and its own id */
+    public function findBySourceExternal(string $source, string $externalId): ?array
+    {
+        return $this->withItems($this->one('SELECT * FROM orders WHERE source = :s AND external_id = :e', ['s' => $source, 'e' => $externalId]));
+    }
+
     // ---- customer accounts (orders.customer_id) ----------------------------
 
     /** @return array<string, mixed>|null order with its `items`, only if it belongs to that customer account */
@@ -216,6 +238,18 @@ final class OrderRepository extends Repository
     public function releaseCouponUse(int $id): bool
     {
         return $this->run('UPDATE orders SET coupon_counted = 0 WHERE id = :id AND coupon_counted = 1', ['id' => $id])->rowCount() === 1;
+    }
+
+    /** Flips gift_card_counted 1 → 0. True only for the caller that flipped it (a card is credited back once). */
+    public function releaseGiftCardUse(int $id): bool
+    {
+        return $this->run('UPDATE orders SET gift_card_counted = 0 WHERE id = :id AND gift_card_counted = 1', ['id' => $id])->rowCount() === 1;
+    }
+
+    /** Flips gift_card_counted 0 → 1 for an order that used a card. True only for the caller that flipped it. */
+    public function claimGiftCardUse(int $id): bool
+    {
+        return $this->run('UPDATE orders SET gift_card_counted = 1 WHERE id = :id AND gift_card_counted = 0 AND gift_card_amount > 0', ['id' => $id])->rowCount() === 1;
     }
 
     /** Flips coupon_counted 0 → 1 for an order that has a coupon code. True only for the caller that flipped it. */

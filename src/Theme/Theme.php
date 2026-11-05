@@ -22,7 +22,8 @@ use Twig\TwigFunction;
  * The active storefront theme: renders its layout parts and resolves its
  * asset URLs.
  *
- * Themes live in public/themes/<slug>/:
+ * Themes live in public/themes/<slug>/ (this store's own) or public/themes/global/<slug>/
+ * (shared, normally a symlink to the core's themes; a local theme with the same slug wins):
  *   theme.json   name, description, author, version
  *   layout/      Twig parts: header, footer, hero (*.html.twig) plus any
  *                partials they include. admin-header/admin-footer are always
@@ -76,7 +77,7 @@ final class Theme
     {
         if ($this->active === null) {
             $slug = $this->store->themeSlug();
-            $this->active = preg_match('/^[a-z0-9_-]+$/i', $slug) && is_dir($this->paths->themes($slug))
+            $this->active = $this->installed($slug)
                 ? $slug
                 : self::DEFAULT;
         }
@@ -87,8 +88,47 @@ final class Theme
     /** Use another theme for the rest of this request (e.g. right after switching in Settings). */
     public function switchTo(string $slug): void
     {
-        $this->active = preg_match('/^[a-z0-9_-]+$/i', $slug) && is_dir($this->paths->themes($slug)) ? $slug : null;
+        $this->active = $this->installed($slug) ? $slug : null;
         $this->environments = [];
+    }
+
+    private function installed(string $slug): bool
+    {
+        return preg_match('/^[a-z0-9_-]+$/i', $slug) && $slug !== 'global' && is_dir($this->paths->themeDir($slug));
+    }
+
+    /** @return array<string, mixed> the active theme's theme.json (empty when missing or invalid) */
+    public function manifest(): array
+    {
+        $file = $this->paths->themeDir($this->name(), 'theme.json');
+        $data = is_file($file) ? json_decode((string) file_get_contents($file), true) : null;
+
+        return is_array($data) ? $data : [];
+    }
+
+    /**
+     * Custom properties from the first :root block of the active theme's
+     * style.css (falling back to the default theme's), e.g. ['--color-bg' => '#fff'].
+     *
+     * @return array<string, string>
+     */
+    public function cssVariables(): array
+    {
+        foreach (array_unique([$this->name(), self::DEFAULT]) as $theme) {
+            $file = $this->paths->themeDir($theme, 'assets/css/style.css');
+            if (!is_file($file) || !preg_match('/:root\s*\{([^}]*)\}/', (string) file_get_contents($file), $block)) {
+                continue;
+            }
+            preg_match_all('/(--[\w-]+)\s*:\s*([^;]+);/', preg_replace('#/\*.*?\*/#s', '', $block[1]) ?? '', $matches, PREG_SET_ORDER);
+            $vars = [];
+            foreach ($matches as [, $name, $value]) {
+                $vars[$name] = trim($value);
+            }
+
+            return $vars;
+        }
+
+        return [];
     }
 
     /** Public URL of a theme asset, from the active theme or the default one, cache-busted. */
@@ -96,13 +136,13 @@ final class Theme
     {
         $relative = 'assets/' . ltrim($path, '/');
         foreach (array_unique([$this->name(), self::DEFAULT]) as $theme) {
-            $file = $this->paths->themes($theme . '/' . $relative);
+            $file = $this->paths->themeDir($theme, $relative);
             if (!str_contains($relative, '..') && is_file($file)) {
-                return '/themes/' . rawurlencode($theme) . '/' . $relative . '?v=' . filemtime($file);
+                return $this->paths->themeUrl($theme) . '/' . $relative . '?v=' . filemtime($file);
             }
         }
 
-        return '/themes/' . $this->name() . '/' . $relative;
+        return $this->paths->themeUrl($this->name()) . '/' . $relative;
     }
 
     /** Header logo markup: the uploaded logo and/or the store name (escaped). */
@@ -170,7 +210,7 @@ final class Theme
     public function validateTemplates(string $layoutDir): array
     {
         $errors = [];
-        $twig = $this->buildEnvironment([$layoutDir, $this->paths->themes(self::DEFAULT . '/layout')], false);
+        $twig = $this->buildEnvironment([$layoutDir, $this->paths->themeDir(self::DEFAULT, 'layout')], false);
         foreach (glob($layoutDir . '/{,*/}*.twig', GLOB_BRACE) ?: [] as $file) {
             $relative = substr($file, strlen($layoutDir) + 1);
             try {
@@ -195,6 +235,7 @@ final class Theme
             'year'         => (int) date('Y'),
             'current_path' => '/',
             'customer_name' => 'Sample Customer',
+            'footer_pages' => [['title' => 'Shipping FAQ', 'url' => '/p/shipping-faq']],
             'lang'         => 'en',
             'languages'    => [
                 ['code' => 'en', 'name' => 'English', 'html_lang' => 'en', 'url' => '/?lang=en', 'active' => true],
@@ -210,11 +251,11 @@ final class Theme
         $key = $defaultOnly ? '@default' : $this->name();
         if (!isset($this->environments[$key])) {
             $paths = [];
-            $themeLayout = $this->paths->themes($this->name() . '/layout');
+            $themeLayout = $this->paths->themeDir($this->name(), 'layout');
             if (!$defaultOnly && $this->name() !== self::DEFAULT && is_dir($themeLayout)) {
                 $paths[] = $themeLayout;
             }
-            $paths[] = $this->paths->themes(self::DEFAULT . '/layout');
+            $paths[] = $this->paths->themeDir(self::DEFAULT, 'layout');
             $this->environments[$key] = $this->buildEnvironment($paths, true);
         }
 

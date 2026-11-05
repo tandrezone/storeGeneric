@@ -121,6 +121,31 @@
     </span>
 </form>
 
+{# Magic edit for the whole catalog (admin.js): one AI suggestion per product, reviewed here, then saved. #}
+<details class="panel" id="magic-all-panel">
+    <summary class="panel-summary">✨ {{ 'Magic edit all products'|trans }}</summary>
+    <div class="magic-block magic-all"
+         data-ids-endpoint="{{ path('admin.api.magic_edit.products') }}"
+         data-endpoint="{{ path('admin.api.magic_edit') }}"
+         data-apply-endpoint="{{ path('admin.api.magic_edit.apply') }}"
+         data-csrf="{{ csrf_token() }}">
+        <p class="field-hint">
+            {{ 'One instruction for every product in the store. The AI suggests changes product by product; nothing is saved until you review them and click "Save selected".'|trans }}
+        </p>
+        <label>{{ 'Instruction'|trans }}
+            <input type="text" class="magic-prompt" placeholder="{{ 'e.g. make the description more concise and mention it\'s biodegradable'|trans }}">
+        </label>
+        <button type="button" class="btn-secondary magic-all-run">{{ 'Generate for all products'|trans }}</button>
+        <button type="button" class="btn-secondary magic-all-stop" hidden>{{ 'Stop'|trans }}</button>
+        <p class="magic-all-status field-hint" aria-live="polite"></p>
+        <div class="magic-all-results"></div>
+        <div class="magic-all-actions" hidden>
+            <label class="magic-all-toggle"><input type="checkbox" class="magic-all-select" checked> {{ 'Select all'|trans }}</label>
+            <button type="button" class="btn-primary magic-all-save">{{ 'Save selected'|trans }}</button>
+        </div>
+    </div>
+</details>
+
 <table class="cart-table admin-table">
     <thead>
         <tr>
@@ -319,7 +344,7 @@
                                     </form>
                                 {% endfor %}
                                 <table class="variants-table">
-                                    <thead><tr><th>{{ 'SKU'|trans }}</th><th>{{ 'Label'|trans }}</th><th>{{ 'Unit'|trans }}</th><th>{{ 'Price'|trans }}</th><th>{{ 'Stock'|trans }}</th><th>{{ 'Active'|trans }}</th><th></th></tr></thead>
+                                    <thead><tr><th>{{ 'SKU'|trans }}</th><th>{{ 'Label'|trans }}</th><th>{{ 'Unit'|trans }}</th><th>{{ 'Price'|trans }}</th><th>{{ 'Sale price'|trans }}</th><th>{{ 'Sale from'|trans }}</th><th>{{ 'Sale until'|trans }}</th><th>{{ 'Stock'|trans }}</th><th>{{ 'Weight (g)'|trans }}</th><th>{{ 'Active'|trans }}</th><th></th></tr></thead>
                                     <tbody>
                                         {% for v in variants[p.id] %}
                                             {% set f = 'variant-form-' ~ v.id %}
@@ -329,7 +354,11 @@
                                                 <td><input type="text" form="{{ f }}" name="label" value="{{ v.label }}" maxlength="{{ limits.variant_field }}"></td>
                                                 <td><input type="text" form="{{ f }}" name="unit" value="{{ v.unit }}" maxlength="{{ limits.variant_field }}"></td>
                                                 <td><input type="number" form="{{ f }}" name="price" value="{{ v.price }}" step="0.01" min="0" max="99999999.99" required></td>
+                                                <td><input type="number" form="{{ f }}" name="sale_price" value="{{ v.sale_price }}" step="0.01" min="0" max="99999999.99" placeholder="—"></td>
+                                                <td><input type="datetime-local" form="{{ f }}" name="sale_starts_at" value="{{ v.sale_starts_at ? v.sale_starts_at|replace({' ': 'T'})|slice(0, 16) }}"></td>
+                                                <td><input type="datetime-local" form="{{ f }}" name="sale_ends_at" value="{{ v.sale_ends_at ? v.sale_ends_at|replace({' ': 'T'})|slice(0, 16) }}"></td>
                                                 <td><input type="number" form="{{ f }}" name="stock" value="{{ v.stock }}" min="0" required></td>
+                                                <td><input type="number" form="{{ f }}" name="weight_grams" value="{{ v.weight_grams }}" min="0" step="1" style="max-width: 6em;"></td>
                                                 <td><input type="checkbox" form="{{ f }}" name="is_active" value="1" {{ v.is_active ? 'checked' }}></td>
                                                 <td class="variant-actions">
                                                     <button type="submit" form="{{ f }}" class="btn-secondary btn-small">{{ 'Save'|trans }}</button>
@@ -345,7 +374,9 @@
                                             <td><input type="text" form="{{ nf }}" name="label" placeholder="12" maxlength="{{ limits.variant_field }}"></td>
                                             <td><input type="text" form="{{ nf }}" name="unit" placeholder="{{ 'pack'|trans }}" maxlength="{{ limits.variant_field }}"></td>
                                             <td><input type="number" form="{{ nf }}" name="price" step="0.01" min="0" max="99999999.99" placeholder="0.00" required></td>
+                                            <td colspan="3"><span class="field-hint">{{ 'Set a sale after adding the variant.'|trans }}</span></td>
                                             <td><input type="number" form="{{ nf }}" name="stock" value="0" min="0" required></td>
+                                            <td></td>
                                             <td><input type="checkbox" form="{{ nf }}" name="is_active" value="1" checked></td>
                                             <td><button type="submit" form="{{ nf }}" class="btn-primary btn-small">+ {{ 'Add'|trans }}</button></td>
                                         </tr>
@@ -455,5 +486,5 @@
     </div>
 {% endif %}
 
-<script src="/assets/js/admin.js"></script>
+<script src="{{ js('admin.js') }}"></script>
 {% endblock %}

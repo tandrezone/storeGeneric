@@ -21,6 +21,17 @@
         }
     }, true);
 
+    // <input type="checkbox" data-select-all="group"> ticks every <input data-select="group">; [data-print] prints the page.
+    document.addEventListener('change', function (e) {
+        var all = e.target.closest ? e.target.closest('[data-select-all]') : null;
+        if (!all) return;
+        var group = all.getAttribute('data-select-all');
+        document.querySelectorAll('input[data-select="' + group + '"]').forEach(function (box) { box.checked = all.checked; });
+    });
+    document.addEventListener('click', function (e) {
+        if (e.target.closest && e.target.closest('[data-print]')) window.print();
+    });
+
     document.addEventListener('click', function (e) {
         var button = e.target.closest ? e.target.closest('[data-toggle]') : null;
         if (!button) return;

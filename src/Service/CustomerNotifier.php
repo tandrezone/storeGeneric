@@ -19,6 +19,7 @@ final class CustomerNotifier
 {
     public function __construct(
         private readonly Mailer $mailer,
+        private readonly MailQueue $mailQueue,
         private readonly View $view,
         private readonly StoreSettings $store,
         private readonly OrderLinks $links,
@@ -53,7 +54,7 @@ final class CustomerNotifier
             $vars += ['store_name' => $this->store->name(), 'store_email' => $this->store->email(), 'base_url' => $this->links->baseUrl()];
             $html = $this->view->render('email/' . $template . '.html.twig', $vars);
             $text = $this->view->render('email/' . $template . '.txt.twig', $vars);
-            $this->mailer->send($to, $this->store->name() . ' — ' . $subject, $html, $text, $this->store->email());
+            $this->mailQueue->deliver($to, $this->store->name() . ' — ' . $subject, $html, $text, $this->store->email());
             $this->logger->info('Email sent', ['template' => $template, 'to' => $to, 'transport' => $this->mailer->transport()]);
 
             return true;

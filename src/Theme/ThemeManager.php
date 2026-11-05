@@ -30,6 +30,7 @@ final class ThemeManager
 
     public const BUILT_IN = ['default', 'minimal', 'warm', 'bold', 'neolab', 'succulent'];
 
+    private const RESERVED = ['global'];
     private const SLUG = '/^[a-z0-9][a-z0-9_-]{1,39}$/';
     public const MAX_ZIP_BYTES = 20 * 1024 * 1024;
     private const MAX_UNPACKED_BYTES = 50 * 1024 * 1024;
@@ -42,13 +43,20 @@ final class ThemeManager
     /** Script extensions rejected anywhere in a path, not just at the end. */
     private const EXECUTABLE_NAME = '/\.(php\d*|phtml|phar|pht|phps|pgif|inc|cgi|pl|py|sh|asp|aspx|jsp|shtml|htaccess|htpasswd|user\.ini)(\.|\/|$)/i';
 
-    /** @return list<array{slug:string,name:string,description:string,author:string,version:string,screenshot:?string,builtin:bool}> */
+    /** @return list<array{slug:string,name:string,description:string,author:string,version:string,screenshot:?string,builtin:bool,global:bool}> */
     public function all(): array
     {
         $themes = [];
+        $dirs = [];
+        foreach (glob($this->paths->themesGlobal() . '/*', GLOB_ONLYDIR) ?: [] as $dir) {
+            $dirs[basename($dir)] = $dir;
+        }
         foreach (glob($this->paths->themes() . '/*', GLOB_ONLYDIR) ?: [] as $dir) {
-            $slug = basename($dir);
-            if (!preg_match(self::SLUG, $slug)) {
+            $dirs[basename($dir)] = $dir; // a local theme overrides a global one with the same slug
+        }
+        foreach ($dirs as $slug => $dir) {
+            $slug = (string) $slug;
+            if (!preg_match(self::SLUG, $slug) || in_array($slug, self::RESERVED, true)) {
                 continue;
             }
             $meta = $this->readMeta($dir);
@@ -59,8 +67,9 @@ final class ThemeManager
                 'description' => $meta['description'] ?? '',
                 'author'      => $meta['author'] ?? '',
                 'version'     => $meta['version'] ?? '',
-                'screenshot'  => $shot ? '/themes/' . $slug . '/' . $shot . '?v=' . filemtime($dir . '/' . $shot) : null,
+                'screenshot'  => $shot ? $this->paths->themeUrl($slug) . '/' . $shot . '?v=' . filemtime($dir . '/' . $shot) : null,
                 'builtin'     => in_array($slug, self::BUILT_IN, true),
+                'global'      => $this->paths->isGlobalTheme($slug),
             ];
         }
 
@@ -79,7 +88,9 @@ final class ThemeManager
 
     public function exists(string $slug): bool
     {
-        return preg_match(self::SLUG, $slug) === 1 && is_dir($this->paths->themes() . '/' . $slug);
+        return preg_match(self::SLUG, $slug) === 1
+            && !in_array($slug, self::RESERVED, true)
+            && is_dir($this->paths->themeDir($slug));
     }
 
     /**
@@ -116,6 +127,9 @@ final class ThemeManager
             }
 
             $slug = $this->slugFor($meta, $prefix);
+            if (in_array($slug, self::RESERVED, true)) {
+                throw new RuntimeException($this->translator->trans('"{slug}" is a reserved name. Give your theme a different "slug" in theme.json.', ['slug' => $slug]));
+            }
             if (in_array($slug, self::BUILT_IN, true)) {
                 throw new RuntimeException($this->translator->trans('"{slug}" is a built-in theme and can\'t be replaced. Give your theme a different "slug" in theme.json.', ['slug' => $slug]));
             }
@@ -233,6 +247,9 @@ final class ThemeManager
         if (!$this->exists($slug)) {
             throw new RuntimeException($this->translator->trans('That theme is not installed.'));
         }
+        if ($this->paths->isGlobalTheme($slug)) {
+            throw new RuntimeException($this->translator->trans('Global themes are shared by all stores and can\'t be deleted here.'));
+        }
         $this->removeDir($this->paths->themes() . '/' . $slug);
     }
 
@@ -265,7 +282,7 @@ final class ThemeManager
         $zip->addFromString($base . 'README.md', $this->blankReadme());
 
         // The default theme's templates, ready to edit.
-        $layoutRoot = $this->paths->themes() . '/default/layout';
+        $layoutRoot = $this->paths->themeDir('default', 'layout');
         foreach (glob($layoutRoot . '/{,*/}*.twig', GLOB_BRACE) ?: [] as $source) {
             if (str_starts_with(basename($source), 'admin-')) {
                 continue; // the admin always uses the default theme's parts
@@ -348,7 +365,7 @@ final class ThemeManager
 
     private function blankStylesheet(): string
     {
-        return <<<'CSS'
+        $css = <<<'CSS'
 /* My Theme
  *
  * This file is loaded instead of the default theme's stylesheet, so the
@@ -356,7 +373,7 @@ final class ThemeManager
  * need to change what's different. Remove it to style everything yourself
  * (see public/themes/default/assets/css/style.css for every class used).
  */
-@import url('../../../default/assets/css/style.css');
+@import url('{{DEFAULT_CSS}}');
 
 :root {
     /* Colours */
@@ -389,6 +406,11 @@ final class ThemeManager
 .product-card { box-shadow: none; }
 */
 CSS;
+
+        // Local themes sit next to "global/", so reach a global default theme through it.
+        $import = ($this->paths->isGlobalTheme('default') ? '../../../global/default' : '../../../default') . '/assets/css/style.css';
+
+        return str_replace('{{DEFAULT_CSS}}', $import, $css);
     }
 
     private function blankReadme(): string

@@ -8,6 +8,13 @@
 {% if order.discount_amount|default(0) > 0 %}
 {{ 'Discount'|trans }}{% if order.coupon_code %} ({{ order.coupon_code }}){% endif %}: -{{ order.discount_amount|money }}
 {% endif %}
+{% if order.gift_card_amount|default(0) > 0 %}
+{{ 'Gift card ({code})'|trans({code: order.gift_card_code}) }}: -{{ order.gift_card_amount|money }}
+{% endif %}
+{% if order.vat_reverse_charge|default(0) %}
+{{ 'VAT reverse charge — no VAT charged'|trans }}{% if order.vat_id %} ({{ order.vat_id }}){% endif %}
+
+{% endif %}
 {% if order.tax_amount|default(0) > 0 and not order.prices_include_tax %}
 {{ 'VAT ({rate}%)'|trans({rate: order.tax_rate * 1}) }}: {{ order.tax_amount|money }}
 {% endif %}

@@ -1,0 +1,15 @@
+{% autoescape false %}
+{{ 'You have received a gift card for {store}!'|trans({store: store_name}) }}
+
+{% if card.message %}{{ card.message }}
+
+{% endif %}{{ 'Value'|trans }}: {{ card.initial_amount|money }}
+{{ 'Code'|trans }}: {{ card.code }}
+{% if card.expires_at %}{{ 'Valid until {date}.'|trans({date: card.expires_at|slice(0, 10)}) }}
+{% endif %}
+{{ 'Enter the code at checkout, in the "Gift card" box.'|trans }}
+
+{{ 'Start shopping'|trans }}: {{ shop_url }}
+
+{{ store_name }} — {{ store_email }}
+{% endautoescape %}

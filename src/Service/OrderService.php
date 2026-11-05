@@ -52,6 +52,7 @@ final class OrderService
         private readonly PaymentRegistry $methods,
         private readonly OrderStock $stock,
         private readonly CouponService $coupons,
+        private readonly GiftCardService $giftCards,
         private readonly OrderNotifier $notifier,
         private readonly Config $config,
         private readonly LoggerInterface $logger,
@@ -145,6 +146,7 @@ final class OrderService
             $this->orders->setStatuses($id, 'cancelled');
             $this->stock->release($order);
             $this->coupons->release($order);
+            $this->giftCards->release($order);
         });
         $this->logger->info('Order cancelled by admin', ['order_id' => $id]);
         if ($notify) {
@@ -161,6 +163,7 @@ final class OrderService
                 $this->orders->setStatuses($id, 'cancelled', 'failed');
                 $this->stock->release($order);
                 $this->coupons->release($order);
+            $this->giftCards->release($order);
             }
         });
     }
@@ -216,6 +219,7 @@ final class OrderService
 
             $this->orders->setStatuses($id, 'refunded', 'refunded');
             $this->payments->record($id, $provider, 'refunded', $reference, (float) $order['total'], $currency, $note);
+            $this->giftCards->release($order); // the part paid with a gift card goes back onto the card
             if ($restock) {
                 $this->stock->release($order);
             }
@@ -266,6 +270,7 @@ final class OrderService
                 $this->orders->setStatuses($id, 'cancelled', 'expired');
                 $this->stock->release($order);
                 $this->coupons->release($order);
+            $this->giftCards->release($order);
 
                 return true;
             });

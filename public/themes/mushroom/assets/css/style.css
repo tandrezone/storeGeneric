@@ -1,0 +1,112 @@
+/* Theme: Mushroom — forest-floor palette: loam browns, moss green, cream gills
+   and a toadstool-red accent. Builds on the default theme; only the
+   differences live here. */
+@import url('../../../default/assets/css/style.css');
+
+:root {
+    --color-bg: #f3ebdd;              /* oyster / cream gills */
+    --color-surface: #fbf6ea;
+    --color-surface-hover: #ece2cf;
+    --color-border: #dfd3bb;
+    --color-border-strong: #bfae8f;
+    --color-border-violet: #e3b5a8;
+    --color-text: #33261c;            /* loam */
+    --color-muted: #7a6a58;
+    --color-accent: #b3402f;          /* fly agaric red */
+    --color-accent-soft: rgba(179, 64, 47, 0.1);
+    --color-accent-2: #5d7a4a;        /* moss */
+    --color-accent-2-soft: rgba(93, 122, 74, 0.12);
+    --color-danger: #8f1d14;
+    --color-on-accent: #fbf6ea;
+    --chart-teal: #5d7a4a;
+    --chart-violet: #b3402f;
+    --chart-funnel-1: #c9a679;
+    --chart-funnel-2: #8a6a47;
+    --chart-funnel-3: #4a3524;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --font-serif: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --shadow-sm: 0 1px 2px rgba(51, 38, 28, 0.08);
+    --shadow-md: 0 12px 28px rgba(51, 38, 28, 0.16);
+}
+
+body {
+    /* faint spores drifting over the forest floor */
+    background:
+        radial-gradient(circle at 15% 25%, rgba(139, 106, 71, 0.08) 1.5px, transparent 2px) 0 0 / 42px 42px,
+        radial-gradient(circle at 65% 75%, rgba(93, 122, 74, 0.08) 1.5px, transparent 2px) 0 0 / 61px 61px,
+        var(--color-bg);
+}
+
+h1, h2, h3, .logo, .shop-hero h1, .panel-summary, .stat-value { font-family: var(--font-serif); font-weight: 700; letter-spacing: -0.01em; }
+
+.site-header { background: rgba(243, 235, 221, 0.94); border-bottom: 3px double var(--color-border-strong); }
+.logo { color: var(--color-accent); font-size: 1.4rem; }
+.logo-text::before { content: "🍄"; margin-right: 0.35em; }
+.main-nav a { color: var(--color-text); }
+.main-nav a:hover { color: var(--color-accent); }
+.cart-count { background: var(--color-accent-2); }
+
+.shop-hero {
+    position: relative;
+    overflow: hidden;
+    border: 0;
+    background:
+        radial-gradient(420px 220px at 90% 115%, rgba(93, 122, 74, 0.3), transparent 70%),
+        radial-gradient(520px 260px at 0% 0%, rgba(179, 64, 47, 0.16), transparent 70%),
+        linear-gradient(160deg, #efe3cc 0%, #e2d2b4 100%);
+    min-height: 250px;
+    justify-content: space-between;
+}
+.shop-hero-inner { padding: 44px; position: relative; z-index: 1; }
+.hero-eyebrow {
+    color: var(--color-accent);
+    background: var(--color-surface);
+    padding: 5px 12px;
+    border-radius: 999px;
+    letter-spacing: 0.14em;
+}
+.shop-hero h1 { font-size: 2.5rem; color: #4a3524; }
+.shop-hero p { color: var(--color-text); opacity: 0.85; }
+.hero-mushrooms { flex: 0 0 auto; width: 260px; height: 220px; margin: 16px 32px 0 0; align-self: flex-end; }
+.hero-big { transform-origin: 110px 200px; animation: mushroom-sway 7s ease-in-out infinite; }
+@keyframes mushroom-sway { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
+@media (prefers-reduced-motion: reduce) { .hero-big { animation: none; } }
+@media (max-width: 720px) { .hero-mushrooms { display: none; } .shop-hero h1 { font-size: 1.8rem; } }
+
+.filter-pill { background: var(--color-surface); border-color: var(--color-border-strong); color: var(--color-text); }
+.filter-pill:hover { border-color: var(--color-accent); }
+.filter-pill.active { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
+
+.product-card { border-color: var(--color-border); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.product-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+/* product image under a rounded mushroom-cap arch */
+.product-card-image { padding: 10px 10px 0; }
+.product-card-image img, .image-placeholder { height: 220px; border-radius: 50% 50% var(--radius-sm) var(--radius-sm) / 38% 38% var(--radius-sm) var(--radius-sm); background: #e7dcc4; }
+.category-badge { background: var(--color-accent-2-soft); color: var(--color-accent-2); border-radius: 999px; }
+.product-card h3 { font-family: var(--font-serif); font-weight: 700; font-size: 1.1rem; }
+.price { color: var(--color-accent); font-weight: 800; }
+
+.btn-primary { border-radius: 999px; padding: 12px 26px; }
+.btn-primary:hover { background: #8f3224; }
+.btn-secondary { border-radius: 999px; background: transparent; }
+form input, form select, .wysiwyg { border-radius: var(--radius-sm); border-color: var(--color-border-strong); background: #fffcf3; }
+
+.order-summary { border-top: 4px solid var(--color-accent); }
+.status-badge[data-status="approved"], .status-badge[data-status="paid"], .status-badge[data-status="completed"] {
+    color: var(--color-accent-2); background: var(--color-accent-2-soft); border-color: rgba(93, 122, 74, 0.35);
+}
+.msg { background: var(--color-accent-2-soft); border-color: rgba(93, 122, 74, 0.35); }
+
+/* footer with a row of little mushrooms along its top edge */
+.site-footer { background: #e2d2b4; border-top: 0; }
+.site-footer::before {
+    content: "🍄 🌲 🍂 🍄 🌲 🍂 🍄";
+    display: block;
+    text-align: center;
+    letter-spacing: 0.8em;
+    padding-top: 18px;
+    opacity: 0.75;
+}
+.footer-nav { border-bottom-color: var(--color-border-strong); }
+.footer-nav a:hover { color: var(--color-accent); }

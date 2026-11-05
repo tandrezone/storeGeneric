@@ -1,0 +1,18 @@
+{
+    "name": "Lavender",
+    "description": "Soft lilac fields, pink blossoms and generously rounded corners.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#fdfcff",
+            "#ece4f8"
+        ],
+        "text": "#2e2542",
+        "accent": "#7c5cc4",
+        "accent2": "#e58bb5",
+        "surface": "#fdfcff",
+        "font": "round",
+        "motif": "blobs"
+    }
+}

@@ -1,0 +1,23 @@
+{# Cookie notice. Included by layout/shop.html.twig when Settings → Privacy turns it on.
+   Without a tracking snippet it is just information (OK); with one, the snippet loads only after Accept. #}
+{% set has_snippet = store.tracking_snippet != '' %}
+<div class="cookie-notice" id="cookie-notice" role="dialog" aria-live="polite" aria-label="{{ 'Cookies'|trans }}" hidden data-has-snippet="{{ has_snippet ? '1' : '0' }}">
+    <p>
+        {% if has_snippet %}
+            {{ 'We use essential cookies to make the store work, and, with your permission, cookies that help us understand how it is used.'|trans }}
+        {% else %}
+            {{ 'This store only uses essential cookies (cart, sign-in and language). Nothing is used for advertising or tracking.'|trans }}
+        {% endif %}
+        <a href="{{ path('page.privacy') }}">{{ 'Privacy Policy'|trans }}</a>
+    </p>
+    <div class="cookie-notice-actions">
+        {% if has_snippet %}
+            <button type="button" class="btn-primary" data-consent="accepted">{{ 'Accept'|trans }}</button>
+            <button type="button" class="btn-secondary" data-consent="declined">{{ 'Decline'|trans }}</button>
+        {% else %}
+            <button type="button" class="btn-primary" data-consent="accepted">{{ 'OK'|trans }}</button>
+        {% endif %}
+    </div>
+</div>
+{% if has_snippet %}<template id="consent-snippet">{{ store.tracking_snippet|raw }}</template>{% endif %}
+<script src="{{ js('consent.js') }}" defer></script>

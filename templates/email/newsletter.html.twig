@@ -1,0 +1,7 @@
+{% extends 'email/_layout.html.twig' %}
+
+{% block body %}
+<h2 style="margin:0 0 12px;font-size:18px;">{{ subject }}</h2>
+{% for paragraph in paragraphs %}<p>{{ paragraph|nl2br }}</p>{% endfor %}
+<p style="font-size:12px;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:12px;">{{ 'You receive this because you subscribed to our newsletter.'|trans }} <a href="{{ unsubscribe_url }}" style="color:#6b7280;">{{ 'Unsubscribe'|trans }}</a></p>
+{% endblock %}

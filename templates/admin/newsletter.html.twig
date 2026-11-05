@@ -1,0 +1,75 @@
+{% extends 'layout/admin.html.twig' %}
+
+{% set title = 'Admin — {page}'|trans({page: 'Newsletter'|trans}) %}
+{% set active_nav = 'newsletter' %}
+
+{% block content %}
+<h1>{{ 'Newsletter'|trans }}</h1>
+{% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
+
+<section class="panel">
+    <form method="post" action="{{ path('admin.newsletter.submit') }}">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="settings">
+        <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="enabled" value="1" style="width: auto;" {{ enabled ? 'checked' }}>
+            {{ 'Show the signup form on the storefront'|trans }}
+        </label>
+        <p class="field-hint">{{ 'People confirm their address by email (double opt-in) before they receive anything, and every email has an unsubscribe link.'|trans }}</p>
+        <button type="submit" class="btn-primary">{{ 'Save'|trans }}</button>
+    </form>
+    <p>
+        <strong>{{ counts.active }}</strong> {{ 'subscribed'|trans }} · {{ counts.pending }} {{ 'waiting for confirmation'|trans }} · {{ counts.unsubscribed }} {{ 'unsubscribed'|trans }}
+        {% if counts.active > 0 %}· <a href="{{ path('admin.newsletter.export') }}" data-no-ajax>{{ 'Export subscribers (CSV)'|trans }}</a>{% endif %}
+    </p>
+</section>
+
+<section class="panel">
+    <h2>{{ 'Write a campaign'|trans }}</h2>
+    <form method="post" action="{{ path('admin.newsletter.submit') }}">
+        {{ csrf_field() }}
+        <label>{{ 'Subject'|trans }}
+            <input type="text" name="subject" maxlength="190" value="{{ input.subject|default('') }}" required>
+        </label>
+        <label>{{ 'Message'|trans }}
+            <textarea name="message" rows="10" required>{{ input.message|default('') }}</textarea>
+        </label>
+        <p class="field-hint">{{ 'Plain text; leave an empty line between paragraphs. An unsubscribe link is added automatically.'|trans }}</p>
+        <div class="magic-block newsletter-magic" data-endpoint="{{ path('admin.api.magic_newsletter') }}" data-csrf="{{ csrf_token() }}">
+            <h3>✨ {{ 'Magic edit'|trans }}</h3>
+            <p class="field-hint">{{ 'Writes the subject and message from your products — new arrivals and sales first, with links. Nothing is sent until you click a send button.'|trans }}</p>
+            <label>{{ 'Extra instruction (optional)'|trans }}
+                <input type="text" class="magic-prompt" maxlength="2000" placeholder="{{ 'e.g. spring sale, mention free shipping, playful tone'|trans }}">
+            </label>
+            <button type="button" class="btn-secondary newsletter-magic-run">✨ {{ 'Fill with AI'|trans }}</button>
+            <p class="newsletter-magic-status field-hint" aria-live="polite"></p>
+        </div>
+        <button type="submit" name="action" value="test" class="btn-secondary">{{ 'Send me a test'|trans }}</button>
+        <button type="submit" name="action" value="send" class="btn-primary" data-confirm="{{ 'Queue this campaign for all {count} subscribers?'|trans({count: counts.active}) }}" {{ counts.active == 0 ? 'disabled' }}>{{ 'Send to subscribers'|trans }}</button>
+    </form>
+</section>
+
+{% if campaigns is not empty %}
+<section class="panel">
+    <h2>{{ 'Past campaigns'|trans }}</h2>
+    <ul>{% for c in campaigns %}<li>{{ c.created_at }} — <strong>{{ c.subject }}</strong> ({{ '{count} recipients'|trans({count: c.recipients}) }}{% if c.sent_by %}, {{ c.sent_by }}{% endif %})</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if recent is not empty %}
+<section class="panel">
+    <h2>{{ 'Latest signups'|trans }}</h2>
+    <table class="data-table">
+        <thead><tr><th>{{ 'Email'|trans }}</th><th>{{ 'Status'|trans }}</th><th>{{ 'Signed up'|trans }}</th></tr></thead>
+        <tbody>
+        {% for s in recent %}
+            <tr><td>{{ s.email }}</td>
+                <td>{{ s.unsubscribed_at ? 'unsubscribed'|trans : (s.confirmed_at ? 'subscribed'|trans : 'waiting for confirmation'|trans) }}</td>
+                <td>{{ s.created_at }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+<script src="{{ js('admin.js') }}"></script>
+{% endblock %}

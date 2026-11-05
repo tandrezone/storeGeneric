@@ -75,8 +75,11 @@ CREATE TABLE shipping_methods (
     name VARCHAR(120) NOT NULL,
     description VARCHAR(255) DEFAULT NULL COMMENT 'e.g. delivery estimate, shown at checkout',
     cost DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    cost_per_kg DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'added to cost, per kg of the order',
     free_over DECIMAL(10,2) DEFAULT NULL COMMENT 'subtotal at or above which shipping is free; NULL = never',
     countries VARCHAR(500) DEFAULT NULL COMMENT 'comma-separated country names/codes; NULL = all countries',
+    min_weight_grams INT UNSIGNED DEFAULT NULL COMMENT 'offered from this order weight; NULL = no minimum',
+    max_weight_grams INT UNSIGNED DEFAULT NULL COMMENT 'offered up to this order weight; NULL = no maximum',
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     sort_order INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -98,7 +101,11 @@ CREATE TABLE product_variants (
     label VARCHAR(64),
     unit VARCHAR(64),
     price DECIMAL(10,2) NOT NULL,
+    sale_price DECIMAL(10,2) DEFAULT NULL COMMENT 'discounted price; NULL = no sale',
+    sale_starts_at DATETIME DEFAULT NULL COMMENT 'NULL = already started',
+    sale_ends_at DATETIME DEFAULT NULL COMMENT 'NULL = no end',
     stock INT UNSIGNED NOT NULL DEFAULT 0,
+    weight_grams INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'weight of one unit, grams',
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_variants_product FOREIGN KEY (product_id)
@@ -112,6 +119,8 @@ CREATE TABLE product_variants (
 CREATE TABLE carts (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     session_id VARCHAR(128) NOT NULL UNIQUE,
+    customer_id INT UNSIGNED DEFAULT NULL,
+    reminded_at DATETIME DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
@@ -205,6 +214,8 @@ CREATE TABLE customer_auth_attempts (
 CREATE TABLE orders (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     order_number VARCHAR(32) NOT NULL UNIQUE,
+    source VARCHAR(30) DEFAULT NULL COMMENT 'marketplace the order came from; NULL = this store',
+    external_id VARCHAR(80) DEFAULT NULL COMMENT 'order id at the marketplace',
     customer_id INT UNSIGNED DEFAULT NULL,
     locale VARCHAR(10) DEFAULT NULL COMMENT 'language the order was placed in (its emails use it)',
     email VARCHAR(190) NOT NULL,
@@ -223,11 +234,17 @@ CREATE TABLE orders (
     payment_status ENUM('unpaid','paying','paid','failed','expired','refunded') NOT NULL DEFAULT 'unpaid',
     subtotal DECIMAL(10,2) NOT NULL,
     shipping_cost DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    weight_grams INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'total order weight, grams',
     coupon_code VARCHAR(40) DEFAULT NULL COMMENT 'discount code used (copy)',
     discount_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'taken off the subtotal (free-shipping codes: shipping saved)',
+    gift_card_code VARCHAR(40) DEFAULT NULL COMMENT 'gift card used (copy)',
+    gift_card_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'paid with the gift card; total is what is left',
+    gift_card_counted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 while the order holds that amount of the card (given back once)',
     prices_include_tax TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1 = VAT included in prices, 0 = VAT added on top',
     tax_rate DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT 'VAT % applied (by shipping country)',
     tax_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    vat_id VARCHAR(20) DEFAULT NULL COMMENT 'customer VAT number (EU business)',
+    vat_reverse_charge TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = no VAT charged, reverse charge',
     total DECIMAL(10,2) NOT NULL,
     stock_reserved TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 while the order holds stock for its items (taken at checkout, given back once)',
     coupon_counted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 while the order counts towards coupons.used_count',
@@ -236,6 +253,7 @@ CREATE TABLE orders (
     shipped_at TIMESTAMP NULL DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_orders_source_external (source, external_id),
     INDEX idx_orders_email (email),
     INDEX idx_orders_status (status),
     INDEX idx_orders_created (created_at),
@@ -402,3 +420,222 @@ CREATE TABLE page_views (
     INDEX idx_pageviews_created_at (created_at)
 ) ENGINE=InnoDB;
 
+
+-- ----------------------------------------------------------
+-- Internal order notes (staff only; never shown to the customer)
+-- ----------------------------------------------------------
+CREATE TABLE order_notes (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    order_id INT UNSIGNED NOT NULL,
+    author VARCHAR(190) DEFAULT NULL,
+    body TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_order_notes_order FOREIGN KEY (order_id)
+        REFERENCES orders(id) ON DELETE CASCADE,
+    INDEX idx_order_notes_order (order_id, created_at)
+) ENGINE=InnoDB;
+
+-- ----------------------------------------------------------
+-- Outgoing email queue (retries, bulk mail) — see migration 031
+-- ----------------------------------------------------------
+CREATE TABLE mail_queue (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    to_email VARCHAR(190) NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    body_html MEDIUMTEXT NOT NULL,
+    body_text MEDIUMTEXT NOT NULL,
+    attachments MEDIUMTEXT DEFAULT NULL COMMENT 'JSON [{filename, type, data(base64)}]',
+    reply_to VARCHAR(190) DEFAULT NULL,
+    attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    max_attempts TINYINT UNSIGNED NOT NULL DEFAULT 5,
+    next_attempt_at DATETIME NOT NULL,
+    last_error VARCHAR(500) DEFAULT NULL,
+    sent_at DATETIME DEFAULT NULL,
+    failed_at DATETIME DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_mail_queue_due (sent_at, failed_at, next_attempt_at)
+) ENGINE=InnoDB;
+
+-- ----------------------------------------------------------
+-- Invoices and credit notes (PDF) — see migration 034
+-- ----------------------------------------------------------
+CREATE TABLE invoices (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    order_id INT UNSIGNED NOT NULL,
+    kind ENUM('invoice', 'credit_note') NOT NULL DEFAULT 'invoice',
+    year SMALLINT UNSIGNED NOT NULL,
+    seq INT UNSIGNED NOT NULL,
+    number VARCHAR(32) NOT NULL,
+    issued_at DATETIME NOT NULL,
+    CONSTRAINT fk_invoices_order FOREIGN KEY (order_id)
+        REFERENCES orders(id) ON DELETE CASCADE,
+    UNIQUE KEY uniq_invoices_order_kind (order_id, kind),
+    UNIQUE KEY uniq_invoices_sequence (kind, year, seq),
+    UNIQUE KEY uniq_invoices_number (number)
+) ENGINE=InnoDB;
+
+-- ----------------------------------------------------------
+-- Return requests (RMA) — see migration 035
+-- ----------------------------------------------------------
+CREATE TABLE return_requests (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    order_id INT UNSIGNED NOT NULL,
+    status ENUM('requested', 'approved', 'rejected', 'received', 'refunded') NOT NULL DEFAULT 'requested',
+    reason VARCHAR(40) NOT NULL,
+    details TEXT DEFAULT NULL,
+    admin_response TEXT DEFAULT NULL COMMENT 'shown to the customer',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_return_requests_order FOREIGN KEY (order_id)
+        REFERENCES orders(id) ON DELETE CASCADE,
+    INDEX idx_return_requests_order (order_id),
+    INDEX idx_return_requests_status (status, created_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE return_request_items (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    return_id INT UNSIGNED NOT NULL,
+    order_item_id INT UNSIGNED NOT NULL,
+    quantity INT UNSIGNED NOT NULL,
+    CONSTRAINT fk_return_items_return FOREIGN KEY (return_id)
+        REFERENCES return_requests(id) ON DELETE CASCADE,
+    CONSTRAINT fk_return_items_item FOREIGN KEY (order_item_id)
+        REFERENCES order_items(id) ON DELETE CASCADE,
+    INDEX idx_return_items_return (return_id)
+) ENGINE=InnoDB;
+
+-- ----------------------------------------------------------
+-- Product reviews — see migration 036
+-- ----------------------------------------------------------
+CREATE TABLE product_reviews (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    product_id INT UNSIGNED NOT NULL,
+    customer_id INT UNSIGNED DEFAULT NULL,
+    author VARCHAR(80) NOT NULL DEFAULT '',
+    rating TINYINT UNSIGNED NOT NULL,
+    title VARCHAR(120) DEFAULT NULL,
+    body TEXT DEFAULT NULL,
+    status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+    verified TINYINT(1) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_reviews_product FOREIGN KEY (product_id)
+        REFERENCES products(id) ON DELETE CASCADE,
+    CONSTRAINT fk_reviews_customer FOREIGN KEY (customer_id)
+        REFERENCES customers(id) ON DELETE SET NULL,
+    UNIQUE KEY uniq_reviews_customer_product (product_id, customer_id),
+    INDEX idx_reviews_product_status (product_id, status, created_at),
+    INDEX idx_reviews_status (status, created_at)
+) ENGINE=InnoDB;
+
+-- ----------------------------------------------------------
+-- Customer engagement: wishlist, stock alerts, newsletter — see migration 037
+-- ----------------------------------------------------------
+CREATE TABLE wishlist_items (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT UNSIGNED NOT NULL,
+    product_id INT UNSIGNED NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_wishlist_customer FOREIGN KEY (customer_id)
+        REFERENCES customers(id) ON DELETE CASCADE,
+    CONSTRAINT fk_wishlist_product FOREIGN KEY (product_id)
+        REFERENCES products(id) ON DELETE CASCADE,
+    UNIQUE KEY uniq_wishlist (customer_id, product_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE stock_alerts (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    product_id INT UNSIGNED NOT NULL,
+    email VARCHAR(190) NOT NULL,
+    locale VARCHAR(10) DEFAULT NULL,
+    token CHAR(32) NOT NULL COMMENT 'cancel link',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    notified_at DATETIME DEFAULT NULL,
+    CONSTRAINT fk_stock_alerts_product FOREIGN KEY (product_id)
+        REFERENCES products(id) ON DELETE CASCADE,
+    UNIQUE KEY uniq_stock_alert (product_id, email),
+    UNIQUE KEY uniq_stock_alert_token (token),
+    INDEX idx_stock_alerts_pending (notified_at, product_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE newsletter_subscribers (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(190) NOT NULL,
+    locale VARCHAR(10) DEFAULT NULL,
+    token CHAR(32) NOT NULL COMMENT 'confirm / unsubscribe link',
+    confirm_sent_at DATETIME DEFAULT NULL COMMENT 'last confirmation email (resend throttle)',
+    confirmed_at DATETIME DEFAULT NULL COMMENT 'double opt-in; NULL = not confirmed yet',
+    unsubscribed_at DATETIME DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_newsletter_email (email),
+    UNIQUE KEY uniq_newsletter_token (token),
+    INDEX idx_newsletter_active (confirmed_at, unsubscribed_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE newsletter_campaigns (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    subject VARCHAR(190) NOT NULL,
+    body TEXT NOT NULL,
+    recipients INT UNSIGNED NOT NULL DEFAULT 0,
+    sent_by VARCHAR(190) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- ----------------------------------------------------------
+-- Editable content pages — see migration 038
+-- ----------------------------------------------------------
+CREATE TABLE pages (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    slug VARCHAR(80) NOT NULL,
+    locale VARCHAR(10) NOT NULL DEFAULT '',
+    title VARCHAR(180) NOT NULL,
+    body MEDIUMTEXT NOT NULL,
+    is_published TINYINT(1) NOT NULL DEFAULT 1,
+    in_footer TINYINT(1) NOT NULL DEFAULT 0,
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_pages_slug_locale (slug, locale),
+    INDEX idx_pages_footer (is_published, in_footer, sort_order)
+) ENGINE=InnoDB;
+
+-- ----------------------------------------------------------
+-- Gift cards and their ledger — see migration 041
+-- ----------------------------------------------------------
+CREATE TABLE gift_cards (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(40) NOT NULL,
+    initial_amount DECIMAL(10,2) NOT NULL,
+    balance DECIMAL(10,2) NOT NULL,
+    expires_at DATETIME DEFAULT NULL COMMENT 'NULL = never',
+    recipient_email VARCHAR(190) DEFAULT NULL,
+    message VARCHAR(500) DEFAULT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_by VARCHAR(190) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_gift_cards_code (code)
+) ENGINE=InnoDB;
+
+CREATE TABLE gift_card_transactions (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    gift_card_id INT UNSIGNED NOT NULL,
+    order_id INT UNSIGNED DEFAULT NULL,
+    type ENUM('issue', 'redeem', 'restore', 'adjust') NOT NULL,
+    amount DECIMAL(10,2) NOT NULL COMMENT 'signed: spending is negative',
+    note VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_gct_card FOREIGN KEY (gift_card_id)
+        REFERENCES gift_cards(id) ON DELETE CASCADE,
+    INDEX idx_gct_card (gift_card_id, created_at)
+) ENGINE=InnoDB;
+
+-- ----------------------------------------------------------
+-- VIES answers for customer VAT numbers (cache) — see migration 042
+-- ----------------------------------------------------------
+CREATE TABLE vat_checks (
+    vat_id VARCHAR(20) NOT NULL PRIMARY KEY,
+    status ENUM('valid', 'invalid') NOT NULL,
+    name VARCHAR(255) DEFAULT NULL,
+    address VARCHAR(500) DEFAULT NULL,
+    checked_at DATETIME NOT NULL
+) ENGINE=InnoDB;

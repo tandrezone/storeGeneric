@@ -10,8 +10,13 @@
     {key: 'products',   label: 'Products'|trans,   route: 'admin.products', role: 'staff'},
     {key: 'categories', label: 'Categories'|trans, route: 'admin.categories', role: 'staff'},
     {key: 'orders',     label: 'Orders'|trans,     route: 'admin.orders', role: 'staff'},
+    {key: 'reviews',    label: 'Reviews'|trans,    route: 'admin.reviews', role: 'staff'},
+    {key: 'returns',    label: 'Returns'|trans,    route: 'admin.returns', role: 'staff'},
     {key: 'customers',  label: 'Customers'|trans,  route: 'admin.customers'},
     {key: 'shipping',   label: 'Shipping'|trans,   route: 'admin.shipping'},
+    {key: 'pages',      label: 'Pages'|trans,      route: 'admin.pages'},
+    {key: 'newsletter', label: 'Newsletter'|trans, route: 'admin.newsletter'},
+    {key: 'giftcards',  label: 'Gift cards'|trans,  route: 'admin.giftcards'},
     {key: 'discounts',  label: 'Discounts'|trans,  route: 'admin.discounts'},
     {key: 'analytics',  label: 'Analytics'|trans,  route: 'admin.analytics'},
     {key: 'activity',   label: 'Activity'|trans,   route: 'admin.activity'},
@@ -34,8 +39,8 @@
         active: active_nav == 'account',
     } : null,
 }) }}
-<script src="/assets/js/i18n.js" data-i18n="{{ i18n_js() }}" data-locale="{{ html_lang() }}"></script>
-<script src="/assets/js/admin-common.js"></script>
+<script src="{{ js('i18n.js') }}" data-i18n="{{ i18n_js() }}" data-locale="{{ html_lang() }}"></script>
+<script src="{{ js('admin-common.js') }}"></script>
 {% for flash in flashes() %}
     <p class="msg {{ flash.type == 'error' ? 'error' : '' }}">{{ flash.message }}</p>
 {% endfor %}

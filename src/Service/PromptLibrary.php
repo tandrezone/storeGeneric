@@ -22,9 +22,13 @@ final class PromptLibrary
     /** Reserved base names (.md or .txt) that replace a built-in prompt: name => placeholders. */
     public const MAGIC_EDIT = 'magic-edit';
     public const TRANSLATE_PRODUCT = 'translate-product';
+    public const MAGIC_PAGE = 'magic-page';
+    public const MAGIC_NEWSLETTER = 'magic-newsletter';
     public const RESERVED = [
         self::MAGIC_EDIT => ['{instruction}', '{name}', '{short_description}', '{long_description}', '{field_json}'],
         self::TRANSLATE_PRODUCT => ['{language}', '{locale}', '{from}', '{from_locale}', '{name}', '{short_description}', '{long_description}', '{field_json}'],
+        self::MAGIC_PAGE => ['{page}', '{slug}', '{language}', '{store}', '{catalog}', '{instruction}', '{title}', '{body}'],
+        self::MAGIC_NEWSLETTER => ['{language}', '{store}', '{catalog}', '{instruction}', '{subject}', '{message}'],
     ];
 
     public function __construct(

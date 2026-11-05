@@ -1,0 +1,15 @@
+{% extends 'email/_layout.html.twig' %}
+
+{% block body %}
+<p>{{ 'Hi {name},'|trans({name: request.ship_name}) }}</p>
+{% set number = '<strong>' ~ request.order_number|e ~ '</strong>' %}
+{% if request.status == 'approved' %}
+    <p>{{ 'Your return request for order {number} has been approved. Please send the items back to us.'|trans({number: number})|raw }}</p>
+{% elseif request.status == 'rejected' %}
+    <p>{{ 'We\'re sorry, but we can\'t accept the return you requested for order {number}.'|trans({number: number})|raw }}</p>
+{% else %}
+    <p>{{ 'We have received the items you returned for order {number}. We will refund you shortly.'|trans({number: number})|raw }}</p>
+{% endif %}
+{% if request.admin_response %}<p style="background:#f4f4f5;padding:12px;border-radius:6px;">{{ request.admin_response|nl2br }}</p>{% endif %}
+<p><a href="{{ order_url }}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;">{{ 'Track your order'|trans }}</a></p>
+{% endblock %}

@@ -168,7 +168,7 @@
                     if (!url) return;
                     document.execCommand(cmd, false, url);
                 } else {
-                    document.execCommand(cmd, false, null);
+                    document.execCommand(cmd, false, btn.dataset.value || null);
                 }
 
                 sync();
@@ -305,6 +305,291 @@
             }
         });
     });
+    // "Magic edit all products": one instruction, a suggestion per product
+    // (a few requests at a time), a before/after review, then "Save selected"
+    // saves each ticked product. Nothing is saved before that click.
+    const magicAll = document.querySelector('.magic-all');
+    if (magicAll) {
+        const MAGIC_ALL_CONCURRENCY = 3;
+        const runBtn = magicAll.querySelector('.magic-all-run');
+        const stopBtn = magicAll.querySelector('.magic-all-stop');
+        const status = magicAll.querySelector('.magic-all-status');
+        const results = magicAll.querySelector('.magic-all-results');
+        const actions = magicAll.querySelector('.magic-all-actions');
+        const selectAllBox = magicAll.querySelector('.magic-all-select');
+        const saveBtn = magicAll.querySelector('.magic-all-save');
+        const csrfToken = () => {
+            const meta = document.querySelector('meta[name="csrf-token"]');
+            return magicAll.dataset.csrf || (meta ? meta.content : '');
+        };
+        let stopped = false;
+
+        const postForm = async (url, fields) => {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(Object.assign({ csrf_token: csrfToken() }, fields)),
+            });
+            return response.json();
+        };
+
+        const fieldValue = (key, value, cls) => {
+            const el = document.createElement('div');
+            el.className = 'magic-field-value ' + cls;
+            if (key === 'long_description') el.innerHTML = value;
+            else el.textContent = value;
+            return el;
+        };
+
+        function renderResult(productId, data) {
+            const changed = {};
+            Object.keys(MAGIC_LABELS).forEach((key) => {
+                if (key in (data.fields || {}) && data.fields[key] !== (data.current || {})[key]) changed[key] = data.fields[key];
+            });
+            if (Object.keys(changed).length === 0) return false;
+
+            const card = document.createElement('div');
+            card.className = 'magic-all-item';
+            card.dataset.productId = productId;
+            card._fields = changed;
+
+            const head = document.createElement('label');
+            head.className = 'magic-all-head';
+            const box = document.createElement('input');
+            box.type = 'checkbox';
+            box.className = 'magic-all-pick';
+            box.checked = true;
+            const title = document.createElement('strong');
+            title.textContent = '#' + productId + ' — ' + ((data.current || {}).name || '');
+            const state = document.createElement('span');
+            state.className = 'magic-all-state';
+            head.append(box, ' ', title, ' ', state);
+            card.append(head);
+
+            Object.keys(changed).forEach((key) => {
+                const item = document.createElement('div');
+                item.className = 'magic-field magic-all-field';
+                const label = document.createElement('strong');
+                label.textContent = MAGIC_LABELS[key];
+                const diff = document.createElement('div');
+                diff.append(
+                    fieldValue(key, (data.current || {})[key] || '', 'magic-old'),
+                    fieldValue(key, changed[key], 'magic-new'),
+                );
+                item.append(label, diff);
+                card.append(item);
+            });
+
+            results.append(card);
+            return true;
+        }
+
+        function addError(productId, message) {
+            const p = document.createElement('p');
+            p.className = 'msg error';
+            p.textContent = '#' + productId + ': ' + message;
+            results.append(p);
+        }
+
+        runBtn.addEventListener('click', async () => {
+            const instruction = magicAll.querySelector('.magic-prompt').value.trim();
+            if (!instruction) {
+                status.textContent = __('Enter an instruction first.');
+                return;
+            }
+
+            let ids;
+            try {
+                const response = await fetch(magicAll.dataset.idsEndpoint, { headers: { Accept: 'application/json' } });
+                ids = (await response.json()).ids || [];
+            } catch (err) {
+                status.textContent = __('Request failed: {message}', { message: err.message });
+                return;
+            }
+            if (ids.length === 0) {
+                status.textContent = __('There are no products yet.');
+                return;
+            }
+            if (!window.confirm(__n('Run this instruction on {count} product? Each product is one AI request.', ids.length))) return;
+
+            results.replaceChildren();
+            actions.hidden = true;
+            runBtn.disabled = true;
+            stopBtn.hidden = false;
+            stopped = false;
+
+            let done = 0;
+            let changedCount = 0;
+            let failed = 0;
+            const queue = ids.slice();
+            const report = () => {
+                status.textContent = __('{done} of {total} products checked — {changed} with changes, {failed} failed.', {
+                    done, total: ids.length, changed: changedCount, failed,
+                });
+            };
+            report();
+
+            const worker = async () => {
+                while (queue.length > 0 && !stopped) {
+                    const id = queue.shift();
+                    try {
+                        const data = await postForm(magicAll.dataset.endpoint, { product_id: id, instruction });
+                        if (!data.success) {
+                            failed++;
+                            addError(id, data.error);
+                        } else if (renderResult(id, data)) {
+                            changedCount++;
+                        }
+                    } catch (err) {
+                        failed++;
+                        addError(id, err.message);
+                    }
+                    done++;
+                    report();
+                }
+            };
+            await Promise.all(Array.from({ length: Math.min(MAGIC_ALL_CONCURRENCY, ids.length) }, worker));
+
+            if (stopped) status.textContent += ' ' + __('Stopped.');
+            runBtn.disabled = false;
+            stopBtn.hidden = true;
+            actions.hidden = changedCount === 0;
+            selectAllBox.checked = true;
+        });
+
+        stopBtn.addEventListener('click', () => { stopped = true; stopBtn.hidden = true; });
+
+        selectAllBox.addEventListener('change', () => {
+            results.querySelectorAll('.magic-all-pick:not(:disabled)').forEach((b) => { b.checked = selectAllBox.checked; });
+        });
+
+        saveBtn.addEventListener('click', async () => {
+            const cards = Array.from(results.querySelectorAll('.magic-all-item'))
+                .filter((card) => card.querySelector('.magic-all-pick:checked:not(:disabled)'));
+            if (cards.length === 0) return;
+            if (!window.confirm(__n('Save the changes to {count} product?', cards.length))) return;
+
+            saveBtn.disabled = true;
+            let saved = 0;
+            for (const card of cards) {
+                const state = card.querySelector('.magic-all-state');
+                try {
+                    const data = await postForm(magicAll.dataset.applyEndpoint, Object.assign({ product_id: card.dataset.productId }, card._fields));
+                    if (data.success) {
+                        saved++;
+                        state.textContent = __('Saved ✓');
+                        card.querySelector('.magic-all-pick').disabled = true;
+                    } else {
+                        state.textContent = __('Error: {message}', { message: data.error });
+                    }
+                } catch (err) {
+                    state.textContent = __('Request failed: {message}', { message: err.message });
+                }
+            }
+            saveBtn.disabled = false;
+            status.textContent = __n('{count} product saved. Reload the page to see the changes in the list.', saved);
+        });
+    }
+
+    // Admin → Pages "Magic edit": the AI writes the page's title and content
+    // from the store's products (plus an optional instruction) into the form.
+    // Nothing is saved until "Save page".
+    document.querySelectorAll('.page-magic').forEach((block) => {
+        const button = block.querySelector('.page-magic-run');
+        const status = block.querySelector('.page-magic-status');
+        const form = block.closest('form');
+        if (!button || !form) return;
+
+        button.addEventListener('click', async () => {
+            const titleInput = form.querySelector('[name="title"]');
+            const editor = form.querySelector('[data-wysiwyg] .wysiwyg-editor');
+            const slugInput = form.querySelector('[name="slug"]');
+            const localeInput = form.querySelector('[name="locale"]');
+            const hasContent = (titleInput && titleInput.value.trim() !== '') || (editor && editor.textContent.trim() !== '');
+            if (hasContent && !window.confirm(__('Replace the current title and content with the AI version?'))) return;
+
+            button.disabled = true;
+            status.textContent = __('Writing the page… this can take up to 30 seconds.');
+            try {
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                const response = await fetch(block.dataset.endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        csrf_token: block.dataset.csrf || (meta ? meta.content : ''),
+                        slug: slugInput ? slugInput.value : (block.dataset.slug || ''),
+                        locale: localeInput ? localeInput.value : (block.dataset.locale || ''),
+                        title: titleInput ? titleInput.value : '',
+                        body: editor ? editor.innerHTML : '',
+                        instruction: block.querySelector('.magic-prompt').value.trim(),
+                    }),
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    status.textContent = __('Error: {message}', { message: data.error });
+                    return;
+                }
+                const fields = data.fields || {};
+                if (fields.title && titleInput) titleInput.value = fields.title;
+                if (fields.body && editor) {
+                    editor.innerHTML = fields.body;
+                    editor.dispatchEvent(new Event('input'));
+                }
+                status.textContent = __('Done — review the page, then click "Save page".');
+            } catch (err) {
+                status.textContent = __('Request failed: {message}', { message: err.message });
+            } finally {
+                button.disabled = false;
+            }
+        });
+    });
+
+    // Admin → Newsletter "Magic edit": the AI writes the campaign's subject and
+    // plain-text message from the catalog (plus an optional instruction).
+    // Nothing is sent until one of the send buttons is clicked.
+    document.querySelectorAll('.newsletter-magic').forEach((block) => {
+        const button = block.querySelector('.newsletter-magic-run');
+        const status = block.querySelector('.newsletter-magic-status');
+        const form = block.closest('form');
+        if (!button || !form) return;
+
+        button.addEventListener('click', async () => {
+            const subject = form.querySelector('[name="subject"]');
+            const message = form.querySelector('[name="message"]');
+            if (((subject && subject.value.trim()) || (message && message.value.trim()))
+                && !window.confirm(__('Replace the current subject and message with the AI version?'))) return;
+
+            button.disabled = true;
+            status.textContent = __('Writing the campaign… this can take up to 30 seconds.');
+            try {
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                const response = await fetch(block.dataset.endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        csrf_token: block.dataset.csrf || (meta ? meta.content : ''),
+                        subject: subject ? subject.value : '',
+                        message: message ? message.value : '',
+                        instruction: block.querySelector('.magic-prompt').value.trim(),
+                    }),
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    status.textContent = __('Error: {message}', { message: data.error });
+                    return;
+                }
+                const fields = data.fields || {};
+                if (fields.subject && subject) subject.value = fields.subject;
+                if (fields.message && message) message.value = fields.message;
+                status.textContent = __('Done — review it and send yourself a test first.');
+            } catch (err) {
+                status.textContent = __('Request failed: {message}', { message: err.message });
+            } finally {
+                button.disabled = false;
+            }
+        });
+    });
+
     // Product translations: "Translate with AI" fills the language's form with
     // a suggestion from the original text; nothing is saved until "Save translation".
     document.querySelectorAll('.translation-form').forEach((form) => {

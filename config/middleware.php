@@ -18,6 +18,7 @@ return [
     Middleware\RoutingMiddleware::class,      // match route (404 / 405)
     Middleware\AdminAuthMiddleware::class,    // login wall + role check for ->admin() routes
     Middleware\CsrfMiddleware::class,         // form token on POST
+    Middleware\CacheInvalidationMiddleware::class, // successful admin POSTs drop the storefront data cache
     Middleware\AdminAuditMiddleware::class,   // activity log entry for successful admin POSTs
     Middleware\PageViewMiddleware::class,     // analytics for ->tracked() routes
 ];

@@ -1,0 +1,41 @@
+{% extends 'layout/admin.html.twig' %}
+
+{% set title = 'Admin — {page}'|trans({page: 'Reviews'|trans}) %}
+{% set active_nav = 'reviews' %}
+
+{% block content %}
+<h1>{{ 'Reviews'|trans }}{% if pending > 0 %} <span class="status-badge" data-status="pending">{{ '{count} waiting'|trans({count: pending}) }}</span>{% endif %}</h1>
+
+<p class="filter-tabs">
+    <a href="{{ path('admin.reviews') }}" class="{{ status_filter is null ? 'active' }}">{{ 'All'|trans }}</a>
+    {% for s in statuses %}<a href="{{ path('admin.reviews', {}, {status: s}) }}" class="{{ status_filter == s ? 'active' }}">{{ s|capitalize|trans }}</a>{% endfor %}
+</p>
+
+{% if reviews is empty %}<p class="field-hint">{{ 'No reviews.'|trans }}</p>{% endif %}
+
+{% for r in reviews %}
+    <section class="panel">
+        <h2>
+            <span class="stars" role="img" aria-label="{{ '{rating} out of 5 stars'|trans({rating: r.rating}) }}"><span style="width: {{ r.rating * 20 }}%"></span></span>
+            {{ r.title ?: ('{rating} out of 5 stars'|trans({rating: r.rating})) }}
+            <span class="status-badge" data-status="{{ r.status }}">{{ r.status|capitalize|trans }}</span>
+        </h2>
+        <p class="field-hint">
+            {{ r.product_name }} · {{ r.author ?: '—' }}{% if r.verified %} · {{ 'Verified purchase'|trans }}{% endif %} · {{ r.created_at }}
+        </p>
+        {% if r.body %}<p style="white-space: pre-wrap;">{{ r.body }}</p>{% endif %}
+        <form method="post" action="{{ path('admin.reviews.submit') }}" class="inline-form">
+            {{ csrf_field() }}
+            <input type="hidden" name="id" value="{{ r.id }}">
+            <input type="hidden" name="filter" value="{{ status_filter }}">
+            {% if r.status != 'approved' %}<button type="submit" name="action" value="approve" class="btn-primary">{{ 'Approve'|trans }}</button>{% endif %}
+            {% if r.status != 'rejected' %}<button type="submit" name="action" value="reject" class="btn-secondary">{{ 'Reject'|trans }}</button>{% endif %}
+            <button type="submit" name="action" value="delete" class="btn-secondary" data-confirm="{{ 'Delete this review?'|trans }}">{{ 'Delete'|trans }}</button>
+        </form>
+    </section>
+{% endfor %}
+
+{% if total_pages > 1 %}
+    <p class="pagination">{% for p in 1..total_pages %}<a href="{{ path('admin.reviews', {}, {status: status_filter, page: p > 1 ? p : null}) }}" class="{{ p == page ? 'active' }}">{{ p }}</a> {% endfor %}</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,19 @@
+{
+    "name": "Forest",
+    "description": "Deep pine and moss greens with bark-brown details and arched images.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#f9faf3",
+            "#e2e8d3"
+        ],
+        "text": "#1f2d1a",
+        "accent": "#2f6b3a",
+        "accent2": "#a3692b",
+        "surface": "#f9faf3",
+        "font": "serif",
+        "motif": "leaves",
+        "text_width": 480
+    }
+}

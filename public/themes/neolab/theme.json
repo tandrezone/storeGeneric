@@ -2,5 +2,19 @@
     "name": "NeoLab",
     "description": "Dark background with teal and violet glow.",
     "author": "storeGeneric",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#10161f",
+            "#06080d"
+        ],
+        "text": "#e8f3f2",
+        "accent": "#5eead4",
+        "accent2": "#c084fc",
+        "surface": "#10161f",
+        "font": "mono",
+        "motif": "neon",
+        "effect": "glow",
+        "text_width": 520
+    }
 }

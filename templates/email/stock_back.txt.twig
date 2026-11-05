@@ -1,0 +1,11 @@
+{% autoescape false %}
+{{ 'Good news — {product} is back in stock.'|trans({product: product_name}) }}
+{{ 'Stock is limited, so be quick if you still want it.'|trans }}
+
+{{ 'View product'|trans }}: {{ product_url }}
+
+{{ 'You asked us to tell you. This is the only email we send about it.'|trans }}
+{{ 'Cancel alert'|trans }}: {{ cancel_url }}
+
+{{ store_name }} — {{ store_email }}
+{% endautoescape %}

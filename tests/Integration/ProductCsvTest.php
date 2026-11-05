@@ -121,7 +121,7 @@ final class ProductCsvTest extends IntegrationTestCase
 
         $this->assertTrue(str_starts_with($text, Csv::BOM));
         $this->assertStringContainsString("'=HYPERLINK", $text, 'formula neutralised');
-        $this->assertStringContainsString(',7.25,4,1', $text);
+        $this->assertStringContainsString(',7.25,,,,4,0,1', $text);
 
         $importer = $this->get(ProductCsvImporter::class);
         $report = $importer->run($importer->readRows($text), false, false);
@@ -156,5 +156,66 @@ final class ProductCsvTest extends IntegrationTestCase
         $items = Csv::parse((string) stream_get_contents($handle));
         $this->assertCount(2, $items);
         $this->assertSame($order['order_number'], $items[1][0]);
+    }
+
+    public function testSaleAndWeightColumnsImportExportAndClear(): void
+    {
+        $sku = $this->sku('S');
+        $ids = $this->makeProduct($sku, 10.0, 5);
+        $importer = $this->get(ProductCsvImporter::class);
+        $row = fn (string $cells) => $importer->readRows("sku,price,sale_price,sale_starts,sale_ends,weight_grams\n{$sku},{$cells}\n");
+        $variant = fn (): array => $this->pdo()->query('SELECT price, sale_price, sale_starts_at, sale_ends_at, weight_grams FROM product_variants WHERE id = ' . (int) $ids['variant'])->fetch();
+
+        $report = $importer->run($row('10.00,7.50,2026-12-01,2026-12-24 18:00,350'), false, true);
+        $this->assertSame('update', $report['rows'][0]['action'], implode('; ', $report['rows'][0]['errors']));
+        $v = $variant();
+        $this->assertEquals(7.5, $v['sale_price']);
+        $this->assertSame('2026-12-01 00:00:00', $v['sale_starts_at']);
+        $this->assertSame('2026-12-24 18:00:00', $v['sale_ends_at']);
+        $this->assertEquals(350, $v['weight_grams']);
+
+        // Export → import is a no-op.
+        $handle = $this->get(CsvExport::class)->products(null);
+        rewind($handle);
+        $text = (string) stream_get_contents($handle);
+        $this->assertTrue(preg_match('/7\\.50,"?2026-12-01 00:00:00"?,"?2026-12-24 18:00:00"?/', $text) === 1, 'sale columns exported');
+        $again = $importer->run($importer->readRows($text), false, false);
+        $this->assertSame(0, $again['counts']['error'] + $again['counts']['update'] + $again['counts']['create_product']);
+
+        // A file without the sale columns leaves the sale alone; empty cells clear it.
+        $importer->run($importer->readRows("sku,price\n{$sku},11.00\n"), false, true);
+        $this->assertEquals(7.5, $variant()['sale_price']);
+        $this->assertEquals(11.0, $variant()['price']);
+        $importer->run($row('11.00,,,,'), false, true);
+        $v = $variant();
+        $this->assertNull($v['sale_price']);
+        $this->assertNull($v['sale_starts_at']);
+        $this->assertEquals(350, $v['weight_grams'], 'empty weight = unchanged');
+    }
+
+    public function testSaleValidationInCsv(): void
+    {
+        $sku = $this->sku('V');
+        $this->makeProduct($sku, 10.0, 5);
+        $importer = $this->get(ProductCsvImporter::class);
+        foreach (['10.00,12.00,,,' => 'lower', '10.00,abc,,,' => 'valid amount', '10.00,5,not-a-date,,' => 'not a date', '10.00,5,2026-12-10,2026-12-01,' => 'end after', '10.00,,,,-4' => 'whole number'] as $cells => $message) {
+            $report = $importer->run($importer->readRows("sku,price,sale_price,sale_starts,sale_ends,weight_grams\n{$sku},{$cells}\n"), false, true);
+            $this->assertSame('error', $report['rows'][0]['action'], $cells);
+            $this->assertStringContainsString($message, implode(' ', $report['rows'][0]['errors']), $cells);
+        }
+        $this->assertSame(0, (int) $this->pdo()->query("SELECT COUNT(*) FROM product_variants WHERE sku = '$sku' AND sale_price IS NOT NULL")->fetchColumn());
+    }
+
+    public function testNewVariantCanComeWithASaleAndWeight(): void
+    {
+        $existing = $this->makeProduct($this->sku('E'), 10.0, 5);
+        $sku = $this->sku('N');
+        $importer = $this->get(ProductCsvImporter::class);
+        $csv = "product_id,sku,price,sale_price,weight_grams,stock\n{$existing['product']},{$sku},20.00,15.00,1200,3\n";
+        $report = $importer->run($importer->readRows($csv), false, true);
+        $this->assertSame('create_variant', $report['rows'][0]['action'], implode('; ', $report['rows'][0]['errors']));
+        $v = $this->pdo()->query("SELECT sale_price, weight_grams FROM product_variants WHERE sku = '$sku'")->fetch();
+        $this->assertEquals(15.0, $v['sale_price']);
+        $this->assertEquals(1200, $v['weight_grams']);
     }
 }

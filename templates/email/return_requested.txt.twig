@@ -1,0 +1,15 @@
+{% autoescape false %}
+{{ 'A customer asked to return items of order {number}.'|trans({number: request.order_number}) }}
+
+{{ request.ship_name }} ({{ request.email }})
+{{ 'Reason'|trans }}: {{ reasons[request.reason]|default(request.reason)|trans }}
+{% for item in request['items'] %}
+- {{ item.product_name }}{% if (item.label ~ ' ' ~ item.unit)|trim %} — {{ (item.label ~ ' ' ~ item.unit)|trim }}{% endif %} x {{ item.quantity }}
+{% endfor %}
+{% if request.details %}
+
+{{ request.details }}
+{% endif %}
+
+{{ 'Review return requests'|trans }}: {{ admin_url }}
+{% endautoescape %}

@@ -2,5 +2,19 @@
     "name": "Default",
     "description": "Light, neutral starting point with system fonts.",
     "author": "storeGeneric",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#ffffff",
+            "#ecece8"
+        ],
+        "text": "#1d1d1b",
+        "accent": "#2952cc",
+        "accent2": "#a65c00",
+        "surface": "#ffffff",
+        "font": "sans",
+        "motif": "package",
+        "effect": "none",
+        "text_y": 340
+    }
 }

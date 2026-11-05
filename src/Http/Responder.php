@@ -78,4 +78,14 @@ final class Responder
             ->withHeader('Cache-Control', 'no-store')
             ->withBody($this->streams->createStream($contents));
     }
+
+    /** Sends in-memory content as a file download. */
+    public function downloadContent(string $content, string $filename, string $contentType): ResponseInterface
+    {
+        return $this->responses->createResponse(200)
+            ->withHeader('Content-Type', $contentType)
+            ->withHeader('Content-Disposition', 'attachment; filename="' . addslashes($filename) . '"')
+            ->withHeader('Cache-Control', 'no-store')
+            ->withBody($this->streams->createStream($content));
+    }
 }

@@ -26,7 +26,10 @@ final class ProductRepository extends Repository
      * aren't for sale (see VariantRepository), so they count for neither
      * from_price nor stock.
      */
-    private const FROM_PRICE_SQL = 'MIN(CASE WHEN v.price > 0 THEN v.price END)';
+    private const FROM_PRICE_SQL = 'MIN(CASE WHEN v.price > 0 THEN ' . VariantRepository::EFFECTIVE_PRICE . ' END)';
+
+    /** 1 when at least one for-sale variant is currently discounted. */
+    private const ON_SALE_SQL = 'MAX(v.price > 0 AND ' . VariantRepository::EFFECTIVE_PRICE . ' < v.price)';
 
     /**
      * Storefront sort options (?sort=…), mapped to SQL. Products without a
@@ -61,6 +64,7 @@ final class ProductRepository extends Repository
                p.image_path, p.created_at,
                c.name AS category_name, c.slug AS category_slug,
                " . self::FROM_PRICE_SQL . " AS from_price,
+               " . self::ON_SALE_SQL . " AS on_sale,
                COALESCE(SUM(CASE WHEN v.price > 0 THEN GREATEST(v.stock, 0) END), 0) AS stock
         FROM products p
         JOIN categories c ON c.id = p.category_id
@@ -117,6 +121,30 @@ final class ProductRepository extends Repository
             LIMIT " . max(1, $limit),
             ['category_id' => $categoryId, 'id' => $productId, 'loc' => $locale]
         );
+    }
+
+    /**
+     * Listing rows (like findVisible) for specific products, in the order given; hidden ones are left out.
+     *
+     * @param list<int> $ids
+     * @return list<array<string, mixed>>
+     */
+    public function findVisibleByIds(array $ids, string $locale = ''): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+        $in = implode(',', array_map('intval', $ids));
+        $rows = $this->all(
+            self::LISTING_SELECT . " WHERE p.is_active = 1 AND p.import_status = 'approved' AND p.id IN ({$in}) GROUP BY p.id",
+            ['loc' => $locale]
+        );
+        $byId = [];
+        foreach ($rows as $row) {
+            $byId[(int) $row['id']] = $row;
+        }
+
+        return array_values(array_filter(array_map(static fn (int $id) => $byId[$id] ?? null, $ids)));
     }
 
     /** @return list<array<string, mixed>> id, name, updated_at of every visible product (sitemap.xml) */
@@ -237,6 +265,35 @@ final class ProductRepository extends Repository
         }
 
         return [$conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions), $params];
+    }
+
+    /**
+     * What the storefront sells, for AI-written pages and newsletters: visible
+     * products with their category, short description, lowest current price
+     * and whether a sale is running. Newest first, or by category and name.
+     *
+     * @return list<array{id: int, name: string, category: string, short_description: string, from_price: string|null, regular_price: string|null, created_at: string}>
+     */
+    public function catalogSummary(int $limit = 80, bool $newestFirst = false): array
+    {
+        return $this->all(sprintf("
+            SELECT p.id, p.name, c.name AS category, p.short_description, p.created_at,
+                   MIN(CASE WHEN v.is_active = 1 AND v.price > 0 THEN " . VariantRepository::EFFECTIVE_PRICE . " END) AS from_price,
+                   MIN(CASE WHEN v.is_active = 1 AND v.price > 0 THEN v.price END) AS regular_price
+            FROM products p
+            JOIN categories c ON c.id = p.category_id
+            LEFT JOIN product_variants v ON v.product_id = p.id
+            WHERE p.is_active = 1 AND p.import_status = 'approved'
+            GROUP BY p.id
+            ORDER BY %s
+            LIMIT %d
+        ", $newestFirst ? 'p.created_at DESC, p.id DESC' : 'c.name, p.name', max(1, $limit)));
+    }
+
+    /** @return list<int> every product id, oldest first (bulk magic edit) */
+    public function allIds(): array
+    {
+        return array_map('intval', array_column($this->all('SELECT id FROM products ORDER BY id'), 'id'));
     }
 
     /** @return list<array<string, mixed>> id, name, image_path of every product (for image regeneration) */

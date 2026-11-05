@@ -40,7 +40,7 @@ final class DatabaseMigrator
     /** @return list<string> migration file names (e.g. "013_order_stock_tracking.sql"), oldest first */
     public function files(): array
     {
-        $files = array_map('basename', glob($this->paths->root . '/database/migrations/*.sql') ?: []);
+        $files = array_map('basename', glob($this->paths->locate('database/migrations') . '/*.sql') ?: []);
         sort($files);
 
         return $files;
@@ -114,7 +114,7 @@ final class DatabaseMigrator
         if ($this->isEmpty()) {
             $log('Empty database: loading schema.sql (it already contains every migration).');
             if (!$dryRun) {
-                $this->runSqlFile($this->paths->root . '/database/schema.sql');
+                $this->runSqlFile($this->paths->locate('database/schema.sql'));
                 $this->record($this->files());
             }
             $result['loaded_schema'] = true;
@@ -147,7 +147,7 @@ final class DatabaseMigrator
             $log(($dryRun ? 'would apply ' : 'applying ') . $file);
             if (!$dryRun) {
                 try {
-                    $this->runSqlFile($this->paths->root . '/database/migrations/' . $file);
+                    $this->runSqlFile($this->paths->locate('database/migrations') . '/' . $file);
                 } catch (\PDOException $e) {
                     throw new RuntimeException("{$file} failed: " . $e->getMessage() . ' — fix the cause and run db:migrate again.', 0, $e);
                 }
