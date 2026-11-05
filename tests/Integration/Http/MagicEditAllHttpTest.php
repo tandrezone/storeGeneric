@@ -64,6 +64,20 @@ final class MagicEditAllHttpTest extends HttpTestCase
         $this->assertSame('Keep me', $this->product($id)['name']);
     }
 
+    public function testApplyRefusesToOverwriteAProductEditedSinceTheSuggestion(): void
+    {
+        $this->loginAdmin('owner');
+        $id = $this->makeProduct($this->sku('V'), 10.0, 5, 'Original name')['product'];
+        $seen = hash('sha256', (string) json_encode(['Original name', 'Short', '<p>Long</p>']));
+
+        $this->pdo()->exec("UPDATE products SET name = 'Edited by a colleague' WHERE id = {$id}");
+        $this->assertStatus(409, $this->post('/admin/api/magic-edit/apply', ['product_id' => $id, 'name' => 'AI name', 'version' => $seen]));
+        $this->assertSame('Edited by a colleague', $this->pdo()->query("SELECT name FROM products WHERE id = {$id}")->fetchColumn());
+
+        $current = hash('sha256', (string) json_encode(['Edited by a colleague', 'Short', '<p>Long</p>']));
+        $this->assertStatus(200, $this->post('/admin/api/magic-edit/apply', ['product_id' => $id, 'name' => 'AI name', 'version' => $current]));
+    }
+
     public function testNeedsAnAdminLogin(): void
     {
         $id = $this->makeProduct($this->sku('M'))['product'];

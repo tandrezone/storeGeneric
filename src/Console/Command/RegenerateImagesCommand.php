@@ -13,7 +13,8 @@ use App\Support\Paths;
 
 /**
  * Makes sure every product without a real photo has a generated placeholder.
- * --force redraws placeholders that are already cached.
+ * --force redraws placeholders that are already cached. Placeholders of
+ * products that no longer exist are deleted.
  */
 final class RegenerateImagesCommand implements Command
 {
@@ -59,7 +60,8 @@ final class RegenerateImagesCommand implements Command
             $output->line("generated #{$product['id']} — {$product['name']}");
         }
 
-        $output->line(sprintf('done: %d generated, %d skipped (already have a real photo)', $generated, $skipped));
+        $pruned = $this->placeholders->prune($this->products->allIds());
+        $output->line(sprintf('done: %d generated, %d skipped (already have a real photo), %d old placeholders of deleted products removed', $generated, $skipped, $pruned));
 
         return 0;
     }

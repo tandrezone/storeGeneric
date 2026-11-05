@@ -22,6 +22,41 @@ final class CartRepository extends Repository
         return $this->lastId();
     }
 
+    /**
+     * Moves the cart of an earlier session id (before login / logout gave the
+     * session a new id) to $sessionId. When $sessionId already has a cart the
+     * old one's lines are merged into it. Returns the cart id, or null when
+     * none of $previousIds had a cart.
+     *
+     * @param list<string> $previousIds newest first
+     */
+    public function adoptPrevious(string $sessionId, array $previousIds): ?int
+    {
+        foreach ($previousIds as $previous) {
+            if ($previous === $sessionId) {
+                continue;
+            }
+            $oldId = $this->value('SELECT id FROM carts WHERE session_id = :sid', ['sid' => $previous]);
+            if ($oldId === false) {
+                continue;
+            }
+            $currentId = $this->value('SELECT id FROM carts WHERE session_id = :sid', ['sid' => $sessionId]);
+            if ($currentId === false) {
+                $this->run('UPDATE carts SET session_id = :new WHERE id = :id', ['new' => $sessionId, 'id' => (int) $oldId]);
+
+                return (int) $oldId;
+            }
+            foreach ($this->all('SELECT variant_id, quantity FROM cart_items WHERE cart_id = :id', ['id' => (int) $oldId]) as $line) {
+                $this->addItem((int) $currentId, (int) $line['variant_id'], (int) $line['quantity']);
+            }
+            $this->run('DELETE FROM carts WHERE id = :id', ['id' => (int) $oldId]);
+
+            return (int) $currentId;
+        }
+
+        return null;
+    }
+
     /** Remembers whose cart it is (signed-in customers), for the abandoned-cart reminder. */
     public function attachCustomer(int $cartId, int $customerId): void
     {

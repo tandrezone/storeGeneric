@@ -115,18 +115,36 @@ final class GiftCardService
         }
     }
 
-    /** A released order that gets paid after all takes its amount again (as far as the card still has it). @param array<string, mixed> $order */
-    public function reclaim(array $order): void
+    /**
+     * A released order that gets paid after all takes its amount again, as far
+     * as the card still has it. Returns the part that could not be taken
+     * (0.0 when fully covered or nothing to do), so the caller can hold the
+     * order for review.
+     *
+     * @param array<string, mixed> $order
+     */
+    public function reclaim(array $order): float
     {
         $amount = (float) ($order['gift_card_amount'] ?? 0);
         $code = (string) ($order['gift_card_code'] ?? '');
-        if ($amount <= 0.0 || $code === '' || ($card = $this->cards->lockByCode($code)) === null || !$this->orders->claimGiftCardUse((int) $order['id'])) {
-            return;
+        if ($amount <= 0.0 || $code === '') {
+            return 0.0;
         }
-        $take = min($amount, (float) $card['balance']);
+        $card = $this->cards->lockByCode($code);
+        if (!$this->orders->claimGiftCardUse((int) $order['id'])) {
+            return 0.0; // the order still holds its card amount
+        }
+        if ($card === null) {
+            return round($amount, 2);
+        }
+        $take = round(min($amount, max(0.0, (float) $card['balance'])), 2);
         if ($take > 0.0 && $this->cards->spend((int) $card['id'], $take)) {
             $this->cards->addTransaction((int) $card['id'], 'redeem', -$take, (int) $order['id'], (string) $order['order_number'] . ' (paid after release)');
+        } else {
+            $take = 0.0;
         }
+
+        return round($amount - $take, 2);
     }
 
     /**
@@ -142,8 +160,9 @@ final class GiftCardService
             throw new RuntimeException($this->translator->trans('The amount must be above 0 and at most {max}.', ['max' => Money::format(self::MAX_AMOUNT, $this->store->currency(), $this->translator->intlLocale())]));
         }
         $code = $code !== null && trim($code) !== '' ? self::normalize($code) : $this->generateCode();
-        if (preg_match('/^[A-Z0-9][A-Z0-9-]{3,39}$/', $code) !== 1) {
-            throw new RuntimeException($this->translator->trans('A code is 4-40 characters: letters, digits and hyphens.'));
+        // At least 10 characters: short custom codes could be guessed at checkout.
+        if (preg_match('/^[A-Z0-9][A-Z0-9-]{9,39}$/', $code) !== 1) {
+            throw new RuntimeException($this->translator->trans('A code is 10-40 characters: letters, digits and hyphens.'));
         }
         if ($this->cards->findByCode($code) !== null) {
             throw new RuntimeException($this->translator->trans('A gift card with that code already exists.'));

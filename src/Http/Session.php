@@ -11,6 +11,8 @@ namespace App\Http;
 final class Session
 {
     private const FLASH_KEY = '_flash';
+    /** Ids this session had before regenerate(), newest first (things keyed by the id, like the cart, follow it). */
+    private const PREVIOUS_IDS_KEY = '_previous_ids';
 
     public function start(bool $secure): void
     {
@@ -59,7 +61,37 @@ final class Session
     public function regenerate(): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
+            $old = session_id();
             session_regenerate_id(true);
+            if ($old !== false && $old !== '') {
+                $previous = (array) ($_SESSION[self::PREVIOUS_IDS_KEY] ?? []);
+                array_unshift($previous, $old);
+                $_SESSION[self::PREVIOUS_IDS_KEY] = array_slice(array_values(array_unique($previous)), 0, 5);
+            }
+        }
+    }
+
+    /** @return list<string> ids this session had before it was regenerated, newest first */
+    public function previousIds(): array
+    {
+        return array_values(array_filter((array) ($_SESSION[self::PREVIOUS_IDS_KEY] ?? []), 'is_string'));
+    }
+
+    /** Forgets the previous ids once whatever was keyed by them has been moved. */
+    public function forgetPreviousIds(): void
+    {
+        unset($_SESSION[self::PREVIOUS_IDS_KEY]);
+    }
+
+    /**
+     * Saves the session and releases its lock, for slow requests (AI calls)
+     * that only read it: other requests from the same browser no longer wait
+     * behind them. Later writes to the session in this request are not saved.
+     */
+    public function release(): void
+    {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
         }
     }
 

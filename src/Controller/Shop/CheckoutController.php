@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller\Shop;
 
+use App\Http\ClientIp;
 use App\Http\Responder;
 use App\Http\Session;
 use App\I18n\LocaleFormat;
@@ -12,6 +13,7 @@ use App\Payment\PaymentMethod;
 use App\Payment\PaymentRecorder;
 use App\Payment\PaymentRegistry;
 use App\Repository\CustomerAddressRepository;
+use App\Repository\GiftCardAttemptRepository;
 use App\Repository\PageViewRepository;
 use App\Security\CustomerAuthenticator;
 use App\Service\CartService;
@@ -29,6 +31,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use Throwable;
 
 /**
  * Checkout form → order → payment provider (or confirmation page for offline
@@ -41,6 +44,10 @@ final class CheckoutController
     private const FIELDS = ['name', 'email', 'phone', 'address1', 'address2', 'city', 'state', 'postal_code', 'country'];
     private const COUPON_KEY = 'checkout_coupon';
     private const GIFT_KEY = 'checkout_gift_card';
+    /** Failed gift card codes allowed per IP and per session within the window. */
+    private const GIFT_FAILS_KEY = 'checkout_gift_card_fails';
+    private const GIFT_MAX_FAILS = 10;
+    private const GIFT_WINDOW_MINUTES = 15;
 
     public function __construct(
         private readonly Responder $responder,
@@ -62,6 +69,8 @@ final class CheckoutController
         private readonly Translator $translator,
         private readonly GiftCardService $giftCards,
         private readonly VatIdService $vatIds,
+        private readonly GiftCardAttemptRepository $giftCardAttempts,
+        private readonly ClientIp $clientIp,
     ) {
     }
 
@@ -254,11 +263,35 @@ final class CheckoutController
 
             return $this->form($request, $items, $input, [], 200, $this->translator->trans('Gift card removed.'));
         }
+        // Codes must not be guessable: few failed tries per IP and per session,
+        // and one answer for every reason a code can't be used.
+        $ip = $this->clientIp->of($request);
+        $since = time() - self::GIFT_WINDOW_MINUTES * 60;
+        $failTimes = array_values(array_filter((array) $this->session->get(self::GIFT_FAILS_KEY, []), static fn ($t) => is_int($t) && $t > $since));
+        $sessionFails = count($failTimes);
+        try {
+            $blocked = $sessionFails >= self::GIFT_MAX_FAILS
+                || $this->giftCardAttempts->countRecent($ip, self::GIFT_WINDOW_MINUTES) >= self::GIFT_MAX_FAILS;
+        } catch (Throwable) {
+            $blocked = $sessionFails >= self::GIFT_MAX_FAILS; // store not migrated yet
+        }
+        if ($blocked) {
+            return $this->form($request, $items, $input, [$this->translator->trans('Too many attempts. Please wait {minutes} minutes and try again.', ['minutes' => self::GIFT_WINDOW_MINUTES])], 429);
+        }
         try {
             $card = $this->giftCards->usable($typed);
-        } catch (RuntimeException $e) {
-            return $this->form($request, $items, $input, [$e->getMessage()], 422);
+        } catch (RuntimeException) {
+            $failTimes[] = time();
+            $this->session->set(self::GIFT_FAILS_KEY, $failTimes);
+            try {
+                $this->giftCardAttempts->record($ip);
+            } catch (Throwable) {
+                // store not migrated yet: the session limit still applies
+            }
+
+            return $this->form($request, $items, $input, [$this->translator->trans('This gift card code can\'t be used. Check the code, or contact us if you think it should work.')], 422);
         }
+        $this->session->remove(self::GIFT_FAILS_KEY);
         $this->session->set(self::GIFT_KEY, (string) $card['code']);
 
         return $this->form($request, $items, $input, [], 200, $this->translator->trans('Gift card {code} applied.', ['code' => (string) $card['code']]));

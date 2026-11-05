@@ -24,22 +24,40 @@ final class OrderStock
     ) {
     }
 
-    /** @param array<string, mixed> $order with `items` */
-    public function reserve(array $order): void
+    /**
+     * Takes the order's stock again. Returns the lines that were short (stock
+     * sold to someone else while the order was released), so the caller can
+     * hold the order for review instead of fulfilling it.
+     *
+     * @param array<string, mixed> $order with `items`
+     * @return list<array{name: string, sku: string, needed: int, available: int}>
+     */
+    public function reserve(array $order): array
     {
         if (!$this->orders->claimStockReservation((int) $order['id'])) {
-            return;
+            return [];
         }
+        $short = [];
         foreach ($order['items'] as $item) {
             $row = $this->variants->lockForUpdate((int) $item['variant_id']);
-            if ($row !== null && (int) $row['stock'] < (int) $item['quantity']) {
+            if ($row === null || (int) $row['stock'] < (int) $item['quantity']) {
+                $short[] = [
+                    'name'      => (string) ($item['product_name'] ?? $item['name'] ?? ''),
+                    'sku'       => (string) ($item['sku'] ?? ''),
+                    'needed'    => (int) $item['quantity'],
+                    'available' => $row === null ? 0 : (int) $row['stock'],
+                ];
                 $this->logger->warning('Paid order needs more stock than is left', [
                     'order' => $order['order_number'], 'variant' => $item['variant_id'],
-                    'stock' => $row['stock'], 'quantity' => $item['quantity'],
+                    'stock' => $row['stock'] ?? null, 'quantity' => $item['quantity'],
                 ]);
             }
-            $this->variants->decrementStock((int) $item['variant_id'], (int) $item['quantity']);
+            if ($row !== null) {
+                $this->variants->decrementStock((int) $item['variant_id'], (int) $item['quantity']);
+            }
         }
+
+        return $short;
     }
 
     /** @param array<string, mixed> $order with `items` */

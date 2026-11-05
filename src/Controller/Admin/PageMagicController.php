@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller\Admin;
 
 use App\Http\Responder;
+use App\Http\Session;
 use App\I18n\Translator;
 use App\Infrastructure\GeminiClient;
 use App\Security\HtmlSanitizer;
@@ -41,6 +42,7 @@ final class PageMagicController
         private readonly HtmlSanitizer $sanitizer,
         private readonly Translator $translator,
         private readonly PromptLibrary $prompts,
+        private readonly Session $session,
     ) {
     }
 
@@ -90,6 +92,9 @@ final class PageMagicController
             and "body" (HTML using only h2, h3, p, ul, ol, li, strong, em and a). No code fences.
             PROMPT;
 
+        // Up to 30 seconds: release the session lock so the rest of the admin stays usable.
+        $this->session->release();
+
         try {
             $reply = $this->gemini->generateText($prompt);
         } catch (Throwable $e) {
@@ -98,7 +103,7 @@ final class PageMagicController
 
         $fields = $this->parse($reply);
         if ($fields === []) {
-            return $this->responder->json(['success' => false, 'error' => $this->translator->trans('The AI reply could not be read. Try again.'), 'reply' => $reply], 502);
+            return $this->responder->json(['success' => false, 'error' => $this->translator->trans('The AI reply could not be read. Try again.')], 502);
         }
 
         return $this->responder->json(['success' => true, 'fields' => $fields]);

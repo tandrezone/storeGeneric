@@ -69,4 +69,5 @@ return [
     'Replace the current subject and message with the AI version?',
     'Writing the campaign… this can take up to 30 seconds.',
     'Done — review it and send yourself a test first.',
+    'The suggestion is too long for: {fields}.',
 ];

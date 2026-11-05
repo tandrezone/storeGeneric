@@ -137,7 +137,8 @@ final class GiftCardTest extends IntegrationTestCase
         $service = $this->get(GiftCardService::class);
         $this->assertThrows(RuntimeException::class, fn () => $service->issue(0.0, null, null, null, null, null), 'above 0');
         $this->assertThrows(RuntimeException::class, fn () => $service->issue(20000.0, null, null, null, null, null), 'at most');
-        $this->assertThrows(RuntimeException::class, fn () => $service->issue(5.0, 'x', null, null, null, null), '4-40');
+        $this->assertThrows(RuntimeException::class, fn () => $service->issue(5.0, 'x', null, null, null, null), '10-40');
+        $this->assertThrows(RuntimeException::class, fn () => $service->issue(5.0, 'SHORT1', null, null, null, null), '10-40');
         $this->assertThrows(RuntimeException::class, fn () => $service->issue(5.0, null, '2000-01-01', null, null, null), 'future');
         $this->assertThrows(RuntimeException::class, fn () => $service->issue(5.0, null, null, 'not-an-email', null, null), 'valid email');
         $card = $this->card(10.0);

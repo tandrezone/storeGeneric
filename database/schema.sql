@@ -629,6 +629,14 @@ CREATE TABLE gift_card_transactions (
     INDEX idx_gct_card (gift_card_id, created_at)
 ) ENGINE=InnoDB;
 
+-- Failed "Apply gift card" attempts per IP (code guessing protection).
+CREATE TABLE gift_card_attempts (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ip_address VARCHAR(45) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_gift_card_attempts_ip_time (ip_address, created_at)
+) ENGINE=InnoDB;
+
 -- ----------------------------------------------------------
 -- VIES answers for customer VAT numbers (cache) — see migration 042
 -- ----------------------------------------------------------

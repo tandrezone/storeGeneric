@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller\Admin;
 
 use App\Http\Responder;
+use App\Http\Session;
 use App\I18n\Translator;
 use App\Infrastructure\GeminiClient;
 use App\Service\AiStoreContext;
@@ -30,6 +31,7 @@ final class NewsletterMagicController
         private readonly GeminiClient $gemini,
         private readonly Translator $translator,
         private readonly PromptLibrary $prompts,
+        private readonly Session $session,
     ) {
     }
 
@@ -75,6 +77,9 @@ final class NewsletterMagicController
             Reply with only a JSON object with the keys "subject" (at most 150 characters) and
             "message". No code fences.
             PROMPT;
+
+        // Up to 30 seconds: release the session lock so the rest of the admin stays usable.
+        $this->session->release();
 
         try {
             $reply = $this->gemini->generateText($prompt);

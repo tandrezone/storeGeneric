@@ -1,0 +1,12 @@
+{% autoescape false %}
+{{ 'Order {number} — {total}, {method} — was paid after it had been released. It is on hold as "pending" and the customer has not been sent a confirmation.'|trans({number: order.order_number, total: order.total|money, method: payment_label}) }}
+
+{% for problem in problems %}
+- {{ problem }}
+{% endfor %}
+
+{{ 'Customer'|trans }}: {{ order.ship_name }} <{{ order.email }}>{% if order.phone %}, {{ order.phone }}{% endif %}
+
+{{ include('email/_items.txt.twig') }}
+{{ 'Open the order in the admin'|trans }}: {{ admin_url }}
+{% endautoescape %}

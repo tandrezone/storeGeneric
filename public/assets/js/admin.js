@@ -266,6 +266,18 @@
         box.append(applyAll, hint);
     }
 
+    // Enter in an AI instruction box runs that box's AI button; it must never
+    // submit the surrounding form (newsletter: "Send me a test"; pages: "Save page").
+    document.querySelectorAll('.magic-prompt').forEach((input) => {
+        input.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' || event.isComposing) return;
+            event.preventDefault();
+            const scope = input.closest('.magic-block, .magic-all, .page-magic, .newsletter-magic');
+            const button = scope && scope.querySelector('.magic-run, .magic-all-run, .page-magic-run, .newsletter-magic-run');
+            if (button && !button.disabled) button.click();
+        });
+    });
+
     document.querySelectorAll('.magic-run').forEach((btn) => {
         btn.addEventListener('click', async () => {
             const block = btn.closest('.magic-block');
@@ -323,15 +335,28 @@
             return magicAll.dataset.csrf || (meta ? meta.content : '');
         };
         let stopped = false;
+        let running = false;
+        let abort = null;
 
-        const postForm = async (url, fields) => {
+        const postForm = async (url, fields, signal) => {
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams(Object.assign({ csrf_token: csrfToken() }, fields)),
+                signal,
             });
             return response.json();
         };
+
+        // Leaving the page (ajax navigation swaps <main>) stops the run: no more
+        // AI requests are sent for results nobody will see.
+        const stopOnLeave = () => {
+            if (magicAll.isConnected) return;
+            stopped = true;
+            if (abort) abort.abort();
+            document.removeEventListener('ajax:load', stopOnLeave);
+        };
+        document.addEventListener('ajax:load', stopOnLeave);
 
         const fieldValue = (key, value, cls) => {
             const el = document.createElement('div');
@@ -352,6 +377,7 @@
             card.className = 'magic-all-item';
             card.dataset.productId = productId;
             card._fields = changed;
+            card._version = data.version || '';
 
             const head = document.createElement('label');
             head.className = 'magic-all-head';
@@ -392,12 +418,24 @@
         }
 
         runBtn.addEventListener('click', async () => {
+            if (running) return; // a double click must not start a second run
             const instruction = magicAll.querySelector('.magic-prompt').value.trim();
             if (!instruction) {
                 status.textContent = __('Enter an instruction first.');
                 return;
             }
+            running = true;
+            runBtn.disabled = true;
+            try {
+                await run(instruction);
+            } finally {
+                running = false;
+                runBtn.disabled = false;
+                stopBtn.hidden = true;
+            }
+        });
 
+        async function run(instruction) {
             let ids;
             try {
                 const response = await fetch(magicAll.dataset.idsEndpoint, { headers: { Accept: 'application/json' } });
@@ -414,9 +452,9 @@
 
             results.replaceChildren();
             actions.hidden = true;
-            runBtn.disabled = true;
             stopBtn.hidden = false;
             stopped = false;
+            abort = new AbortController();
 
             let done = 0;
             let changedCount = 0;
@@ -433,14 +471,21 @@
                 while (queue.length > 0 && !stopped) {
                     const id = queue.shift();
                     try {
-                        const data = await postForm(magicAll.dataset.endpoint, { product_id: id, instruction });
+                        const data = await postForm(magicAll.dataset.endpoint, { product_id: id, instruction }, abort.signal);
                         if (!data.success) {
                             failed++;
                             addError(id, data.error);
+                        } else if ((data.too_long || []).length > 0) {
+                            // Saving would be refused: report it now rather than at "Save selected".
+                            failed++;
+                            addError(id, __('The suggestion is too long for: {fields}.', {
+                                fields: data.too_long.map((key) => MAGIC_LABELS[key] || key).join(', '),
+                            }));
                         } else if (renderResult(id, data)) {
                             changedCount++;
                         }
                     } catch (err) {
+                        if (stopped) break; // aborted because the run was stopped or the page left
                         failed++;
                         addError(id, err.message);
                     }
@@ -450,12 +495,11 @@
             };
             await Promise.all(Array.from({ length: Math.min(MAGIC_ALL_CONCURRENCY, ids.length) }, worker));
 
+            if (!magicAll.isConnected) return;
             if (stopped) status.textContent += ' ' + __('Stopped.');
-            runBtn.disabled = false;
-            stopBtn.hidden = true;
             actions.hidden = changedCount === 0;
             selectAllBox.checked = true;
-        });
+        }
 
         stopBtn.addEventListener('click', () => { stopped = true; stopBtn.hidden = true; });
 
@@ -466,7 +510,7 @@
         saveBtn.addEventListener('click', async () => {
             const cards = Array.from(results.querySelectorAll('.magic-all-item'))
                 .filter((card) => card.querySelector('.magic-all-pick:checked:not(:disabled)'));
-            if (cards.length === 0) return;
+            if (cards.length === 0 || saveBtn.disabled || running) return;
             if (!window.confirm(__n('Save the changes to {count} product?', cards.length))) return;
 
             saveBtn.disabled = true;
@@ -474,7 +518,7 @@
             for (const card of cards) {
                 const state = card.querySelector('.magic-all-state');
                 try {
-                    const data = await postForm(magicAll.dataset.applyEndpoint, Object.assign({ product_id: card.dataset.productId }, card._fields));
+                    const data = await postForm(magicAll.dataset.applyEndpoint, Object.assign({ product_id: card.dataset.productId, version: card._version }, card._fields));
                     if (data.success) {
                         saved++;
                         state.textContent = __('Saved ✓');

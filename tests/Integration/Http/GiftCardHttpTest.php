@@ -42,7 +42,7 @@ final class GiftCardHttpTest extends HttpTestCase
 
         $bad = $this->post('/checkout', $this->form(['gift_action' => 'apply', 'gift_code' => 'GC-NOPE-NOPE-NOPE']));
         $this->assertStatus(422, $bad);
-        $this->assertStringContainsString('doesn&#039;t exist', $this->html($bad));
+        $this->assertStringContainsString('can&#039;t be used', $this->html($bad), 'one generic answer: guesses learn nothing');
 
         $applied = $this->html($this->post('/checkout', $this->form(['gift_action' => 'apply', 'gift_code' => strtolower($card['code'])])));
         $this->assertStringContainsString('checkout-gift-row', $applied);
@@ -60,6 +60,23 @@ final class GiftCardHttpTest extends HttpTestCase
         $this->assertEquals(5.0, $row['gift_card_amount']);
         $this->assertSame($card['code'], $row['gift_card_code']);
         $this->assertEquals(0.0, $this->pdo()->query('SELECT balance FROM gift_cards WHERE id = ' . (int) $card['id'])->fetchColumn());
+    }
+
+    public function testGuessingCodesIsLimited(): void
+    {
+        $this->pdo()->exec('DELETE FROM gift_card_attempts');
+        $ids = $this->makeProduct($this->sku('G'), 10.0, 20);
+        $this->cartWith($ids['variant'], 1);
+        $card = $this->get(GiftCardService::class)->issue(5.0, null, null, null, null, 'test');
+
+        for ($i = 0; $i < 10; $i++) {
+            $this->assertStatus(422, $this->post('/checkout', $this->form(['gift_action' => 'apply', 'gift_code' => 'GC-GUESS-' . $i])));
+        }
+        $blocked = $this->post('/checkout', $this->form(['gift_action' => 'apply', 'gift_code' => $card['code']]));
+        $this->assertStatus(429, $blocked, 'even a real code is refused once the limit is reached');
+        $this->assertStringContainsString('Too many attempts', $this->html($blocked));
+
+        $this->pdo()->exec('DELETE FROM gift_card_attempts');
     }
 
     public function testFullyCoveredOrderIsPaidAtOnce(): void

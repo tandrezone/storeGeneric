@@ -7,4 +7,5 @@ public/assets/images/generated/
 .php-cs-fixer.cache
 /public/assets/images/thumbs/
 public/assets/images/products/
+src/Controller/Admin/GiftCardController.php
 .claude/

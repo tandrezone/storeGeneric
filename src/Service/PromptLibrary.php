@@ -147,7 +147,8 @@ final class PromptLibrary
         if (!in_array($ext, self::EXTENSIONS, true)) {
             return null;
         }
-        $base = (string) preg_replace('/[^A-Za-z0-9_-]+/', '-', pathinfo(basename($original), PATHINFO_FILENAME));
+        // Lower case, so "Magic-Edit.md" still replaces the reserved "magic-edit" prompt.
+        $base = strtolower((string) preg_replace('/[^A-Za-z0-9_-]+/', '-', pathinfo(basename($original), PATHINFO_FILENAME)));
         $base = substr(trim($base, '-'), 0, 80);
 
         return ($base !== '' ? $base : 'prompt') . '.' . $ext;

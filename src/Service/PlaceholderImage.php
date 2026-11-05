@@ -67,6 +67,9 @@ final class PlaceholderImage
     private array $style;
     private int $seed = 0;
 
+    /** @var array<string, array<string, mixed>> theme name => style */
+    private array $styleCache = [];
+
     public function __construct(private readonly Paths $paths, private readonly Theme $theme)
     {
     }
@@ -111,6 +114,35 @@ final class PlaceholderImage
         }
     }
 
+    /** Deletes every cached card of a product (any theme or name), e.g. when the product is deleted. */
+    public function forgetProduct(int $id): void
+    {
+        foreach (glob($this->paths->public(self::PUBLIC_DIR) . '/' . $id . '-*.jpg') ?: [] as $file) {
+            if (preg_match('/\/' . $id . '-[0-9a-f]{8}\.jpg$/', $file)) {
+                @unlink($file);
+            }
+        }
+    }
+
+    /**
+     * Deletes cached cards of products that no longer exist.
+     *
+     * @param list<int> $existingIds
+     * @return int files deleted
+     */
+    public function prune(array $existingIds): int
+    {
+        $keep = array_flip($existingIds);
+        $deleted = 0;
+        foreach (glob($this->paths->public(self::PUBLIC_DIR) . '/*.jpg') ?: [] as $file) {
+            if (preg_match('/\/(\d+)-[0-9a-f]{8}\.jpg$/', $file, $m) && !isset($keep[(int) $m[1]]) && @unlink($file)) {
+                $deleted++;
+            }
+        }
+
+        return $deleted;
+    }
+
     /**
      * Renders a card for any name and style straight to a file (previews,
      * tests). $style uses the theme.json "placeholder" keys; missing keys
@@ -133,10 +165,13 @@ final class PlaceholderImage
      */
     public function style(): array
     {
-        $manifest = $this->theme->manifest();
-        $own = is_array($manifest['placeholder'] ?? null) ? $manifest['placeholder'] : [];
+        // Worked out once per theme per request: a listing asks for it for every product.
+        return $this->styleCache[$this->theme->name()] ??= (function (): array {
+            $manifest = $this->theme->manifest();
+            $own = is_array($manifest['placeholder'] ?? null) ? $manifest['placeholder'] : [];
 
-        return $this->normalize($own + $this->styleFromCss($this->theme->cssVariables()));
+            return $this->normalize($own + $this->styleFromCss($this->theme->cssVariables()));
+        })();
     }
 
     /** @param array<string, mixed> $product */

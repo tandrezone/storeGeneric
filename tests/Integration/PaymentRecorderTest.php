@@ -81,6 +81,53 @@ final class PaymentRecorderTest extends IntegrationTestCase
         $this->assertSame(2, $this->stockOf($ids['variant']));
     }
 
+    public function testPaidAfterReleaseWithItsStockSoldIsHeldForReview(): void
+    {
+        $ids = $this->makeProduct($this->sku(), 10.0, 1);
+        $order = $this->placeOrder($ids['variant'], 1, 10.0, 'stripe');
+        $recorder = $this->get(PaymentRecorder::class);
+        $this->assertTrue($recorder->record($order['order_number'], 'stripe', 'expired', 'cs_r1'));
+        $this->assertSame(1, $this->stockOf($ids['variant']), 'released');
+        $this->pdo()->exec('UPDATE product_variants SET stock = 0 WHERE id = ' . $ids['variant']); // the last one sold to someone else
+
+        $this->assertTrue($recorder->record($order['order_number'], 'stripe', 'paid', 'cs_r2', $order['total'], 'EUR'));
+
+        $row = $this->orderRow($order['id']);
+        $this->assertSame('paid', $row['payment_status'], 'the money is recorded');
+        $this->assertSame('pending', $row['status'], 'but the order is held, not confirmed');
+        $this->assertSame(0, $this->stockOf($ids['variant']));
+        $note = (string) $this->pdo()->query('SELECT body FROM order_notes WHERE order_id = ' . $order['id'])->fetchColumn();
+        $this->assertStringContainsString('Not enough stock', $note);
+    }
+
+    public function testPaidAfterReleaseWithItsGiftCardSpentIsHeldForReview(): void
+    {
+        $ids = $this->makeProduct($this->sku(), 10.0, 5);
+        $order = $this->placeOrder($ids['variant'], 1, 10.0, 'stripe');
+        $card = $this->get(\App\Service\GiftCardService::class)->issue(4.0, null, null, null, null, 'test');
+        // As if checkout had taken 4.00 from the card and released it again when the order expired.
+        $this->pdo()->exec("UPDATE orders SET gift_card_code = '{$card['code']}', gift_card_amount = 4.00, gift_card_counted = 0, status = 'cancelled', payment_status = 'expired' WHERE id = {$order['id']}");
+        $this->pdo()->exec("UPDATE gift_cards SET balance = 1.00 WHERE id = {$card['id']}"); // mostly spent elsewhere since
+
+        $this->assertTrue($this->get(PaymentRecorder::class)->record($order['order_number'], 'stripe', 'paid', 'cs_g1', $order['total'], 'EUR'));
+
+        $this->assertSame('pending', $this->orderRow($order['id'])['status']);
+        $this->assertEquals(0.0, $this->pdo()->query("SELECT balance FROM gift_cards WHERE id = {$card['id']}")->fetchColumn(), 'what was left is taken');
+        $note = (string) $this->pdo()->query('SELECT body FROM order_notes WHERE order_id = ' . $order['id'])->fetchColumn();
+        $this->assertStringContainsString('3.00 EUR was not collected', $note);
+    }
+
+    public function testPaidEventWithoutAmountOrCurrencyIsRefused(): void
+    {
+        $ids = $this->makeProduct($this->sku(), 10.0, 5);
+        $order = $this->placeOrder($ids['variant'], 1, 10.0, 'stripe');
+        $recorder = $this->get(PaymentRecorder::class);
+
+        $this->assertFalse($recorder->record($order['order_number'], 'stripe', 'paid', 'cs_n1', null, 'EUR'));
+        $this->assertFalse($recorder->record($order['order_number'], 'stripe', 'paid', 'cs_n2', $order['total'], ''));
+        $this->assertSame('unpaid', $this->orderRow($order['id'])['payment_status']);
+    }
+
     public function testUnknownOrderAndStatus(): void
     {
         $recorder = $this->get(PaymentRecorder::class);

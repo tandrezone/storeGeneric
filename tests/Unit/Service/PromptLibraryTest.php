@@ -35,7 +35,8 @@ final class PromptLibraryTest extends TestCase
 
     public function testCleanNameKeepsOnlySafeCharactersAndAllowedTypes(): void
     {
-        $this->assertSame('My-prompt.md', PromptLibrary::cleanName('My prompt!.MD'));
+        $this->assertSame('my-prompt.md', PromptLibrary::cleanName('My prompt!.MD'));
+        $this->assertSame('magic-edit.md', PromptLibrary::cleanName('Magic-Edit.md'), 'still replaces the reserved prompt');
         $this->assertSame('passwd.txt', PromptLibrary::cleanName('../../etc/passwd.txt'));
         $this->assertSame('prompt.md', PromptLibrary::cleanName('…….md'));
         $this->assertNull(PromptLibrary::cleanName('shell.php'));
@@ -45,9 +46,9 @@ final class PromptLibraryTest extends TestCase
     public function testStoreListReadAndDelete(): void
     {
         $name = $this->prompts->store($this->upload('Plant profile.md', "# Prompt\nDescribe {plant}."));
-        $this->assertSame('Plant-profile.md', $name);
+        $this->assertSame('plant-profile.md', $name);
         $this->assertSame("# Prompt\nDescribe {plant}.", $this->prompts->contents($name));
-        $this->assertSame(['Plant-profile.md'], array_column($this->prompts->all(), 'name'));
+        $this->assertSame(['plant-profile.md'], array_column($this->prompts->all(), 'name'));
 
         $this->prompts->store($this->upload('Plant profile.md', 'v2'));
         $this->assertSame('v2', $this->prompts->contents($name), 'same name replaces the file');

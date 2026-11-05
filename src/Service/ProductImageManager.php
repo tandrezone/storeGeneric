@@ -21,6 +21,7 @@ final class ProductImageManager
         private readonly Paths $paths,
         private readonly ProductRepository $products,
         private readonly ImageUploader $uploader,
+        private readonly PlaceholderImage $placeholders,
     ) {
     }
 
@@ -79,6 +80,7 @@ final class ProductImageManager
     {
         $paths = $this->products->imagePaths($productId);
         $this->products->delete($productId);
+        $this->placeholders->forgetProduct($productId);
 
         foreach ($paths as $path) {
             $fullPath = $this->localDir() . '/' . basename($path);

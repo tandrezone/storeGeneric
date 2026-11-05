@@ -105,6 +105,28 @@ final class OrderNotifier
     }
 
     /**
+     * A released (cancelled / expired) order was paid after all, but its stock
+     * or gift card is gone: only the admin is told, so they can sort it out
+     * with the customer (ship partially, wait for stock, or refund).
+     *
+     * @param list<string> $problems
+     */
+    public function paymentNeedsReview(int $orderId, array $problems): void
+    {
+        $order = $this->orders->find($orderId);
+        if ($order === null) {
+            return;
+        }
+        $to = $this->config->get('ADMIN_NOTIFY_EMAIL', $this->store->email());
+        $this->translator->withLocale($this->store->language(), fn () => $this->send($to, 'admin_payment_review', $this->subject('Order {number} was paid but needs review', $order), [
+            'order'         => $order,
+            'problems'      => $problems,
+            'payment_label' => $this->payments->label((string) $order['payment_method']),
+            'admin_url'     => $this->links->baseUrl() . $this->router->url('admin.order', ['id' => (int) $order['id']]),
+        ], (string) $order['email']));
+    }
+
+    /**
      * @param array<string, mixed> $order
      * @param array<string, mixed> $vars
      */

@@ -18,7 +18,7 @@
                 <input type="number" name="amount" value="{{ input.amount|default('') }}" step="0.01" min="0.01" required>
             </label>
             <label>{{ 'Code (leave empty to generate one)'|trans }}
-                <input type="text" name="code" value="{{ input.code|default('') }}" maxlength="40" autocapitalize="characters" spellcheck="false">
+                <input type="text" name="code" value="{{ input.code|default('') }}" minlength="10" maxlength="40" autocapitalize="characters" spellcheck="false">
             </label>
             <label>{{ 'Expires (optional)'|trans }}
                 <input type="datetime-local" name="expires_at" value="{{ input.expires_at|default('') }}">

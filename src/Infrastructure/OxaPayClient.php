@@ -42,7 +42,7 @@ final class OxaPayClient
             'description'  => 'Order ' . $orderNumber,
             'callback_url' => $callbackUrl,
             'return_url'   => $returnUrl,
-            'sandbox'      => $this->config->bool('OXAPAY_SANDBOX', true),
+            'sandbox'      => $this->config->bool('OXAPAY_SANDBOX', false),
         ])['body'];
     }
 

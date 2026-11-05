@@ -1,0 +1,13 @@
+{% extends 'email/_layout.html.twig' %}
+
+{% block body %}
+<p>{{ 'Order {number} — {total}, {method} — was paid after it had been released. It is on hold as "pending" and the customer has not been sent a confirmation.'|trans({number: '<strong>' ~ order.order_number|e ~ '</strong>', total: order.total|money|e, method: payment_label|e})|raw }}</p>
+<ul>
+{% for problem in problems %}
+  <li>{{ problem }}</li>
+{% endfor %}
+</ul>
+<p style="font-size:14px;">{{ 'Customer'|trans }}: {{ order.ship_name }} &lt;{{ order.email }}&gt;{% if order.phone %}, {{ order.phone }}{% endif %}</p>
+{{ include('email/_items.html.twig') }}
+<p><a href="{{ admin_url }}">{{ 'Open the order in the admin'|trans }}</a></p>
+{% endblock %}
