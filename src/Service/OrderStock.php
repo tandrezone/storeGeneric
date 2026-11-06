@@ -25,21 +25,25 @@ final class OrderStock
     }
 
     /**
-     * Takes the order's stock again. Returns the lines that were short (stock
-     * sold to someone else while the order was released), so the caller can
-     * hold the order for review instead of fulfilling it.
+     * Takes the order's stock again. When some line is short (stock sold to
+     * someone else while the order was released) nothing is taken and the
+     * order keeps holding no stock, so a later "refund and restock" can't
+     * create stock that never existed; the short lines are returned so the
+     * caller can hold the order for review (or refuse to process it).
      *
      * @param array<string, mixed> $order with `items`
      * @return list<array{name: string, sku: string, needed: int, available: int}>
      */
     public function reserve(array $order): array
     {
-        if (!$this->orders->claimStockReservation((int) $order['id'])) {
+        if ((int) ($order['stock_reserved'] ?? 0) === 1) {
             return [];
         }
         $short = [];
+        $rows = [];
         foreach ($order['items'] as $item) {
             $row = $this->variants->lockForUpdate((int) $item['variant_id']);
+            $rows[] = $row;
             if ($row === null || (int) $row['stock'] < (int) $item['quantity']) {
                 $short[] = [
                     'name'      => (string) ($item['product_name'] ?? $item['name'] ?? ''),
@@ -52,7 +56,12 @@ final class OrderStock
                     'stock' => $row['stock'] ?? null, 'quantity' => $item['quantity'],
                 ]);
             }
-            if ($row !== null) {
+        }
+        if ($short !== [] || !$this->orders->claimStockReservation((int) $order['id'])) {
+            return $short;
+        }
+        foreach ($order['items'] as $i => $item) {
+            if ($rows[$i] !== null) {
                 $this->variants->decrementStock((int) $item['variant_id'], (int) $item['quantity']);
             }
         }

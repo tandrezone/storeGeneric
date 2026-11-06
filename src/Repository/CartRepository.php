@@ -25,24 +25,28 @@ final class CartRepository extends Repository
     /**
      * Moves the cart of an earlier session id (before login / logout gave the
      * session a new id) to $sessionId. When $sessionId already has a cart the
-     * old one's lines are merged into it. Returns the cart id, or null when
-     * none of $previousIds had a cart.
+     * old one's lines are merged into it. A cart that belongs to a customer is
+     * only brought along for that same customer ($customerId): signing out
+     * leaves it behind, so the next person on that browser doesn't get it.
+     * Returns the cart id, or null when none of $previousIds had a cart to take.
      *
      * @param list<string> $previousIds newest first
      */
-    public function adoptPrevious(string $sessionId, array $previousIds): ?int
+    public function adoptPrevious(string $sessionId, array $previousIds, ?int $customerId = null): ?int
     {
         foreach ($previousIds as $previous) {
             if ($previous === $sessionId) {
                 continue;
             }
-            $oldId = $this->value('SELECT id FROM carts WHERE session_id = :sid', ['sid' => $previous]);
-            if ($oldId === false) {
+            $old = $this->one('SELECT id, customer_id FROM carts WHERE session_id = :sid', ['sid' => $previous]);
+            if ($old === null || ($old['customer_id'] !== null && (int) $old['customer_id'] !== $customerId)) {
                 continue;
             }
+            $oldId = (int) $old['id'];
             $currentId = $this->value('SELECT id FROM carts WHERE session_id = :sid', ['sid' => $sessionId]);
             if ($currentId === false) {
-                $this->run('UPDATE carts SET session_id = :new WHERE id = :id', ['new' => $sessionId, 'id' => (int) $oldId]);
+                // updated_at stays: moving the cart isn't cart activity (abandoned-cart reminders).
+                $this->run('UPDATE carts SET session_id = :new, updated_at = updated_at WHERE id = :id', ['new' => $sessionId, 'id' => $oldId]);
 
                 return (int) $oldId;
             }

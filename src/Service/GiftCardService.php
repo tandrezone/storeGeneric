@@ -100,7 +100,13 @@ final class GiftCardService
         }
     }
 
-    /** Gives the order's gift-card amount back to the card, once. @param array<string, mixed> $order */
+    /**
+     * Gives the order's gift-card amount back to the card, once — only what
+     * the order actually holds on it (an order paid after release may have
+     * taken back less than its gift_card_amount, see reclaim()).
+     *
+     * @param array<string, mixed> $order
+     */
     public function release(array $order): void
     {
         $amount = (float) ($order['gift_card_amount'] ?? 0);
@@ -109,9 +115,14 @@ final class GiftCardService
             return;
         }
         $card = $this->cards->lockByCode($code);
-        if ($card !== null) {
-            $this->cards->credit((int) $card['id'], $amount);
-            $this->cards->addTransaction((int) $card['id'], 'restore', $amount, (int) $order['id'], (string) $order['order_number']);
+        if ($card === null) {
+            return;
+        }
+        $held = $this->cards->heldByOrder((int) $card['id'], (int) $order['id']);
+        $give = round($held === null ? $amount : min($amount, max(0.0, $held)), 2);
+        if ($give > 0.0) {
+            $this->cards->credit((int) $card['id'], $give);
+            $this->cards->addTransaction((int) $card['id'], 'restore', $give, (int) $order['id'], (string) $order['order_number']);
         }
     }
 

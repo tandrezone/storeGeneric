@@ -98,6 +98,34 @@ final class PaymentRecorderTest extends IntegrationTestCase
         $this->assertSame(0, $this->stockOf($ids['variant']));
         $note = (string) $this->pdo()->query('SELECT body FROM order_notes WHERE order_id = ' . $order['id'])->fetchColumn();
         $this->assertStringContainsString('Not enough stock', $note);
+        $this->assertSame(0, (int) $this->orderRow($order['id'])['stock_reserved'], 'it holds no stock it could later "give back"');
+
+        // Still no stock: it can't be processed yet (it would claim stock it didn't take).
+        $service = $this->get(\App\Service\OrderService::class);
+        $this->assertThrows(\RuntimeException::class, fn () => $service->setStatus($order['id'], 'processing'), 'Not enough stock');
+        $this->assertSame(0, (int) $this->orderRow($order['id'])['stock_reserved']);
+
+        // The admin restocks and moves it on: it takes its stock then, and can be shipped.
+        $this->pdo()->exec('UPDATE product_variants SET stock = 3 WHERE id = ' . $ids['variant']);
+        $this->assertSame(['processing'], $service->nextStatuses($this->orderRow($order['id'])));
+        $service->setStatus($order['id'], 'processing');
+        $this->assertSame(2, $this->stockOf($ids['variant']));
+        $this->assertTrue($service->canShip($this->orderRow($order['id'])));
+    }
+
+    public function testRefundingAHeldOrderWithRestockCreatesNoStock(): void
+    {
+        $ids = $this->makeProduct($this->sku(), 10.0, 1);
+        $order = $this->placeOrder($ids['variant'], 1, 10.0, 'stripe');
+        $recorder = $this->get(PaymentRecorder::class);
+        $recorder->record($order['order_number'], 'stripe', 'expired', 'cs_p1');
+        $this->pdo()->exec('UPDATE product_variants SET stock = 0 WHERE id = ' . $ids['variant']);
+        $recorder->record($order['order_number'], 'stripe', 'paid', 'cs_p2', $order['total'], 'EUR');
+
+        $this->get(\App\Service\OrderService::class)->refund($order['id'], true);
+
+        $this->assertSame('refunded', $this->orderRow($order['id'])['status']);
+        $this->assertSame(0, $this->stockOf($ids['variant']), 'nothing was taken, so nothing is given back');
     }
 
     public function testPaidAfterReleaseWithItsGiftCardSpentIsHeldForReview(): void
@@ -115,6 +143,10 @@ final class PaymentRecorderTest extends IntegrationTestCase
         $this->assertEquals(0.0, $this->pdo()->query("SELECT balance FROM gift_cards WHERE id = {$card['id']}")->fetchColumn(), 'what was left is taken');
         $note = (string) $this->pdo()->query('SELECT body FROM order_notes WHERE order_id = ' . $order['id'])->fetchColumn();
         $this->assertStringContainsString('3.00 EUR was not collected', $note);
+
+        // Refunding it gives back only the 1.00 it actually took, not the 4.00 it once had.
+        $this->get(\App\Service\OrderService::class)->refund($order['id'], false);
+        $this->assertEquals(1.0, $this->pdo()->query("SELECT balance FROM gift_cards WHERE id = {$card['id']}")->fetchColumn());
     }
 
     public function testPaidEventWithoutAmountOrCurrencyIsRefused(): void

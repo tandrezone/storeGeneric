@@ -270,7 +270,7 @@
     // submit the surrounding form (newsletter: "Send me a test"; pages: "Save page").
     document.querySelectorAll('.magic-prompt').forEach((input) => {
         input.addEventListener('keydown', (event) => {
-            if (event.key !== 'Enter' || event.isComposing) return;
+            if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229) return;
             event.preventDefault();
             const scope = input.closest('.magic-block, .magic-all, .page-magic, .newsletter-magic');
             const button = scope && scope.querySelector('.magic-run, .magic-all-run, .page-magic-run, .newsletter-magic-run');

@@ -132,10 +132,11 @@ final class CartService
     private function id(): int
     {
         if ($this->cartId === null) {
-            // Signing in or out gives the session a new id: bring the cart along.
+            // Signing in gives the session a new id: bring the cart along (a
+            // customer's own cart is left behind when they sign out).
             $previous = $this->session->previousIds();
             if ($previous !== []) {
-                $this->cartId = $this->carts->adoptPrevious($this->session->id(), $previous);
+                $this->cartId = $this->carts->adoptPrevious($this->session->id(), $previous, $this->auth->id());
                 $this->session->forgetPreviousIds();
             }
         }

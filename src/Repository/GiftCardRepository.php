@@ -70,6 +70,17 @@ final class GiftCardRepository extends Repository
         $this->run('INSERT INTO gift_card_transactions (gift_card_id, order_id, type, amount, note) VALUES (:c, :o, :t, :a, :n)', ['c' => $cardId, 'o' => $orderId, 't' => $type, 'a' => $amount, 'n' => $note]);
     }
 
+    /**
+     * What $orderId currently holds on the card according to the ledger
+     * (redeemed minus restored), or null when the ledger has no line for it.
+     */
+    public function heldByOrder(int $cardId, int $orderId): ?float
+    {
+        $row = $this->one("SELECT COUNT(*) AS n, COALESCE(-SUM(amount), 0) AS held FROM gift_card_transactions WHERE gift_card_id = :c AND order_id = :o AND type IN ('redeem', 'restore')", ['c' => $cardId, 'o' => $orderId]) ?? [];
+
+        return (int) ($row['n'] ?? 0) > 0 ? round((float) $row['held'], 2) : null;
+    }
+
     /** @return list<array<string, mixed>> newest first, with the order number */
     public function transactions(int $cardId, int $limit = 100): array
     {

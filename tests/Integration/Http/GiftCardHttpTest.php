@@ -69,6 +69,11 @@ final class GiftCardHttpTest extends HttpTestCase
         $this->cartWith($ids['variant'], 1);
         $card = $this->get(GiftCardService::class)->issue(5.0, null, null, null, null, 'test');
 
+        $empty = $this->post('/checkout', $this->form(['gift_action' => 'apply', 'gift_code' => '  ']));
+        $this->assertStatus(422, $empty);
+        $this->assertStringContainsString('Enter a gift card code', $this->html($empty));
+        $this->assertSame(0, (int) $this->pdo()->query('SELECT COUNT(*) FROM gift_card_attempts')->fetchColumn(), 'an empty Apply is not a guess');
+
         for ($i = 0; $i < 10; $i++) {
             $this->assertStatus(422, $this->post('/checkout', $this->form(['gift_action' => 'apply', 'gift_code' => 'GC-GUESS-' . $i])));
         }

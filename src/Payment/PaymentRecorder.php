@@ -173,6 +173,9 @@ final class PaymentRecorder
 
         return $this->translator->withLocale($this->store->language(), function () use ($order, $short, $giftCardShort): array {
             $lines = [$this->translator->trans('Paid after the order was released: check it before fulfilling, and contact the customer or refund.')];
+            if ($short !== []) {
+                $lines[] = $this->translator->trans('No stock is held for this order; it is taken when you process or ship it.');
+            }
             foreach ($short as $line) {
                 $lines[] = $this->translator->trans('Not enough stock for {product}: {needed} ordered, {available} left.', [
                     'product' => trim($line['name'] . ($line['sku'] !== '' ? ' (' . $line['sku'] . ')' : '')),

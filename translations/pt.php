@@ -1729,4 +1729,8 @@ return [
     'This product was changed after the suggestion was made; not saved. Run the magic edit on it again.' => 'Este produto foi alterado depois de a sugestão ter sido feita; não foi guardado. Execute novamente a edição mágica neste produto.',
     'This gift card code can\'t be used. Check the code, or contact us if you think it should work.' => 'Este código de cartão-oferta não pode ser usado. Verifique o código ou contacte-nos se acha que devia funcionar.',
     'The suggestion is too long for: {fields}.' => 'A sugestão é demasiado longa para: {fields}.',
+    'No stock is held for this order; it is taken when you process or ship it.' => 'Não há stock reservado para esta encomenda; é retirado quando a processar ou enviar.',
+    'Not enough stock for this order yet ({products}). Update the stock first, or refund the order.' => 'Ainda não há stock suficiente para esta encomenda ({products}). Atualize primeiro o stock ou reembolse a encomenda.',
+    'Your payment is confirmed. We\'ll check your order and email {email} shortly.' => 'O seu pagamento está confirmado. Vamos verificar a sua encomenda e enviar em breve um email para {email}.',
+    'Enter a gift card code.' => 'Introduza um código de cartão-oferta.',
 ];

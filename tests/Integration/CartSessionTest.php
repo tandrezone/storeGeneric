@@ -29,6 +29,24 @@ final class CartSessionTest extends IntegrationTestCase
         $this->assertNull($carts->adoptPrevious($new, [$old]), 'nothing left under the old id');
     }
 
+    public function testASignedOutCustomersCartStaysBehind(): void
+    {
+        $carts = $this->get(CartRepository::class);
+        $ids = $this->makeProduct($this->sku('S'), 10.0, 5);
+        $this->pdo()->exec("INSERT INTO customers (email, name, password_hash) VALUES ('" . strtolower($this->sku('c')) . "@example.com', 'C', '')");
+        $customer = (int) $this->pdo()->lastInsertId();
+        $old = 'old-' . bin2hex(random_bytes(8));
+        $cart = $carts->idForSession($old);
+        $carts->addItem($cart, $ids['variant'], 1);
+        $carts->attachCustomer($cart, $customer);
+        $this->pdo()->exec("UPDATE carts SET updated_at = '2026-01-01 10:00:00' WHERE id = {$cart}");
+
+        $this->assertNull($carts->adoptPrevious('anon-' . bin2hex(random_bytes(8)), [$old], null), 'signed out: not taken along');
+        $this->assertNull($carts->adoptPrevious('other-' . bin2hex(random_bytes(8)), [$old], $customer + 1000), 'another customer: not taken');
+        $this->assertSame($cart, $carts->adoptPrevious('same-' . bin2hex(random_bytes(8)), [$old], $customer), 'the same customer (new session id): taken');
+        $this->assertSame('2026-01-01 10:00:00', (string) $this->pdo()->query("SELECT updated_at FROM carts WHERE id = {$cart}")->fetchColumn(), 'moving is not cart activity');
+    }
+
     public function testAnExistingCartUnderTheNewIdIsMergedNotLost(): void
     {
         $carts = $this->get(CartRepository::class);

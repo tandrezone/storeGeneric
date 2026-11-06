@@ -265,6 +265,9 @@ final class CheckoutController
         }
         // Codes must not be guessable: few failed tries per IP and per session,
         // and one answer for every reason a code can't be used.
+        if (trim($typed) === '') {
+            return $this->form($request, $items, $input, [$this->translator->trans('Enter a gift card code.')], 422);
+        }
         $ip = $this->clientIp->of($request);
         $since = time() - self::GIFT_WINDOW_MINUTES * 60;
         $failTimes = array_values(array_filter((array) $this->session->get(self::GIFT_FAILS_KEY, []), static fn ($t) => is_int($t) && $t > $since));

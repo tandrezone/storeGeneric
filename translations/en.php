@@ -1732,4 +1732,8 @@ return [
     'This product was changed after the suggestion was made; not saved. Run the magic edit on it again.' => 'This product was changed after the suggestion was made; not saved. Run the magic edit on it again.',
     'This gift card code can\'t be used. Check the code, or contact us if you think it should work.' => 'This gift card code can\'t be used. Check the code, or contact us if you think it should work.',
     'The suggestion is too long for: {fields}.' => 'The suggestion is too long for: {fields}.',
+    'No stock is held for this order; it is taken when you process or ship it.' => 'No stock is held for this order; it is taken when you process or ship it.',
+    'Not enough stock for this order yet ({products}). Update the stock first, or refund the order.' => 'Not enough stock for this order yet ({products}). Update the stock first, or refund the order.',
+    'Your payment is confirmed. We\'ll check your order and email {email} shortly.' => 'Your payment is confirmed. We\'ll check your order and email {email} shortly.',
+    'Enter a gift card code.' => 'Enter a gift card code.',
 ];

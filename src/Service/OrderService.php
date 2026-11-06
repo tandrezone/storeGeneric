@@ -95,7 +95,8 @@ final class OrderService
     public function canShip(array $order): bool
     {
         return in_array($order['status'], ['paid', 'processing'], true)
-            || ($order['status'] === 'pending' && $this->isOffline($order) && $order['payment_status'] !== 'refunded');
+            || ($order['status'] === 'pending' && $order['payment_status'] !== 'refunded'
+                && ($this->isOffline($order) || $order['payment_status'] === 'paid'));
     }
 
     /** @param array<string, mixed> $order */
@@ -114,8 +115,30 @@ final class OrderService
                     'to'   => $this->statusName($status),
                 ]));
             }
+            $this->takeHeldStock($order);
             $this->orders->setStatuses($id, $status);
         });
+    }
+
+    /**
+     * A paid order held for review (its stock was sold while it was released)
+     * holds no stock; when the admin moves it on, it takes its stock now. If
+     * the stock still isn't there the admin has to restock (or refund) first,
+     * so the order never claims stock it didn't take.
+     *
+     * @param array<string, mixed> $order
+     */
+    private function takeHeldStock(array $order): void
+    {
+        if ($order['status'] !== 'pending' || $order['payment_status'] !== 'paid' || (int) ($order['stock_reserved'] ?? 0) === 1) {
+            return;
+        }
+        $short = $this->stock->reserve($order);
+        if ($short !== []) {
+            throw new RuntimeException($this->translator->trans('Not enough stock for this order yet ({products}). Update the stock first, or refund the order.', [
+                'products' => implode(', ', array_map(static fn (array $l) => $l['name'] . ': ' . $l['needed'] . '/' . $l['available'], $short)),
+            ]));
+        }
     }
 
     /** Records a manual payment (bank transfer / cash on delivery received). */
@@ -236,6 +259,7 @@ final class OrderService
             if (!$this->canShip($order)) {
                 throw new RuntimeException($this->translator->trans('A {status} order can\'t be shipped.', ['status' => $this->statusName((string) $order['status'])]));
             }
+            $this->takeHeldStock($order);
             $this->orders->markShipped($id, $trackingNumber, $carrier);
         });
         $this->notifier->orderShipped($id);
@@ -287,7 +311,8 @@ final class OrderService
     private function statusAllowed(array $order, string $next): bool
     {
         return match ($next) {
-            'processing' => $order['status'] !== 'pending' || $this->isOffline($order),
+            // An online order waits for its payment; a paid one held for review can go ahead.
+            'processing' => $order['status'] !== 'pending' || $this->isOffline($order) || $order['payment_status'] === 'paid',
             'completed'  => $order['payment_status'] === 'paid',
             default      => true,
         };

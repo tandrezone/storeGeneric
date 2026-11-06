@@ -10,7 +10,10 @@
             <p>{{ 'The payment didn\'t go through, so nothing was charged. You\'re welcome to place the order again.'|trans }}</p>
         {% else %}
             <h1>{{ 'Thank you, your order is on its way to being processed.'|trans }}</h1>
-            {% if order.payment_status == 'paid' %}
+            {% if order.payment_status == 'paid' and order.status == 'pending' %}
+                {# paid after it had been released and held for review: no confirmation email yet #}
+                <p>{{ 'Your payment is confirmed. We\'ll check your order and email {email} shortly.'|trans({email: order.email}) }}</p>
+            {% elseif order.payment_status == 'paid' %}
                 <p>{{ 'Your payment is confirmed. A confirmation has been sent to {email}.'|trans({email: order.email}) }}</p>
             {% else %}
                 <p>{{ 'A confirmation will be sent to {email} once payment is confirmed.'|trans({email: order.email}) }}</p>

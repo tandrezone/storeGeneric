@@ -90,7 +90,7 @@ final class DashboardRepository extends Repository
     {
         [$in, $params] = $this->manualMethods();
         $row = $this->one("
-            SELECT COALESCE(SUM(payment_status = 'paid' AND status IN ('paid', 'processing')), 0) AS to_ship,
+            SELECT COALESCE(SUM(payment_status = 'paid' AND status IN ('pending', 'paid', 'processing')), 0) AS to_ship,
                    COALESCE(SUM(payment_status = 'unpaid' AND status = 'pending' AND payment_method IN ({$in})), 0) AS awaiting_payment
             FROM orders
         ", $params) ?? [];
@@ -102,8 +102,9 @@ final class DashboardRepository extends Repository
     }
 
     /**
-     * Oldest orders first: paid but not shipped yet, and bank-transfer / cash-
-     * on-delivery orders still waiting (COD ships before it is paid).
+     * Oldest orders first: paid but not shipped yet (including paid orders held
+     * for review as "pending"), and bank-transfer / cash-on-delivery orders
+     * still waiting (COD ships before it is paid).
      *
      * @return list<array<string, mixed>>
      */
@@ -115,7 +116,7 @@ final class DashboardRepository extends Repository
             SELECT id, order_number, ship_name, email, status, payment_status, payment_method, total, created_at,
                    CASE WHEN payment_status = 'paid' THEN 'ship' ELSE 'payment' END AS waiting_for
             FROM orders
-            WHERE (payment_status = 'paid' AND status IN ('paid', 'processing'))
+            WHERE (payment_status = 'paid' AND status IN ('pending', 'paid', 'processing'))
                OR (payment_status = 'unpaid' AND status = 'pending' AND payment_method IN ({$in}))
             ORDER BY created_at ASC, id ASC
             LIMIT %d
