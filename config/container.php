@@ -11,6 +11,13 @@ declare(strict_types=1);
 use App\Http\Middleware\ErrorHandlerMiddleware;
 use App\Http\RouteCollection;
 use App\Http\Router;
+use App\Controller\Payment\RevolutWebhookController;
+use App\Controller\Payment\StripeWebhookController;
+use App\Infrastructure\GeminiClient;
+use App\Infrastructure\OxaPayClient;
+use App\Service\AiSettings;
+use App\Payment\Method;
+use App\Payment\PaymentSettings;
 use App\I18n\Translator;
 use App\Support\Config;
 use App\Support\Paths;
@@ -70,4 +77,20 @@ return [
         ->constructorParameter('debug', get('app.debug')),
 
     ErrorHandlerMiddleware::class => autowire()->constructorParameter('debug', get('app.debug')),
+
+    // Payments read their switches and keys from Admin → Settings → Payments, falling back to .env.
+    'payment.config' => static fn (Config $config, PaymentSettings $settings): Config => $settings->config($config),
+    Method\StripeMethod::class         => autowire()->constructorParameter('config', get('payment.config')),
+    Method\PayPalMethod::class         => autowire()->constructorParameter('config', get('payment.config')),
+    Method\RevolutMethod::class        => autowire()->constructorParameter('config', get('payment.config')),
+    Method\OxaPayMethod::class         => autowire()->constructorParameter('config', get('payment.config')),
+    Method\BankTransferMethod::class   => autowire()->constructorParameter('config', get('payment.config')),
+    Method\CashOnDeliveryMethod::class => autowire()->constructorParameter('config', get('payment.config')),
+    OxaPayClient::class                => autowire()->constructorParameter('config', get('payment.config')),
+    StripeWebhookController::class     => autowire()->constructorParameter('config', get('payment.config')),
+    RevolutWebhookController::class    => autowire()->constructorParameter('config', get('payment.config')),
+
+    // The Gemini key and models come from Admin → Settings → AI, falling back to .env.
+    'ai.config' => static fn (Config $config, AiSettings $settings): Config => $settings->config($config),
+    GeminiClient::class => autowire()->constructorParameter('config', get('ai.config')),
 ];

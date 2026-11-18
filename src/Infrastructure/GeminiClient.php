@@ -83,6 +83,66 @@ final class GeminiClient
     }
 
     /**
+     * Sends a prompt plus up to a few images (each ['mime' => 'image/jpeg', 'data' => raw bytes])
+     * to the text model and returns its reply. With $json the model is asked for a JSON object
+     * (responseMimeType application/json), which keeps the reply parseable.
+     *
+     * @param list<array{mime: string, data: string}> $images
+     */
+    public function generateWithImages(string $prompt, array $images = [], bool $json = false, int $timeout = 60): string
+    {
+        $apiKey = $this->config->get('GEMINI_API_KEY');
+        if ($apiKey === '') {
+            throw new RuntimeException('GEMINI_API_KEY is not set.');
+        }
+
+        $url = self::BASE_URL . '/models/' . $this->config->get('GEMINI_MODEL', 'gemini-flash-latest') . ':generateContent';
+
+        $parts = [['text' => $prompt]];
+        foreach ($images as $image) {
+            $parts[] = ['inline_data' => ['mime_type' => $image['mime'], 'data' => base64_encode($image['data'])]];
+        }
+        $payload = ['contents' => [['parts' => $parts]]];
+        if ($json) {
+            $payload['generationConfig'] = ['responseMimeType' => 'application/json'];
+        }
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'x-goog-api-key: ' . $apiKey,
+            ],
+            CURLOPT_POSTFIELDS     => json_encode($payload),
+            CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT,
+            CURLOPT_TIMEOUT        => $timeout,
+        ]);
+
+        $response = curl_exec($ch);
+        $error = curl_error($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($response === false) {
+            throw new RuntimeException('Gemini request failed: ' . $error);
+        }
+
+        $decoded = json_decode($response, true);
+        if ($httpCode >= 400 || !is_array($decoded)) {
+            throw $this->unexpectedResponse((int) $httpCode, (string) $response);
+        }
+
+        $text = '';
+        foreach ($decoded['candidates'][0]['content']['parts'] ?? [] as $part) {
+            $text .= (string) ($part['text'] ?? '');
+        }
+
+        return $text;
+    }
+
+    /**
      * Sends an image plus an editing instruction to Gemini's image model
      * and returns the edited image's raw bytes.
      *

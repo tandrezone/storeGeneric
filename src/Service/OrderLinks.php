@@ -44,6 +44,12 @@ final class OrderLinks
         return substr(hash_hmac('sha256', $purpose . '|' . $value, $this->secret()), 0, 32);
     }
 
+    /** A 32-byte key for one purpose (e.g. encrypting saved payment keys), derived from the store secret. */
+    public function derivedKey(string $purpose): string
+    {
+        return hash_hmac('sha256', 'key|' . $purpose, $this->secret(), true);
+    }
+
     public function verifySigned(string $purpose, string $value, string $signature): bool
     {
         return $value !== '' && $signature !== '' && hash_equals($this->sign($purpose, $value), $signature);

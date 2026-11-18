@@ -99,6 +99,11 @@ final class VariantRepository extends Repository
         ', ['id' => $id]);
     }
 
+    public function skuExists(string $sku): bool
+    {
+        return $this->value('SELECT 1 FROM product_variants WHERE sku = :sku', ['sku' => $sku]) !== false;
+    }
+
     /**
      * @param array{product_id: int, sku: string, label: ?string, unit: ?string, price: float, stock: int, is_active?: int} $data
      * @throws \PDOException when the SKU is already used by another variant

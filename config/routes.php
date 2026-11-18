@@ -164,6 +164,8 @@ return static function (RouteCollection $r): void {
         $r->get('/settings/prompt', [Admin\SettingsController::class, 'prompt'], 'admin.settings.prompt')->admin('owner');
         $r->get('/users', [Admin\UserController::class, 'index'], 'admin.users')->admin('owner');
         $r->post('/users', [Admin\UserController::class, 'handle'], 'admin.users.submit')->admin('owner');
+        // Magic add: name + photos + raw notes → AI writes the product and its variants (status "created").
+        $r->post('/products/magic-add', [Admin\MagicProductController::class, 'create'], 'admin.products.magic_add')->admin('staff');
         $r->post('/api/magic-edit', [Admin\MagicEditController::class, 'suggest'], 'admin.api.magic_edit')->admin('staff')->withoutAudit();
         // Magic edit for every product: list the ids, then save each reviewed suggestion (audited).
         $r->get('/api/magic-edit/products', [Admin\MagicEditController::class, 'productIds'], 'admin.api.magic_edit.products')->admin('staff');

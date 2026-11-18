@@ -1,0 +1,37 @@
+{# Banner at the top of the shop page: a cricket hopping beside a sack of cricket flour. #}
+<section class="shop-hero">
+    <div class="shop-hero-inner">
+        <span class="hero-eyebrow">{{ 'From farm to flour'|trans }}</span>
+        <h1>{{ 'Welcome to {store}'|trans({store: store.name}) }}</h1>
+        <p>{{ 'Turnkey units that farm, roast and mill crickets into high-protein flour.'|trans }}</p>
+    </div>
+    <svg class="hero-cricket" viewBox="0 0 300 220" aria-hidden="true" focusable="false">
+        <ellipse cx="150" cy="208" rx="140" ry="9" fill="#6b8e23" opacity="0.45"/>
+        <g class="hero-sack">
+            <path d="M186 206 C176 170 178 132 192 110 L258 110 C272 132 274 170 264 206 z" fill="#efe1bf" stroke="#c9a76a" stroke-width="3"/>
+            <path d="M192 110 C204 98 246 98 258 110 L252 118 C238 112 212 112 198 118 z" fill="#d9bd85"/>
+            <path d="M202 102 C212 90 238 90 248 102" fill="none" stroke="#8a5a1f" stroke-width="4" stroke-linecap="round"/>
+            <rect x="200" y="140" width="50" height="34" rx="6" fill="#8a5a1f"/>
+            <text x="225" y="157" text-anchor="middle" font-size="11" font-weight="700" fill="#fbf5e6" font-family="sans-serif">FLOUR</text>
+            <text x="225" y="169" text-anchor="middle" font-size="8" fill="#f2deb0" font-family="sans-serif">65% protein</text>
+            <circle cx="182" cy="200" r="3" fill="#f6ecd2"/><circle cx="174" cy="204" r="2" fill="#f6ecd2"/><circle cx="268" cy="202" r="2.5" fill="#f6ecd2"/>
+        </g>
+        <g class="hero-hopper">
+            <g stroke="#3a2a17" stroke-width="3" stroke-linecap="round" fill="none">
+                <path d="M62 112 C46 80 36 62 14 52"/>
+                <path d="M66 108 C58 74 54 56 40 38"/>
+                <path d="M84 132 L74 160 L66 164"/>
+                <path d="M104 134 L102 162 L96 166"/>
+                <path d="M128 124 L164 92 L150 168 L162 170"/>
+            </g>
+            <ellipse cx="110" cy="122" rx="44" ry="18" fill="#8a5a1f"/>
+            <path d="M84 112 C110 96 146 100 162 120 C138 122 106 126 84 112 z" fill="#6b8e23"/>
+            <path d="M92 114 C114 106 138 108 152 118" fill="none" stroke="#4e6a17" stroke-width="2"/>
+            <circle cx="68" cy="120" r="15" fill="#5c3a12"/>
+            <circle cx="63" cy="115" r="4" fill="#fbf5e6"/><circle cx="62" cy="114" r="2" fill="#1d140a"/>
+        </g>
+        <g class="hero-chirp" fill="none" stroke="#8a5a1f" stroke-width="2.5" stroke-linecap="round">
+            <path d="M30 96 q-8 8 0 16"/><path d="M20 90 q-12 14 0 28"/>
+        </g>
+    </svg>
+</section>

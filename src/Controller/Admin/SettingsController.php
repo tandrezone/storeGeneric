@@ -21,7 +21,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
 
-/** Admin → Settings: store name, email, logo and default language; low-stock threshold; tax (VAT); AI prompt files; choose, upload and delete themes. */
+/** Admin → Settings: store name, email, logo and default language; payment methods and provider keys; AI (Gemini) key and models; low-stock threshold; tax (VAT); AI prompt files; choose, upload and delete themes. */
 final class SettingsController
 {
     private const LOGO_TYPES = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp', 'image/gif' => 'gif'];
@@ -44,6 +44,11 @@ final class SettingsController
         private readonly \App\Service\MarketplaceOrderImporter $marketplace,
         private readonly \App\Service\OrderLinks $links,
         private readonly \App\Service\CurrencyService $currencies,
+        private readonly \App\Payment\PaymentSettings $payments,
+        private readonly \App\Payment\PaymentRegistry $paymentMethods,
+        private readonly \App\Support\Config $config,
+        private readonly \App\Service\AiSettings $ai,
+        private readonly \Psr\Log\LoggerInterface $logger,
     ) {
     }
 
@@ -81,6 +86,37 @@ final class SettingsController
                 case 'save_store':
                     $this->saveStore($body, $files['logo'] ?? null);
                     $this->session->flash('success', $this->translator->trans('Store settings saved.'));
+                    break;
+
+                case 'save_payment':
+                    $method = (string) ($body['method'] ?? '');
+                    if (!isset(\App\Payment\PaymentSettings::METHODS[$method])) {
+                        throw new RuntimeException($this->translator->trans('Unknown payment method.'));
+                    }
+                    $this->payments->save($method, $body);
+                    $this->session->flash('success', $this->translator->trans('Payment settings for {method} saved.', ['method' => $this->paymentMethods->label($method)]));
+                    break;
+
+                case 'save_ai':
+                    $this->ai->save($body);
+                    if (($body['do'] ?? '') === 'test') {
+                        if (!$this->ai->hasKey($this->config)) {
+                            throw new RuntimeException($this->translator->trans('Enter an API key first.'));
+                        }
+                        // A client built from the values just saved (the container's one has the old ones).
+                        $client = new \App\Infrastructure\GeminiClient($this->ai->config($this->config), $this->logger);
+                        $this->session->release();
+                        try {
+                            $reply = trim($client->generateText('Reply with just the word OK.'));
+                        } catch (\Throwable $e) {
+                            $this->session->resume();
+                            throw new RuntimeException($this->translator->trans('AI settings saved, but the test failed: {reason}', ['reason' => $e->getMessage()]));
+                        }
+                        $this->session->resume();
+                        $this->session->flash('success', $this->translator->trans('AI settings saved. The key works (the model replied "{reply}").', ['reply' => mb_substr($reply, 0, 40)]));
+                    } else {
+                        $this->session->flash('success', $this->translator->trans('AI settings saved.'));
+                    }
                     break;
 
                 case 'save_inventory':
@@ -355,6 +391,8 @@ final class SettingsController
             'saved_email'         => $this->store->savedEmail(),
             'show_name_with_logo' => $this->store->showNameWithLogo(),
             'low_stock_threshold' => $this->store->lowStockThreshold(),
+            'payments'            => $this->payments->overview($this->config, $this->paymentMethods),
+            'ai'                  => $this->ai->overview($this->config),
             'tax'                 => $this->tax->toArray(),
             'marketplace'         => ['has_key' => $this->marketplace->hasKey(), 'new_key' => $newKey, 'endpoint' => $this->links->baseUrl() . '/api/marketplace/orders'],
             'currencies'          => ['base' => $this->currencies->base(), 'rates' => $this->currencies->ratesText(), 'auto' => $this->currencies->autoUpdate(), 'date' => $this->currencies->updatedOn()],
