@@ -49,6 +49,17 @@ final class Config
         return new self($values);
     }
 
+    /**
+     * A copy with these values laid over this configuration (an empty string
+     * counts as "not set", so it hides the original value too).
+     *
+     * @param array<string, string> $overrides
+     */
+    public function withOverrides(array $overrides): self
+    {
+        return $overrides === [] ? $this : new self(array_replace($this->values, $overrides));
+    }
+
     public function get(string $key, string $default = ''): string
     {
         $value = $this->values[$key] ?? '';

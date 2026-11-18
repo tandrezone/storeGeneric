@@ -1,0 +1,19 @@
+{
+    "name": "Cricket",
+    "description": "Farm-to-flour insect protein: roasted-cricket browns, golden wheat-flour tones and fresh grass green, with a chirping cricket in the hero and a flour-dusted background.",
+    "author": "storeGeneric",
+    "version": "1.0.0",
+    "placeholder": {
+        "background": [
+            "#fbf5e6",
+            "#efe1bf"
+        ],
+        "text": "#3a2a17",
+        "accent": "#8a5a1f",
+        "accent2": "#6b8e23",
+        "surface": "#fbf5e6",
+        "font": "round-bold",
+        "motif": "dots",
+        "text_width": 480
+    }
+}

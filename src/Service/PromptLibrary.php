@@ -24,11 +24,13 @@ final class PromptLibrary
     public const TRANSLATE_PRODUCT = 'translate-product';
     public const MAGIC_PAGE = 'magic-page';
     public const MAGIC_NEWSLETTER = 'magic-newsletter';
+    public const MAGIC_ADD = 'magic-add-product';
     public const RESERVED = [
         self::MAGIC_EDIT => ['{instruction}', '{name}', '{short_description}', '{long_description}', '{field_json}'],
         self::TRANSLATE_PRODUCT => ['{language}', '{locale}', '{from}', '{from_locale}', '{name}', '{short_description}', '{long_description}', '{field_json}'],
         self::MAGIC_PAGE => ['{page}', '{slug}', '{language}', '{store}', '{catalog}', '{instruction}', '{title}', '{body}'],
         self::MAGIC_NEWSLETTER => ['{language}', '{store}', '{catalog}', '{instruction}', '{subject}', '{message}'],
+        self::MAGIC_ADD => ['{identifier}', '{notes}', '{photos}', '{categories}', '{language}', '{currency}', '{store}'],
     ];
 
     public function __construct(

@@ -684,3 +684,25 @@
         });
     });
 })();
+
+// Slow forms (data-busy="…", e.g. Magic add product): block double submits and say what is happening;
+// file inputs with data-max-files refuse more files than that.
+(() => {
+    document.querySelectorAll('input[type="file"][data-max-files]').forEach((input) => {
+        input.addEventListener('change', () => {
+            const max = parseInt(input.dataset.maxFiles, 10);
+            input.setCustomValidity(input.files.length > max ? (input.dataset.maxMessage || ('Max ' + max)) : '');
+            input.reportValidity();
+        });
+    });
+    document.querySelectorAll('form[data-busy]').forEach((form) => {
+        form.addEventListener('submit', () => {
+            const button = form.querySelector('button[type="submit"]');
+            if (!button) return;
+            setTimeout(() => {
+                button.disabled = true;
+                button.textContent = form.dataset.busy;
+            }, 0);
+        });
+    });
+})();

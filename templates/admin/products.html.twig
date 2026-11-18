@@ -41,6 +41,34 @@
     {% for error in errors %}<p class="msg error">{{ error }}</p>{% endfor %}
 {% endif %}
 
+{# Magic add: only the essentials; the AI writes the rest and makes one variant per price. #}
+<details class="panel" id="magic-add-panel" {{ magic_add.open ? 'open' }}>
+    <summary class="panel-summary">✨ {{ 'Magic add product'|trans }}</summary>
+    {% if not magic_add.ready %}
+        <p class="msg error">{{ 'Magic add needs an AI key: add your Gemini API key in Settings → AI (store owners).'|trans }}</p>
+    {% endif %}
+    <form method="post" action="{{ path('admin.products.magic_add') }}" enctype="multipart/form-data" data-busy="{{ 'Writing the product… this can take up to a minute'|trans }}">
+        {{ csrf_field() }}
+        <label>{{ 'Product name / core identifier'|trans }}
+            <input type="text" name="identifier" maxlength="{{ limits.name }}" required placeholder="{{ 'e.g. Echinocactus grusonii or 200W Monocrystalline Solar Panel'|trans }}">
+        </label>
+        <p class="field-hint">{{ 'The exact name, species or model.'|trans }}</p>
+
+        <label>{{ 'Photos (optional, up to {max})'|trans({max: magic_add.max_images}) }}
+            <input type="file" name="photos[]" accept="image/jpeg,image/png,image/webp" multiple data-max-files="{{ magic_add.max_images }}" data-max-message="{{ 'Add at most {max} photos.'|trans({max: magic_add.max_images}) }}">
+        </label>
+        <p class="field-hint">{{ 'The AI looks at the photos, so there is no need to type what they show (colour, pot size, condition). The photos are also added to the product.'|trans }}</p>
+
+        <label>{{ 'Key specs / raw notes / prices'|trans }}
+            <textarea name="notes" rows="4" maxlength="{{ magic_add.max_notes }}" placeholder="{{ '12cm pot, rooted, outdoor/full sun, needs well-draining soil - white-12.50eur, black-13.50'|trans }}"></textarea>
+        </label>
+        <p class="field-hint">{{ 'Unformatted shorthand for anything not obvious from the name or photo. Several prices make several variants (e.g. "white-12.50eur, black-13.50" → White and Black).'|trans }}</p>
+
+        <p class="field-hint">{{ 'The product is saved with status <strong>{created}</strong> so you can review it, then approve it to show it on the storefront.'|trans({created: 'Created'|trans|lower|e})|raw }}</p>
+        <button type="submit" class="btn-primary" {{ not magic_add.ready ? 'disabled' }}>✨ {{ 'Create with AI'|trans }}</button>
+    </form>
+</details>
+
 <details class="panel" id="add-product-panel" {{ create_input is not null ? 'open' }}>
     <summary class="panel-summary">{{ 'Add product'|trans }}</summary>
     <form method="post" action="{{ submit_url }}">

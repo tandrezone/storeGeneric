@@ -59,6 +59,8 @@ final class ProductController
         private readonly Translator $translator,
         private readonly ProductTranslations $translations,
         private readonly ProductTranslationRepository $translationRows,
+        private readonly \App\Support\Config $config,
+        private readonly \App\Service\AiSettings $ai,
     ) {
     }
 
@@ -680,6 +682,12 @@ final class ProductController
                 'decrease_percent' => $this->t('Decrease by %'),
                 'increase_amount'  => $this->t('Increase by amount'),
                 'decrease_amount'  => $this->t('Decrease by amount'),
+            ],
+            'magic_add'           => [
+                'open'       => !empty($query['magic']),
+                'ready'      => $this->ai->hasKey($this->config),
+                'max_images' => \App\Service\MagicProductCreator::MAX_IMAGES,
+                'max_notes'  => \App\Service\MagicProductCreator::MAX_NOTES,
             ],
             'limits'              => [
                 'name'              => self::MAX_NAME,

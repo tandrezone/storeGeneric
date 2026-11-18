@@ -1,0 +1,116 @@
+/* Theme: Cricket — farm-to-flour insect protein: roasted-cricket browns,
+   golden wheat-flour tones and fresh grass green. Builds on the default
+   theme; only the differences live here. */
+@import url('../../../default/assets/css/style.css');
+
+:root {
+    --color-bg: #f6eedb;              /* cricket flour */
+    --color-surface: #fffaf0;
+    --color-surface-hover: #f1e5c8;
+    --color-border: #e6d7b3;
+    --color-border-strong: #c9a76a;
+    --color-border-violet: #d9bd85;
+    --color-text: #3a2a17;            /* roasted cricket */
+    --color-muted: #7d6747;
+    --color-accent: #8a5a1f;          /* toasted amber */
+    --color-accent-soft: rgba(138, 90, 31, 0.1);
+    --color-accent-2: #6b8e23;        /* fresh grass */
+    --color-accent-2-soft: rgba(107, 142, 35, 0.13);
+    --color-danger: #a1301b;
+    --color-on-accent: #fffaf0;
+    --chart-teal: #6b8e23;
+    --chart-violet: #8a5a1f;
+    --chart-funnel-1: #e2c27d;
+    --chart-funnel-2: #b0803c;
+    --chart-funnel-3: #5c3a12;
+    --radius: 14px;
+    --radius-sm: 9px;
+    --font-display: "URW Gothic", "Century Gothic", "Avenir Next", Futura, "Trebuchet MS", sans-serif;
+    --shadow-sm: 0 1px 2px rgba(58, 42, 23, 0.08);
+    --shadow-md: 0 12px 28px rgba(58, 42, 23, 0.16);
+}
+
+body {
+    /* a light dusting of flour and the odd grain */
+    background:
+        radial-gradient(circle at 20% 30%, rgba(201, 167, 106, 0.18) 1.4px, transparent 2px) 0 0 / 36px 36px,
+        radial-gradient(ellipse 2.5px 1.2px at 70% 70%, rgba(138, 90, 31, 0.14) 98%, transparent 100%) 0 0 / 57px 57px,
+        var(--color-bg);
+}
+
+h1, h2, h3, .logo, .shop-hero h1, .panel-summary, .stat-value { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.01em; }
+
+.site-header { background: rgba(246, 238, 219, 0.95); border-bottom: 3px solid var(--color-accent-2); }
+.logo { color: var(--color-accent); font-size: 1.4rem; }
+.logo-text::before { content: "🦗"; margin-right: 0.35em; }
+.main-nav a { color: var(--color-text); }
+.main-nav a:hover { color: var(--color-accent-2); }
+.cart-count { background: var(--color-accent-2); }
+
+.shop-hero {
+    position: relative;
+    overflow: hidden;
+    border: 0;
+    background:
+        radial-gradient(460px 220px at 95% 120%, rgba(107, 142, 35, 0.32), transparent 70%),
+        radial-gradient(520px 260px at 0% 0%, rgba(226, 194, 125, 0.45), transparent 70%),
+        linear-gradient(160deg, #f8ecd0 0%, #ead6a8 100%);
+    min-height: 250px;
+    justify-content: space-between;
+}
+.shop-hero-inner { padding: 44px; position: relative; z-index: 1; }
+.hero-eyebrow {
+    color: var(--color-on-accent);
+    background: var(--color-accent-2);
+    padding: 5px 12px;
+    border-radius: 999px;
+    letter-spacing: 0.14em;
+}
+.shop-hero h1 { font-size: 2.5rem; color: #5c3a12; }
+.shop-hero p { color: var(--color-text); opacity: 0.88; }
+.hero-cricket { flex: 0 0 auto; width: 300px; height: 220px; margin: 16px 28px 0 0; align-self: flex-end; }
+.hero-hopper { transform-origin: 110px 170px; animation: cricket-hop 3.2s ease-in-out infinite; }
+.hero-chirp { animation: cricket-chirp 1.6s ease-in-out infinite; }
+@keyframes cricket-hop {
+    0%, 70%, 100% { transform: translateY(0) rotate(0); }
+    80% { transform: translateY(-16px) rotate(-6deg); }
+    90% { transform: translateY(0) rotate(0); }
+}
+@keyframes cricket-chirp { 0%, 100% { opacity: 0; } 40%, 60% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .hero-hopper, .hero-chirp { animation: none; } }
+@media (max-width: 720px) { .hero-cricket { display: none; } .shop-hero h1 { font-size: 1.8rem; } }
+
+.filter-pill { background: var(--color-surface); border-color: var(--color-border-strong); color: var(--color-text); }
+.filter-pill:hover { border-color: var(--color-accent-2); }
+.filter-pill.active { background: var(--color-accent-2); border-color: var(--color-accent-2); color: var(--color-on-accent); }
+
+.product-card { border-color: var(--color-border); border-top: 4px solid var(--color-accent-2); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.product-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.product-card-image img, .image-placeholder { background: #efe1bf; }
+.category-badge { background: var(--color-accent-2-soft); color: #4e6a17; border-radius: 999px; }
+.product-card h3 { font-family: var(--font-display); font-weight: 700; font-size: 1.08rem; }
+.price { color: var(--color-accent); font-weight: 800; }
+
+.btn-primary { border-radius: 999px; padding: 12px 26px; }
+.btn-primary:hover { background: #6e4615; }
+.btn-secondary { border-radius: 999px; background: transparent; }
+form input, form select, .wysiwyg { border-radius: var(--radius-sm); border-color: var(--color-border-strong); background: #fffdf6; }
+
+.order-summary { border-top: 4px solid var(--color-accent-2); }
+.status-badge[data-status="approved"], .status-badge[data-status="paid"], .status-badge[data-status="completed"] {
+    color: #4e6a17; background: var(--color-accent-2-soft); border-color: rgba(107, 142, 35, 0.35);
+}
+.msg { background: var(--color-accent-2-soft); border-color: rgba(107, 142, 35, 0.35); }
+
+/* footer: a strip of grass with a few crickets and wheat ears */
+.site-footer { background: #ead6a8; border-top: 0; }
+.site-footer::before {
+    content: "🌾 🦗 🌾 🦗 🌾 🦗 🌾";
+    display: block;
+    text-align: center;
+    letter-spacing: 0.8em;
+    padding-top: 18px;
+    opacity: 0.8;
+}
+.footer-nav { border-bottom-color: var(--color-border-strong); }
+.footer-nav a:hover { color: var(--color-accent-2); }

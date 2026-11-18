@@ -634,8 +634,14 @@ copy of the shipping name and price, so editing or deleting an option never chan
 
 ### Payment methods
 
-Each method is switched on with `PAYMENT_<METHOD>_ENABLED=true` in `.env` and only shows at checkout
-once its required keys are filled in (see `.env.example`). Methods: `STRIPE`, `PAYPAL`, `REVOLUT`,
+Store owners switch methods on and enter their keys in **Admin → Settings → Payments** — no `.env`
+access needed. Values are saved in the `settings` table as `payment.<ENV_KEY>`; API keys and webhook
+secrets are encrypted (libsodium, key derived from `APP_SECRET` / `var/app-secret`), never shown back
+(only their last 4 characters), and kept when the field is left empty. A value saved there wins over
+`.env`; anything never saved there falls back to `.env`, so `PAYMENT_<METHOD>_ENABLED=true` and the
+keys in `.env` still work (see `.env.example`). If the store secret changes, saved keys can no longer
+be decrypted and the page asks for them again. A method only shows at checkout once it is switched on
+and its required keys are filled in. Methods: `STRIPE`, `PAYPAL`, `REVOLUT`,
 `OXAPAY`, `BANK_TRANSFER`, `COD`. OxaPay stays on by default for existing installs as long as
 `OXAPAY_MERCHANT_KEY` is set.
 

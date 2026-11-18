@@ -58,6 +58,72 @@
     {% endif %}
 </section>
 
+<section class="panel" id="payments">
+    <h2>{{ 'Payments'|trans }}</h2>
+    <p class="field-hint">{{ 'Switch payment methods on and enter their keys here. A method is offered at checkout once it is switched on and its required fields are filled in. Keys are stored encrypted and are never shown again: leave a key field empty to keep the saved one.'|trans }}</p>
+    {% for m in payments %}
+        <details class="payment-method" {{ m.enabled ? 'open' }} style="border: 1px solid var(--color-border); border-radius: var(--radius-sm, 8px); padding: 10px 14px; margin: 10px 0;">
+            <summary style="cursor: pointer; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <strong>{{ m.label }}</strong>
+                {% if m.active %}
+                    <span class="status-badge" data-status="paid">{{ 'Shown at checkout'|trans }}</span>
+                {% elseif m.enabled %}
+                    <span class="status-badge" data-status="failed">{{ 'On, but missing: {fields}'|trans({fields: m.missing|map(f => f|trans)|join(', ')}) }}</span>
+                {% else %}
+                    <span class="status-badge" data-status="cancelled">{{ 'Off'|trans }}</span>
+                {% endif %}
+            </summary>
+            <form method="post" action="{{ path('admin.settings.submit') }}" autocomplete="off" style="margin-top: 12px;">
+                {{ csrf_field() }}
+                <input type="hidden" name="action" value="save_payment">
+                <input type="hidden" name="method" value="{{ m.id }}">
+                <label style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" name="enabled" value="1" style="width: auto;" {{ m.enabled ? 'checked' }}>
+                    {{ 'Offer {method} at checkout'|trans({method: m.label}) }}
+                    {% if m.from_env %}<small class="field-hint">({{ 'currently from .env'|trans }})</small>{% endif %}
+                </label>
+                {% for f in m.fields %}
+                    {% if f.type == 'bool' %}
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" name="field[{{ f.key }}]" value="1" style="width: auto;" {{ f.checked ? 'checked' }}>
+                            {{ f.label|trans }}
+                        </label>
+                    {% elseif f.type == 'textarea' %}
+                        <label>{{ f.label|trans }}
+                            <textarea name="field[{{ f.key }}]" rows="2" maxlength="1000" placeholder="{{ f.placeholder|trans }}">{{ f.value }}</textarea>
+                        </label>
+                    {% elseif f.type == 'secret' %}
+                        <label>{{ f.label|trans }}{% if f.required %} *{% endif %}
+                            <input type="password" name="secret[{{ f.key }}]" value="" maxlength="500" autocomplete="new-password" spellcheck="false"
+                                   placeholder="{{ f.is_set ? 'Saved ({hint}) — type a new one to replace it'|trans({hint: f.hint}) : f.placeholder }}">
+                        </label>
+                        <p class="field-hint">
+                            {% if f.unreadable %}
+                                <strong>{{ 'The saved key can no longer be read (the store secret changed). Enter it again.'|trans }}</strong>
+                            {% elseif f.source == 'env' %}
+                                {{ 'Currently taken from .env. Saving a key here replaces it.'|trans }}
+                            {% endif %}
+                            {% if f.source == 'settings' %}
+                                <label style="display: inline-flex; align-items: center; gap: 6px; font-weight: normal;">
+                                    <input type="checkbox" name="clear[{{ f.key }}]" value="1" style="width: auto;"> {{ 'Remove this key'|trans }}
+                                </label>
+                            {% endif %}
+                        </p>
+                    {% else %}
+                        <label>{{ f.label|trans }}{% if f.required %} *{% endif %}
+                            <input type="text" name="field[{{ f.key }}]" value="{{ f.value }}" maxlength="500" placeholder="{{ f.placeholder }}">
+                        </label>
+                    {% endif %}
+                {% endfor %}
+                {% if m.webhook %}
+                    <p class="field-hint">{{ 'Webhook URL to register at the provider'|trans }}: <code style="user-select: all;">{{ m.webhook }}</code></p>
+                {% endif %}
+                <button type="submit" class="btn-primary">{{ 'Save {method}'|trans({method: m.label}) }}</button>
+            </form>
+        </details>
+    {% endfor %}
+</section>
+
 <section class="panel">
     <h2>{{ 'Inventory'|trans }}</h2>
     <form method="post" action="{{ path('admin.settings.submit') }}">
@@ -230,6 +296,43 @@
         </label>
         <p class="field-hint">{{ 'Discount codes come off the subtotal before VAT is worked out. Orders keep the rate they were placed with.'|trans }}</p>
         <button type="submit" class="btn-primary">{{ 'Save tax settings'|trans }}</button>
+    </form>
+</section>
+
+<section class="panel" id="ai">
+    <h2>{{ 'AI (Gemini)'|trans }}</h2>
+    <p class="field-hint">{{ 'Used by Magic add product, Magic edit, AI translations and image tools. Get a key at aistudio.google.com. The key is stored encrypted and never shown again: leave the field empty to keep it.'|trans }}</p>
+    <form method="post" action="{{ path('admin.settings.submit') }}" autocomplete="off">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="save_ai">
+        <label>{{ 'Gemini API key'|trans }}
+            <input type="password" name="gemini_api_key" value="" maxlength="200" autocomplete="new-password" spellcheck="false"
+                   placeholder="{{ ai.key_set ? 'Saved ({hint}) — type a new one to replace it'|trans({hint: ai.key_hint}) : 'AIza…' }}">
+        </label>
+        <p class="field-hint">
+            {% if ai.key_unreadable %}
+                <strong>{{ 'The saved key can no longer be read (the store secret changed). Enter it again.'|trans }}</strong>
+            {% elseif ai.key_source == 'env' %}
+                {{ 'Currently taken from .env. Saving a key here replaces it.'|trans }}
+            {% elseif not ai.key_set %}
+                {{ 'No key yet: the AI features are switched off.'|trans }}
+            {% endif %}
+            {% if ai.key_source == 'settings' %}
+                <label style="display: inline-flex; align-items: center; gap: 6px; font-weight: normal;">
+                    <input type="checkbox" name="clear_key" value="1" style="width: auto;"> {{ 'Remove this key'|trans }}
+                </label>
+            {% endif %}
+        </p>
+        <div class="form-row">
+            {% for m in ai.models %}
+                <label>{{ m.name == 'GEMINI_MODEL' ? 'Text model'|trans : 'Image model'|trans }}
+                    <input type="text" name="models[{{ m.name }}]" value="{{ m.value }}" maxlength="64" placeholder="{{ m.default }}">
+                </label>
+            {% endfor %}
+        </div>
+        <p class="field-hint">{{ 'Leave the models empty to use the defaults.'|trans }}</p>
+        <button type="submit" class="btn-primary">{{ 'Save AI settings'|trans }}</button>
+        <button type="submit" name="do" value="test" class="btn-secondary">{{ 'Save and test the key'|trans }}</button>
     </form>
 </section>
 

@@ -95,6 +95,18 @@ final class Session
         }
     }
 
+    /**
+     * Re-opens a session closed with release(), so this request can write to it
+     * again (a flash message after a slow AI call). No-op on the CLI or if it is open.
+     */
+    public function resume(): void
+    {
+        if (PHP_SAPI === 'cli' || session_status() !== PHP_SESSION_NONE || session_id() === false || session_id() === '' || headers_sent()) {
+            return;
+        }
+        session_start();
+    }
+
     /** Removes all session data but keeps the session running (e.g. for a flash message). */
     public function clear(): void
     {
